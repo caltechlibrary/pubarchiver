@@ -1,12 +1,6 @@
 # datacite_to_portico
 
-
-Automated Metadata Service
-
-Manage metadata from different sources.  The examples in the package are
-specific to Caltech repositories, but could be generalized.  This package 
-is currently in development and will have additional sources and matchers 
-added over time.
+Package up publications for Portico using DataCite metadata
 
 ## Install:
 
