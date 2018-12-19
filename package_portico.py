@@ -12,7 +12,7 @@ def trace_url(url):
     get = requests.get(url)
     return get.url
 
-endpoint = 'https://api.datacite.org/works/'
+endpoint = 'https://api.datacite.org/dois/'
 
 files = glob.glob('*.pdf')
 if os.path.isdir('data') == True:
@@ -20,6 +20,8 @@ if os.path.isdir('data') == True:
     exit()        
 os.mkdir('data')
 os.chdir('data')
+
+issn = '2578-9430'
 
 for f in files:
     doi_parts = f[0:-4].split('-')
@@ -29,16 +31,16 @@ for f in files:
     query = endpoint + doi
     response = requests.get(query)
     response = validate_response(response)
+    date = response['data']['attributes']['registered']
     xml = base64.b64decode(response['data']['attributes']['xml'])
     mfile = xmltodict.parse(xml)
 
     os.mkdir(identifier)    
     os.chdir(identifier)
-    os.mv('../'+f,identifier+'.pdf')
+    os.rename('../../'+f,identifier+'.pdf')
     
-    issn = '2578-9430'
-
-    volume = mfile['resource']['publicationYear']-2014
+    volume = int(mfile['resource']['publicationYear'])-2014
+    mfile['resource']['dates']['date']['#text'] = date
     mfile['resource']['volume'] = volume
     mfile['resource']['journal'] = mfile['resource'].pop('publisher')
     mfile['resource']['e-issn'] = issn
@@ -46,17 +48,18 @@ for f in files:
     mfile['resource']["rightsList"] = [{
             "rights": "Creative Commons Attribution 4.0",
             "rightsURI": "https://creativecommons.org/licenses/by/4.0/legalcode"}] 
+    mfile['resource'].pop('@xmlns')
+    mfile['resource'].pop('@xsi:schemaLocation')
     outname = identifier+'.xml'
     outstring = xmltodict.unparse(mfile)
-    outfile = open(outname,'w',encoding='utf8')
-    outfile.write(outstring)
+    with open(outname,'w',encoding='utf8') as outfile:
+        outfile.write(outstring)
     
     os.chdir('..')
 
     
-datestamp = datetime.tate.today().isoformat()
-print(datestamp)
+datestamp = datetime.date.today().isoformat()
 
 os.chdir('..')
 
-shutil.make_archive(issn+'_'+datestamp+'.zip', 'zip','data/')
+shutil.make_archive(issn+'_'+datestamp, 'zip','data')
