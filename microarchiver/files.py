@@ -162,3 +162,14 @@ def open_url(url):
     default approach.'''
     if __debug__: log('opening url {}', url)
     webbrowser.open(url)
+
+
+def make_dir(dir_path):
+    '''Creates directory 'dir_path' (including intermediate directories).'''
+    if path.isdir(dir_path):
+        if __debug__: log('Reusing existing directory {}', dir_path)
+        return
+    else:
+        if __debug__: log('Creating directory {}', dir_path)
+        # If this gets an exception, let it bubble up to caller.
+        os.makedirs(dir_path)
