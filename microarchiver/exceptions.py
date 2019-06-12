@@ -34,5 +34,5 @@ class InternalError(Exception):
     pass
 
 class RequestError(Exception):
-    '''Problem with the TIND query or request.'''
+    '''Problem with the server request.'''
     pass
