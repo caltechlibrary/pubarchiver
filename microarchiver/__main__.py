@@ -15,6 +15,7 @@ open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
+import humanize
 from   lxml import etree
 import os
 import os.path as path
@@ -94,9 +95,10 @@ def main(articles = 'A', output_dir = 'O', quiet = False,
             say.info('Reading articles list from XML file {}', articles)
             articles_list = articles_from_xml(articles)
         else:
-            say.info('Fetching articles list from ', _URL_ARTICLES_LIST)
+            say.info('Fetching articles list from {}', _URL_ARTICLES_LIST)
             articles_list = articles_from_xml(_URL_ARTICLES_LIST)
 
+        say.info('Total articles: {}', humanize.intcomma(len(articles_list)))
         say.info('Output will be written under directory "{}"', output_dir)
         import pdb; pdb.set_trace()
 
@@ -137,6 +139,7 @@ def articles_from_xml(file_or_url):
             # The micropublication xml declaration explicit uses ascii encoding.
             xml = response.text.encode('ascii')
         elif error:
+            if __debug__: log('error reading from micropublication.org server')
             if isinstance(error, NoContent):
                 say.fatal('Server returned no content')
                 raise
@@ -148,10 +151,12 @@ def articles_from_xml(file_or_url):
         else:
             raise InternalError('Unexpected response from server')
     else: # Assume it's a file.
+        if __debug__: log('reading {}', file_or_url)
         with open(file_or_url, 'rb') as xml_file:
             xml = xml_file.readlines()
 
     # Parse the XML.
+    if __debug__: log('parsing XML data')
     nodes = etree.fromstring(xml)
     articles = []
     for element in nodes.findall('article'):
