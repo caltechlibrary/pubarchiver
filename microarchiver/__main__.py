@@ -200,9 +200,9 @@ class MainBody(object):
             count += 1
             self._say.info('[{:3}] {:<32}  {:10}  {:20}'.format(
                 count,
-                article.doi if article.doi else 'missing',
-                article.date if article.date else 'missing',
-                article.url if article.url else 'missing'))
+                article.doi if article.doi else self._say.warn_text('missing'),
+                article.date if article.date else self._say.warn_text('missing'),
+                article.url if article.url else self._say.warn_text('missing')))
         self._say.info('-'*79)
 
 
