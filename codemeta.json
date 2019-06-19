@@ -10,19 +10,19 @@
   "author": [
     {
       "@type": "Person",
-      "givenName": "Thomas E",
-      "familyName": "Morrell",
-      "affiliation": "Caltech Library",
-      "email": "tmorrell@caltech.edu",
-      "@id": "https://orcid.org/0000-0001-9266-5146"
-    },
-    {
-      "@type": "Person",
       "givenName": "Michael",
       "familyName": "Hucka",
       "affiliation": "Caltech Library",
       "email": "mhucka@caltech.edu",
       "@id": "https://orcid.org/0000-0001-9105-5960"
+    },
+    {
+      "@type": "Person",
+      "givenName": "Thomas E",
+      "familyName": "Morrell",
+      "affiliation": "Caltech Library",
+      "email": "tmorrell@caltech.edu",
+      "@id": "https://orcid.org/0000-0001-9266-5146"
     }],
   "developmentStatus": "active",
   "downloadUrl":

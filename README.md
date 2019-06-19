@@ -4,7 +4,7 @@ Microarchiver<img width="12%" align="right" src=".graphics/microarchiver-logo.sv
 A program to create archives of articles from [microPublication.org](https://www.micropublication.org) for sending to [Portico](https://www.portico.org).
 
 
-*Authors*:      [Tom Morrell](https://github.com/tmorrell), [Michael Hucka](http://github.com/mhucka)<br>
+*Authors*:      [Michael Hucka](http://github.com/mhucka), [Tom Morrell](https://github.com/tmorrell)<br>
 *Repository*:   [https://github.com/caltechlibrary/microarchiver](https://github.com/caltechlibrary/microarchiver)<br>
 *License*:      BSD/MIT derivative &ndash; see the [LICENSE](LICENSE) file for more information
 
