@@ -48,17 +48,18 @@ _URL_ARTICLES_LIST = 'https://www.micropublication.org/archive-list/'
 # .............................................................................
 
 @plac.annotations(
-    articles   = ('get articles listed in file A (default: use network)', 'option', 'a'),
-    dry_run    = ('only list the articles; do not create the archive',    'flag',   'n'),
-    output_dir = ('write results to directory O (default: current dir)',  'option', 'o'),
-    quiet      = ('do not print informational messages while working',    'flag',   'q'),
-    no_color   = ('do not color-code terminal output',                    'flag',   'C'),
-    version    = ('print version info and exit',                          'flag',   'V'),
-    debug      = ('turn on debugging',                                    'flag',   'Z'),
+    articles = ('get articles list from file A (default: from network)', 'option', 'a'),
+    dest_dir = ('write archive in directory D (default: current dir)',   'option', 'd'),
+    dry_run  = ('only print the articles list; do not create archive',   'flag',   'n'),
+    report   = ('write report to file R (default: print to terminal)',   'option', 'r'),
+    quiet    = ('do not print informational messages while working',     'flag',   'q'),
+    no_color = ('do not color-code terminal output',                     'flag',   'C'),
+    version  = ('print version info and exit',                           'flag',   'V'),
+    debug    = ('turn on debugging',                                     'flag',   'Z'),
 )
 
-def main(articles = 'A', dry_run = False, output_dir = 'O', quiet = False,
-         no_color = False, version = False, debug = False):
+def main(articles = 'A', dest_dir = 'D', report = 'R', dry_run = False,
+         quiet = False, no_color = False, version = False, debug = False):
 
     # Initial setup -----------------------------------------------------------
 
@@ -78,15 +79,17 @@ def main(articles = 'A', dry_run = False, output_dir = 'O', quiet = False,
     # plac.  Rewrite the values to things we actually use.
     if articles == 'A':
         articles = None
-    if output_dir == 'O':
-        output_dir = '.'
+    if dest_dir == 'D':
+        dest_dir = '.'
+    if report == 'R':
+        report = None
 
     # Do the real work --------------------------------------------------------
 
     try:
-        MainBody(articles, output_dir, dry_run, say).run()
+        MainBody(articles, dest_dir, report, dry_run, say).run()
     except (KeyboardInterrupt, UserCancelled) as ex:
-        exit(say.msg('Quitting.', 'error'))
+        exit(say.error_text('Quitting'))
     except Exception as ex:
         if debug:
             say.error('{}\n{}', str(ex), traceback.format_exc())
@@ -98,22 +101,23 @@ def main(articles = 'A', dry_run = False, output_dir = 'O', quiet = False,
 class MainBody(object):
     '''Main body for Microarchiver.'''
 
-    def __init__(self, articles, output_dir, dry_run, say):
+    def __init__(self, articles, dest_dir, report, dry_run, say):
         '''Initialize internal variables.'''
-        self._articles   = articles
-        self._output_dir = output_dir
-        self._dry_run    = dry_run
-        self._say        = say
+        self._articles = articles
+        self._dest_dir = dest_dir
+        self._report   = report
+        self._dry_run  = dry_run
+        self._say      = say
 
 
     def run(self):
         '''Execute the control logic.'''
 
         # Set shortcut variables for better code readability below.
-        articles   = self._articles
-        output_dir = self._output_dir
-        dry_run    = self._dry_run
-        say        = self._say
+        articles = self._articles
+        dest_dir = self._dest_dir
+        dry_run  = self._dry_run
+        say      = self._say
 
         # Preliminary sanity checks.
         if not network_available():
@@ -122,13 +126,13 @@ class MainBody(object):
             exit(say.fatal_text('File not readable: {}', articles))
         if articles and not articles.endswith('.xml'):
             exit(say.fatal_text('Does not appear to be an XML file: {}', articles))
-        if not path.isabs(output_dir):
-            output_dir = path.realpath(path.join(os.getcwd(), output_dir))
-        if path.isdir(output_dir):
-            if not writable(output_dir):
-                exit(say.fatal_text('Directory not writable: {}', output_dir))
+        if not path.isabs(dest_dir):
+            dest_dir = path.realpath(path.join(os.getcwd(), dest_dir))
+        if path.isdir(dest_dir):
+            if not writable(dest_dir):
+                exit(say.fatal_text('Directory not writable: {}', dest_dir))
         else:
-            exit(say.fatal_text('Not a directory: {}', output_dir))
+            exit(say.fatal_text('Not a directory: {}', dest_dir))
 
         # If we get this far, we're ready to do this thing.
         if articles:
@@ -142,7 +146,7 @@ class MainBody(object):
         if dry_run:
             self.print_articles(articles_list)
         else:
-            say.info('Output will be written under directory "{}"', output_dir)
+            say.info('Output will be written under directory "{}"', dest_dir)
 
 
     def articles_from_xml(self, file_or_url):
