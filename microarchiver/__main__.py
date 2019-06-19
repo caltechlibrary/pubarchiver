@@ -16,6 +16,7 @@ file "LICENSE" for more information.
 '''
 
 from   collections import namedtuple
+import csv
 import humanize
 from   lxml import etree
 import os
@@ -27,7 +28,7 @@ import traceback
 import microarchiver
 from microarchiver.debug import set_debug, log
 from microarchiver.exceptions import *
-from microarchiver.files import readable, writable, make_dir
+from microarchiver.files import readable, writable, file_in_use, rename_existing
 from microarchiver.messages import MessageHandler
 from microarchiver.network import net, network_available
 
@@ -36,6 +37,16 @@ from microarchiver.network import net, network_available
 # .............................................................................
 
 Article = namedtuple('Article', 'doi date title url status')
+'''
+Named tuple used internally to communicate information about articles in the
+article list.  The value of the "status" field can be as follows, and will
+be different at different times in the process of getting information from
+micropublication.org and writing out information for portico:
+
+  'complete'   -- the info in the XML article list is complete
+  'incomplete' -- something is missing in the XML article list entry
+  'failed'     -- failed to download the article from the server
+'''
 
 
 # Constants.
@@ -138,24 +149,24 @@ Command-line arguments summary
 class MainBody(object):
     '''Main body for Microarchiver.'''
 
-    def __init__(self, articles, dest_dir, report, dry_run, say):
+    def __init__(self, articles, dest_dir, report_file, dry_run, say):
         '''Initialize internal variables.'''
-        self._articles = articles
-        self._dest_dir = dest_dir
-        self._report   = report
-        self._dry_run  = dry_run
-        self._say      = say
+        self._articles    = articles
+        self._dest_dir    = dest_dir
+        self._report_file = report_file
+        self._dry_run     = dry_run
+        self._say         = say
 
 
     def run(self):
         '''Execute the control logic.'''
 
         # Set shortcut variables for better code readability below.
-        articles = self._articles
-        dest_dir = self._dest_dir
-        report   = self._report
-        dry_run  = self._dry_run
-        say      = self._say
+        articles    = self._articles
+        dest_dir    = self._dest_dir
+        report_file = self._report_file
+        dry_run     = self._dry_run
+        say         = self._say
 
         # Preliminary sanity checks.
         if not network_available():
@@ -171,6 +182,8 @@ class MainBody(object):
                 exit(say.fatal_text('Directory not writable: {}', dest_dir))
         else:
             exit(say.fatal_text('Not a directory: {}', dest_dir))
+        if file_in_use(report_file):
+            exit(say.fatal_text("Cannot write file becase it's in use: {}", report_file))
 
         # If we get this far, we're ready to do this thing.
         if articles:
@@ -185,6 +198,10 @@ class MainBody(object):
             self.print_articles(articles_list)
         else:
             say.info('Output will be written under directory "{}"', dest_dir)
+        if report_file:
+            if path.exists(report_file):
+                rename_existing(report_file)
+            self.write_report(report_file, articles_list)
 
 
     def articles_from_xml(self, file_or_url):
@@ -252,6 +269,20 @@ class MainBody(object):
                 short(article.url) if article.url else self._say.warn_text('missing URL')))
         self._say.info('-'*89)
 
+
+    def write_report(self, report_file, articles_list):
+        if __debug__: log('writing report file {}', report_file)
+        try:
+            with open(report_file, 'w', newline='') as file:
+                file.write('Status,DOI,Date,URL\n')
+                csvwriter = csv.writer(file, delimiter=',')
+                for article in articles_list:
+                    row = [article.status, article.doi, article.date, article.url]
+                    csvwriter.writerow(row)
+        except Exception as ex:
+            if __debug__: log('error writing csv file: {}', str(ex))
+            raise
+
 
 # Miscellaneous utilities.
 # .............................................................................
@@ -265,7 +296,6 @@ def print_version():
 
 def short(url):
     return url.replace('https://www.micropublication.org', '')
-
 
 
 # Main entry point.
