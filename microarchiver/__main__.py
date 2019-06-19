@@ -35,7 +35,7 @@ from microarchiver.network import net, network_available
 # Simple data type definitions.
 # .............................................................................
 
-Article = namedtuple('Article', 'doi date url')
+Article = namedtuple('Article', 'doi date title url status')
 
 
 # Constants.
@@ -60,12 +60,46 @@ _URL_ARTICLES_LIST = 'https://www.micropublication.org/archive-list/'
 
 def main(articles = 'A', dest_dir = 'D', report = 'R', dry_run = False,
          quiet = False, no_color = False, version = False, debug = False):
+    '''microarchiver archives micropublication.org publications for Portico.
+
+By default, this program will contact micropublication.org to get a list of
+current articles.  If given the argument -a (or /a on Windows), the given file
+will be read instead instead of getting the list from the server; the
+contents of the file must be in the same XML format as the list obtain from
+micropublication.org.
+
+The output will be written to the directory indicated by the value of the
+argument -d (or /d on Windows).  If no -d is given, the output will be written
+to the current directory instead.
+
+Microarchiver will print information about the articles it would put into the
+archive.  To save this info to a file, use the argument -r (or /r on Windows).
+
+Additional command-line arguments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If given the argument -n (or /n on Windows), microarchiver will only print the
+list of articles it will archive and stop short of creating the archive.  This
+is useful to see what would be produced without actually doing it.
+
+Microarchiver will print messages as it works.  To reduce messages to only
+warnings and errors, use the argument -q (or /q on Windows).  Also, output is
+color-coded by default unless the -C argument (or /C on Windows) is given;
+this argument can be helpful if the color control signals create problems for
+your terminal emulator.
+
+If given the -V argument (/V on Windows), this program will print version
+information and exit without doing anything else.
+
+Command-line arguments summary
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+'''
 
     # Initial setup -----------------------------------------------------------
 
     say = MessageHandler(not no_color, quiet)
     prefix = '/' if sys.platform.startswith('win') else '-'
-    hint = '(Hint: use {}h for help.)'.format(prefix)
+    hint = '(Use {}h for help.)'.format(prefix)
 
     # Process arguments -------------------------------------------------------
 
@@ -83,6 +117,9 @@ def main(articles = 'A', dest_dir = 'D', report = 'R', dry_run = False,
         dest_dir = '.'
     if report == 'R':
         report = None
+    if dry_run and quiet:
+        exit(say.error_text('Option {}q is incompatible with {}n. {}'.format(
+            prefix, prefix, hint)))
 
     # Do the real work --------------------------------------------------------
 
@@ -116,6 +153,7 @@ class MainBody(object):
         # Set shortcut variables for better code readability below.
         articles = self._articles
         dest_dir = self._dest_dir
+        report   = self._report
         dry_run  = self._dry_run
         say      = self._say
 
@@ -150,7 +188,7 @@ class MainBody(object):
 
 
     def articles_from_xml(self, file_or_url):
-        '''Returns a list of tuples (doi, date, pdf-url).'''
+        '''Returns a list of `Article` tuples from the given URL or file.'''
         # Read the XML.
         if file_or_url.startswith('http'):
             (response, error) = net('get', file_or_url)
@@ -173,12 +211,16 @@ class MainBody(object):
             if __debug__: log('reading {}', file_or_url)
             with open(file_or_url, 'rb') as xml_file:
                 xml = xml_file.readlines()
+        return self._article_tuples(xml)
 
-        # Parse the XML.
+
+    def _article_tuples(self, xml):
+        '''Parse the XML input, assumed to be from micropublication.org, and
+        create a list of `Article` named tuples.
+        '''
         if __debug__: log('parsing XML data')
-        nodes = etree.fromstring(xml)
         articles = []
-        for element in nodes.findall('article'):
+        for element in etree.fromstring(xml).findall('article'):
             pdf   = element.find('pdf-url').text
             doi   = element.find('doi').text
             title = element.find('article-title').text
@@ -190,24 +232,25 @@ class MainBody(object):
                 date = year + '-' + month + '-' + day
             else:
                 date = ''
-            articles.append(Article(doi, date, pdf))
-
+            status = 'incomplete' if not(all([pdf, doi, title, date])) else 'complete'
+            articles.append(Article(doi, date, title, pdf, status))
         return articles
 
 
     def print_articles(self, articles_list):
-        self._say.info('-'*79)
-        self._say.info('[{:3}] {:<32}  {:10}  {:20}'.format('  #', 'DOI', 'Date', 'URL'))
-        self._say.info('-'*79)
+        self._say.info('-'*89)
+        self._say.info('{:3}  {:<32}  {:10}  {:20}'.format(
+            '?', 'DOI', 'Date', 'URL (https://micropublication.org)'))
+        self._say.info('-'*89)
         count = 0
         for article in articles_list:
             count += 1
-            self._say.info('[{:3}] {:<32}  {:10}  {:20}'.format(
-                count,
-                article.doi if article.doi else self._say.warn_text('missing'),
-                article.date if article.date else self._say.warn_text('missing'),
-                article.url if article.url else self._say.warn_text('missing')))
-        self._say.info('-'*79)
+            self._say.info('{:3}  {:<32}  {:10}  {:20}'.format(
+                self._say.warn_text('inc') if article.status == 'incomplete' else 'OK',
+                article.doi if article.doi else self._say.warn_text('missing DOI'),
+                article.date if article.date else self._say.warn_text('missing date'),
+                short(article.url) if article.url else self._say.warn_text('missing URL')))
+        self._say.info('-'*89)
 
 
 # Miscellaneous utilities.
@@ -218,6 +261,11 @@ def print_version():
     print('Author: {}'.format(microarchiver.__author__))
     print('URL: {}'.format(microarchiver.__url__))
     print('License: {}'.format(microarchiver.__license__))
+
+
+def short(url):
+    return url.replace('https://www.micropublication.org', '')
+
 
 
 # Main entry point.
