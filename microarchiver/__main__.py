@@ -238,15 +238,15 @@ class MainBody(object):
         if __debug__: log('parsing XML data')
         articles = []
         for element in etree.fromstring(xml).findall('article'):
-            pdf   = element.find('pdf-url').text
-            doi   = element.find('doi').text
-            title = element.find('article-title').text
+            pdf   = (element.find('pdf-url').text or '').strip()
+            doi   = (element.find('doi').text or '').strip()
+            title = (element.find('article-title').text or '').strip()
             date  = element.find('date-published')
             if date != None:
-                year = date.find('year').text
-                month = date.find('month').text
-                day = date.find('day').text
-                date = year + '-' + month + '-' + day
+                year  = (date.find('year').text or '').strip()
+                month = (date.find('month').text or '').strip()
+                day   = (date.find('day').text or '').strip()
+                date  = year + '-' + month + '-' + day
             else:
                 date = ''
             status = 'incomplete' if not(all([pdf, doi, title, date])) else 'complete'
