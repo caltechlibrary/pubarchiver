@@ -29,6 +29,7 @@ import microarchiver
 from microarchiver.debug import set_debug, log
 from microarchiver.exceptions import *
 from microarchiver.files import readable, writable, file_in_use, rename_existing
+from microarchiver.files import make_dir
 from microarchiver.messages import MessageHandler
 from microarchiver.network import net, network_available
 
@@ -125,7 +126,7 @@ Command-line arguments summary
     if articles == 'A':
         articles = None
     if dest_dir == 'D':
-        dest_dir = 'm'
+        dest_dir = 'micropublication-org'
     if report == 'R':
         report = None
     if dry_run and quiet:
@@ -181,7 +182,10 @@ class MainBody(object):
             if not writable(dest_dir):
                 raise RuntimeError('Directory not writable: {}', dest_dir)
         else:
-            raise ValueError('Not a directory: {}', dest_dir)
+            if path.exists(dest_dir):
+                raise ValueError('Not a directory: {}', dest_dir)
+            else:
+                make_dir(dest_dir)
         if file_in_use(report_file):
             raise RuntimeError("Cannot write file becase it's in use: {}", report_file)
 
