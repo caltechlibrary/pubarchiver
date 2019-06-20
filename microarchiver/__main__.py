@@ -184,7 +184,7 @@ class MainBody(object):
         else:
             if path.exists(dest_dir):
                 raise ValueError('Not a directory: {}', dest_dir)
-            else:
+            elif not dry_run:
                 make_dir(dest_dir)
         if file_in_use(report_file):
             raise RuntimeError("Cannot write file becase it's in use: {}", report_file)
