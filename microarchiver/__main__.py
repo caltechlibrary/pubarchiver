@@ -17,6 +17,7 @@ file "LICENSE" for more information.
 
 from   collections import namedtuple
 import csv
+import datetime
 import humanize
 from   lxml import etree
 import os
@@ -29,7 +30,7 @@ import microarchiver
 from microarchiver.debug import set_debug, log
 from microarchiver.exceptions import *
 from microarchiver.files import readable, writable, file_in_use, rename_existing
-from microarchiver.files import make_dir
+from microarchiver.files import make_dir, create_archive, verify_archive
 from microarchiver.messages import MessageHandler
 from microarchiver.network import net, network_available
 
@@ -60,18 +61,20 @@ _URL_ARTICLES_LIST = 'https://www.micropublication.org/archive-list/'
 # .............................................................................
 
 @plac.annotations(
-    articles = ('get articles list from file A (default: from network)', 'option', 'a'),
-    dest_dir = ('write archive in directory D (default: current dir)',   'option', 'd'),
-    dry_run  = ('only print the articles list; do not create archive',   'flag',   'n'),
-    report   = ('write report to file R (default: print to terminal)',   'option', 'r'),
-    quiet    = ('do not print informational messages while working',     'flag',   'q'),
-    no_color = ('do not color-code terminal output',                     'flag',   'C'),
-    version  = ('print version info and exit',                           'flag',   'V'),
-    debug    = ('turn on debugging',                                     'flag',   'Z'),
+    articles   = ('get articles list from file A (default: from network)', 'option', 'a'),
+    dest_dir   = ('write archive in directory D (default: current dir)',   'option', 'd'),
+    dry_run    = ('only print the articles list; do not create archive',   'flag',   'n'),
+    report     = ('write report to file R (default: print to terminal)',   'option', 'r'),
+    quiet      = ('do not print informational messages while working',     'flag',   'q'),
+    no_archive = ('do not zip up the output directory (default: do)',      'flag',   'A'),
+    no_color   = ('do not color-code terminal output',                     'flag',   'C'),
+    version    = ('print version info and exit',                           'flag',   'V'),
+    debug      = ('turn on debugging',                                     'flag',   'Z'),
 )
 
 def main(articles = 'A', dest_dir = 'D', report = 'R', dry_run = False,
-         quiet = False, no_color = False, version = False, debug = False):
+         quiet = False, no_archive = False, no_color = False,
+         version = False, debug = False):
     '''microarchiver archives micropublication.org publications for Portico.
 
 By default, this program will contact micropublication.org to get a list of
@@ -82,7 +85,9 @@ micropublication.org.
 
 The output will be written to the directory indicated by the value of the
 argument -d (or /d on Windows).  If no -d is given, the output will be written
-to the current directory instead.
+to the current directory instead.  The output directory will also be put into
+a single-file archive in ZIP format unless the argument -A (or /A on Windows)
+is given.
 
 Microarchiver will print information about the articles it would put into the
 archive.  To save this info to a file, use the argument -r (or /r on Windows).
@@ -112,6 +117,7 @@ Command-line arguments summary
     say = MessageHandler(not no_color, quiet)
     prefix = '/' if sys.platform.startswith('win') else '-'
     hint = '(Use {}h for help.)'.format(prefix)
+    do_archive = not no_archive
 
     # Process arguments -------------------------------------------------------
 
@@ -136,7 +142,7 @@ Command-line arguments summary
     # Do the real work --------------------------------------------------------
 
     try:
-        MainBody(articles, dest_dir, report, dry_run, say).run()
+        MainBody(articles, dest_dir, report, do_archive, dry_run, say).run()
     except (KeyboardInterrupt, UserCancelled) as ex:
         exit(say.error_text('Quitting'))
     except Exception as ex:
@@ -150,11 +156,12 @@ Command-line arguments summary
 class MainBody(object):
     '''Main body for Microarchiver.'''
 
-    def __init__(self, articles, dest_dir, report_file, dry_run, say):
+    def __init__(self, articles, dest_dir, report_file, do_archive, dry_run, say):
         '''Initialize internal variables.'''
         self._articles    = articles
         self._dest_dir    = dest_dir
         self._report_file = report_file
+        self._do_archive  = do_archive
         self._dry_run     = dry_run
         self._say         = say
 
@@ -166,6 +173,7 @@ class MainBody(object):
         articles    = self._articles
         dest_dir    = self._dest_dir
         report_file = self._report_file
+        do_archive  = self._do_archive
         dry_run     = self._dry_run
         say         = self._say
 
@@ -186,7 +194,7 @@ class MainBody(object):
                 raise ValueError('Not a directory: {}', dest_dir)
             elif not dry_run:
                 make_dir(dest_dir)
-        if file_in_use(report_file):
+        if report_file and file_in_use(report_file):
             raise RuntimeError("Cannot write file becase it's in use: {}", report_file)
 
         # If we get this far, we're ready to do this thing.
@@ -197,11 +205,18 @@ class MainBody(object):
             say.info('Fetching articles list from {}', _URL_ARTICLES_LIST)
             articles_list = self.articles_from_xml(_URL_ARTICLES_LIST)
 
-        say.info('Total articles: {}', humanize.intcomma(len(articles_list)))
+        num_articles = len(articles_list)
+        say.info('Total articles: {}', humanize.intcomma(num_articles))
         if dry_run:
             self.print_articles(articles_list)
         else:
             say.info('Output will be written under directory "{}"', dest_dir)
+            self.write_articles(dest_dir, articles_list)
+            if do_archive:
+                archive_file = dest_dir + '.zip')
+                say.info('Creating ZIP archive file "{}"', archive_file)
+                comments = file_comments(num_articles)
+                create_archive(archive_file, '.zip', dest_dir, comments)
         if report_file:
             if path.exists(report_file):
                 rename_existing(report_file)
@@ -288,6 +303,10 @@ class MainBody(object):
             if __debug__: log('error writing csv file: {}', str(ex))
             raise
 
+
+    def write_articles(self, dest_dir, article_list):
+        pass
+
 
 # Miscellaneous utilities.
 # .............................................................................
@@ -301,6 +320,30 @@ def print_version():
 
 def short(url):
     return url.replace('https://www.micropublication.org', '')
+
+
+def file_comments(num_articles):
+    text  = '~ '*35
+    text += '\n'
+    text += 'About this ZIP archive file:\n'
+    text += '\n'
+    text += 'This archive contains a directory of articles from microPublication.org\n'
+    text += 'created on {}. There are {} articles in this archive.'.format(
+        str(datetime.date.today()), num_articles)
+    text += '\n'
+    text += software_comments()
+    text += '\n'
+    text += '~ '*35
+    text += '\n'
+    return text
+
+
+def software_comments():
+    text  = '\n'
+    text += 'The software used to create this archive file was:\n'
+    text += '{} version {} <{}>'.format(
+        microarchiver.__title__, microarchiver.__version__, microarchiver.__url__)
+    return text
 
 
 # Main entry point.
