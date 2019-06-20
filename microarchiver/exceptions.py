@@ -25,6 +25,10 @@ class ServiceFailure(Exception):
 class NoContent(Exception):
     '''Server returned a code 401 or 404, indicating no content found.'''
 
+class CorruptedContent(Exception):
+    '''Content corruption has been detected.'''
+    pass
+
 class RateLimitExceeded(Exception):
     '''The service flagged reports that its rate limits have been exceeded.'''
     pass
