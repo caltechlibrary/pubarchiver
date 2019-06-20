@@ -125,7 +125,7 @@ Command-line arguments summary
     if articles == 'A':
         articles = None
     if dest_dir == 'D':
-        dest_dir = '.'
+        dest_dir = 'm'
     if report == 'R':
         report = None
     if dry_run and quiet:
@@ -170,20 +170,20 @@ class MainBody(object):
 
         # Preliminary sanity checks.
         if not network_available():
-            exit(say.fatal_text('No network.'))
+            raise ServiceFailure('No network.')
         if articles and not readable(articles):
-            exit(say.fatal_text('File not readable: {}', articles))
+            raise RuntimeError('File not readable: {}', articles)
         if articles and not articles.endswith('.xml'):
-            exit(say.fatal_text('Does not appear to be an XML file: {}', articles))
+            raise RuntimeError('Does not appear to be an XML file: {}', articles)
         if not path.isabs(dest_dir):
             dest_dir = path.realpath(path.join(os.getcwd(), dest_dir))
         if path.isdir(dest_dir):
             if not writable(dest_dir):
-                exit(say.fatal_text('Directory not writable: {}', dest_dir))
+                raise RuntimeError('Directory not writable: {}', dest_dir)
         else:
-            exit(say.fatal_text('Not a directory: {}', dest_dir))
+            raise ValueError('Not a directory: {}', dest_dir)
         if file_in_use(report_file):
-            exit(say.fatal_text("Cannot write file becase it's in use: {}", report_file))
+            raise RuntimeError("Cannot write file becase it's in use: {}", report_file)
 
         # If we get this far, we're ready to do this thing.
         if articles:
@@ -201,6 +201,7 @@ class MainBody(object):
         if report_file:
             if path.exists(report_file):
                 rename_existing(report_file)
+            say.info('Writing report to {}'.format(report_file))
             self.write_report(report_file, articles_list)
 
 
