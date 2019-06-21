@@ -18,8 +18,16 @@ class UserCancelled(Exception):
     '''The user elected to cancel/quit the program.'''
     pass
 
+class NetworkFailure(Exception):
+    '''Unrecoverable problem involving network operations.'''
+    pass
+
 class ServiceFailure(Exception):
     '''Unrecoverable problem involving network services.'''
+    pass
+
+class AuthenticationFailure(Exception):
+    '''Problem obtaining or using authentication credentials.'''
     pass
 
 class NoContent(Exception):
