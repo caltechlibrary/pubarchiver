@@ -15,16 +15,19 @@ open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
+import base64
 from   collections import namedtuple
 import csv
 import datetime
 import humanize
+import json as jsonlib
 from   lxml import etree
 import os
 import os.path as path
 import plac
 import sys
 import traceback
+import xmltodict
 
 import microarchiver
 from microarchiver.debug import set_debug, log
@@ -55,6 +58,10 @@ micropublication.org and writing out information for portico:
 # .............................................................................
 
 _URL_ARTICLES_LIST = 'https://www.micropublication.org/archive-list/'
+
+_DATACITE_API_URL = 'https://api.datacite.org/dois/'
+
+_MICROPUBLICATION_ISSN = '2578-9430'
 
 
 # Main program.
@@ -213,7 +220,7 @@ class MainBody(object):
             say.info('Output will be written under directory "{}"', dest_dir)
             self.write_articles(dest_dir, articles_list)
             if do_archive:
-                archive_file = dest_dir + '.zip')
+                archive_file = dest_dir + '.zip'
                 say.info('Creating ZIP archive file "{}"', archive_file)
                 comments = file_comments(num_articles)
                 create_archive(archive_file, '.zip', dest_dir, comments)
@@ -305,7 +312,48 @@ class MainBody(object):
 
 
     def write_articles(self, dest_dir, article_list):
-        pass
+        for article in article_list:
+            if not article.doi:
+                if __debug__: log('article missing DOI: {}', article.title)
+                article.status = 'missing-doi'
+                continue
+            xml = self._metadata_xml(article)
+            if not xml:
+                article.status = 'failed-datacite'
+                continue
+            dest_file = path.join(dest_dir, xml_filename(article))
+            with open(dest_file, 'w', encoding = 'utf8') as xml_file:
+                if __debug__: log('writing XML to {}', dest_file)
+                xml_file.write(xmltodict.unparse(xml))
+        return article_list
+
+
+    def _metadata_xml(self, article):
+        (response, error) = net('get', _DATACITE_API_URL + article.doi)
+        if error:
+            if __debug__: log('error reading from datacite for {}', article.doi)
+            raise error
+        elif not response:
+            if __debug__: log('empty response from datacite for {}', article.doi)
+            raise InternalError('Unexpected response from datacite server')
+
+        json = response.json()
+        xml = xmltodict.parse(base64.b64decode(json['data']['attributes']['xml']))
+        date = json['data']['attributes']['registered']
+        if 'dates' in xml['resource']:
+            xml['resource']['dates']['date']['#text'] = date
+        else:
+            xml['resource']['dates'] = {'date': article.date}
+        xml['resource']['volume']  = volume_for_year(xml['resource']['publicationYear'])
+        xml['resource']['file']    = pdf_filename(article)
+        xml['resource']['journal'] = xml['resource'].pop('publisher')
+        xml['resource']['e-issn']  = _MICROPUBLICATION_ISSN
+        xml['resource']["rightsList"] = [{
+            "rights": "Creative Commons Attribution 4.0",
+            "rightsURI": "https://creativecommons.org/licenses/by/4.0/legalcode"}]
+        xml['resource'].pop('@xmlns')
+        xml['resource'].pop('@xsi:schemaLocation')
+        return xml
 
 
 # Miscellaneous utilities.
@@ -320,6 +368,20 @@ def print_version():
 
 def short(url):
     return url.replace('https://www.micropublication.org', '')
+
+
+def volume_for_year(year):
+    return int(year) - 2014
+
+
+def pdf_filename(article):
+    slash = article.doi.find('/')
+    return article.doi[slash + 1:] + '.pdf'
+
+
+def xml_filename(article):
+    slash = article.doi.find('/')
+    return article.doi[slash + 1:] + '.xml'
 
 
 def file_comments(num_articles):
