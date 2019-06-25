@@ -374,14 +374,17 @@ def volume_for_year(year):
     return int(year) - 2014
 
 
+def tail_of_doi(article):
+    slash = article.doi.rfind('/')
+    return article.doi[slash + 1:]
+
+
 def pdf_filename(article):
-    slash = article.doi.find('/')
-    return article.doi[slash + 1:] + '.pdf'
+    return tail_of_doi(article) + '.pdf'
 
 
 def xml_filename(article):
-    slash = article.doi.find('/')
-    return article.doi[slash + 1:] + '.xml'
+    return tail_of_doi(article) + '.xml'
 
 
 def file_comments(num_articles):
