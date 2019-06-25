@@ -82,35 +82,36 @@ _MICROPUBLICATION_ISSN = '2578-9430'
 def main(articles = 'A', dest_dir = 'D', report = 'R', dry_run = False,
          quiet = False, no_archive = False, no_color = False,
          version = False, debug = False):
-    '''microarchiver archives micropublication.org publications for Portico.
+    '''Archive micropublication.org publications for Portico.
 
 By default, this program will contact micropublication.org to get a list of
-current articles.  If given the argument -a (or /a on Windows), the given file
-will be read instead instead of getting the list from the server; the
-contents of the file must be in the same XML format as the list obtain from
-micropublication.org.
+current articles. If given the argument -a (or /a on Windows) followed by a
+file name, the given file will be read instead instead of getting the list from
+the server. The contents of the file must be in the same XML format as the list
+obtain from micropublication.org.
 
 The output will be written to the directory indicated by the value of the
-argument -d (or /d on Windows).  If no -d is given, the output will be written
-to the current directory instead.  The output directory will also be put into
+argument -d (or /d on Windows). If no -d is given, the output will be written
+to the current directory instead. The output directory will also be put into
 a single-file archive in ZIP format unless the argument -A (or /A on Windows)
-is given.
+is given to prevent creation of the compressed archive file.
 
-Microarchiver will print information about the articles it would put into the
-archive.  To save this info to a file, use the argument -r (or /r on Windows).
+As it works, microarchiver writes information to the terminal about the archives
+it puts into the archive, including whether any problems are encountered. To
+save this info to a file, use the argument -r (or /r on Windows).
 
 Additional command-line arguments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If given the argument -n (or /n on Windows), microarchiver will only print the
-list of articles it will archive and stop short of creating the archive.  This
+If given the argument -n (or /n on Windows), microarchiver will ONLY display a
+list of articles it will archive and stop short of creating the archive. This
 is useful to see what would be produced without actually doing it.
 
-Microarchiver will print messages as it works.  To reduce messages to only
-warnings and errors, use the argument -q (or /q on Windows).  Also, output is
-color-coded by default unless the -C argument (or /C on Windows) is given;
-this argument can be helpful if the color control signals create problems for
-your terminal emulator.
+Microarchiver will print informational messages as it works. To reduce messages
+to only warnings and errors, use the argument -q (or /q on Windows). Also,
+output is color-coded by default unless the -C argument (or /C on Windows) is
+given; this argument can be helpful if the color control signals create
+problems for your terminal emulator.
 
 If given the -V argument (/V on Windows), this program will print version
 information and exit without doing anything else.
@@ -118,7 +119,6 @@ information and exit without doing anything else.
 Command-line arguments summary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-
     # Initial setup -----------------------------------------------------------
 
     say = MessageHandler(not no_color, quiet)
