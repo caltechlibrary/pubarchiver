@@ -6,7 +6,7 @@
 # @website https://github.com/caltechlibrary/martian
 # =============================================================================
 
-__version__     = '0.0.1'
+__version__     = '1.0.0'
 __title__       = 'microarchiver'
 __name__        = 'Microarchiver'
 __description__ = '''Create archives of articles from microPublication.org for sending to Portico.'''
