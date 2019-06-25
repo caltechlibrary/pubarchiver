@@ -25,6 +25,7 @@ from   lxml import etree
 import os
 import os.path as path
 import plac
+from   recordclass import recordclass
 import sys
 import traceback
 import xmltodict
@@ -35,15 +36,15 @@ from microarchiver.exceptions import *
 from microarchiver.files import readable, writable, file_in_use, rename_existing
 from microarchiver.files import make_dir, create_archive, verify_archive
 from microarchiver.messages import MessageHandler
-from microarchiver.network import net, network_available
+from microarchiver.network import net, network_available, download
 
 
 # Simple data type definitions.
 # .............................................................................
 
-Article = namedtuple('Article', 'doi date title url status')
+Article = recordclass('Article', 'doi date title pdf status')
 '''
-Named tuple used internally to communicate information about articles in the
+Record class used internally to communicate information about articles in the
 article list.  The value of the "status" field can be as follows, and will
 be different at different times in the process of getting information from
 micropublication.org and writing out information for portico:
@@ -260,7 +261,7 @@ class MainBody(object):
 
     def _article_tuples(self, xml):
         '''Parse the XML input, assumed to be from micropublication.org, and
-        create a list of `Article` named tuples.
+        create a list of `Article` records.
         '''
         if __debug__: log('parsing XML data')
         articles = []
@@ -293,7 +294,7 @@ class MainBody(object):
                 self._say.error_text('err') if article.status == 'incomplete' else 'OK',
                 article.doi if article.doi else self._say.error_text('missing DOI'),
                 article.date if article.date else self._say.error_text('missing date'),
-                short(article.url) if article.url else self._say.error_text('missing URL')))
+                short(article.pdf) if article.pdf else self._say.error_text('missing URL')))
         self._say.info('-'*89)
 
 
@@ -304,7 +305,7 @@ class MainBody(object):
                 file.write('Status,DOI,Date,URL\n')
                 csvwriter = csv.writer(file, delimiter=',')
                 for article in articles_list:
-                    row = [article.status, article.doi, article.date, article.url]
+                    row = [article.status, article.doi, article.date, article.pdf]
                     csvwriter.writerow(row)
         except Exception as ex:
             if __debug__: log('error writing csv file: {}', str(ex))
@@ -313,25 +314,35 @@ class MainBody(object):
 
     def write_articles(self, dest_dir, article_list):
         for article in article_list:
+            # Start by testing that we have all the data we will need.
             if not article.doi:
                 self._say.warn('Skipping article with missing DOI: ' + article.title)
                 article.status = 'missing-doi'
+                continue
+            if not article.pdf:
+                self._say.warn('Skipping article with missing PDF URL: ' + article.doi)
+                article.status = 'missing-pdf'
                 continue
             xml = self._metadata_xml(article)
             if not xml:
                 self._say.warn('Skipping article with no DataCite entry: ' + article.doi)
                 article.status = 'failed-datacite'
                 continue
+
+            # Looks good. Carry on.
             article_dir = path.join(dest_dir, tail_of_doi(article))
             try:
                 os.makedirs(article_dir)
             except FileExistsError:
                 pass
-            dest_file = path.join(article_dir, xml_filename(article))
+            xml_file = path.join(article_dir, xml_filename(article))
+            pdf_file = path.join(article_dir, pdf_filename(article))
             self._say.info('Writing ' + article.doi)
-            with open(dest_file, 'w', encoding = 'utf8') as xml_file:
-                if __debug__: log('writing XML to {}', dest_file)
+            with open(xml_file, 'w', encoding = 'utf8') as xml_file:
+                if __debug__: log('writing XML to {}', xml_file)
                 xml_file.write(xmltodict.unparse(xml))
+            if __debug__: log('downloading PDF to {}', pdf_file)
+            download(article.pdf, pdf_file)
         return article_list
 
 
