@@ -59,7 +59,7 @@ microarchiver -h
 
 ### _Basic usage_
 
-The simplest use of `microarchiver` involves running it without any arguments.  This will make it will contact [micropublication.org](http://micropublication.org) to get a list of current articles, and create an archive of all the articles in a subdirectory of the current directory.
+The simplest use of `microarchiver` involves running it without any arguments.  This will make it will contact [microPublication.org](http://micropublication.org) to get a list of current articles, and create an archive of all the articles in a subdirectory of the current directory.
 
 ```bash
 microarchiver
@@ -79,7 +79,7 @@ The following is a screen recording of an actual run of `microarchiver`:
 
 ### _Additional command-line arguments_
 
-If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read instead instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from micropublication.org.
+If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read instead instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from microPublication.org.
 
 As it works, microarchiver writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the argument `-r` (or `/r` on Windows).
 
@@ -111,7 +111,7 @@ The following table summarizes all the command line options available. (Note: on
 ⚑ Known issues and limitations
 -------------------------------
 
-Currently, the only way to indicate that a subset of articles should be obtained from micropublication.org is to use the argument `-a` in combination with a file that contains the list of desired articles.
+Currently, the only way to indicate that a subset of articles should be obtained from microPublication.org is to use the argument `-a` in combination with a file that contains the list of desired articles.
 
 
 ⁇ Getting help and support
@@ -135,7 +135,7 @@ Copyright &copy; 2019, Caltech.  This software is freely distributed under a BSD
 ❡ Authors and history
 --------------------
 
-[Tom Morrell](https://github.com/tmorrell) developed the original algorithm for extracting metadata from DataCite and creating XML files for use with Portico submissions of micropublication.org articles.  [Mike Hucka](https://github.com/mhucka) created the much-expanded second version now known as `microarchiver`.
+[Tom Morrell](https://github.com/tmorrell) developed the original algorithm for extracting metadata from DataCite and creating XML files for use with Portico submissions of microPublication.org articles.  [Mike Hucka](https://github.com/mhucka) created the much-expanded second version now known as `microarchiver`.
 
 
 ♥︎ Acknowledgments
