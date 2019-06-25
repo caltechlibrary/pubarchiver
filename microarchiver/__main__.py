@@ -290,10 +290,10 @@ class MainBody(object):
         for article in articles_list:
             count += 1
             self._say.info('{:3}  {:<32}  {:10}  {:20}'.format(
-                self._say.warn_text('inc') if article.status == 'incomplete' else 'OK',
-                article.doi if article.doi else self._say.warn_text('missing DOI'),
-                article.date if article.date else self._say.warn_text('missing date'),
-                short(article.url) if article.url else self._say.warn_text('missing URL')))
+                self._say.error_text('err') if article.status == 'incomplete' else 'OK',
+                article.doi if article.doi else self._say.error_text('missing DOI'),
+                article.date if article.date else self._say.error_text('missing date'),
+                short(article.url) if article.url else self._say.error_text('missing URL')))
         self._say.info('-'*89)
 
 
