@@ -1,5 +1,5 @@
 '''
-messages: message-printing utilities for eprints2bags
+messages: message-printing utilities for microarchiver
 
 Authors
 -------
@@ -25,8 +25,8 @@ try:
 except:
     pass
 
-import eprints2bags
-from   eprints2bags.exceptions import *
+import microarchiver
+from   microarchiver.exceptions import *
 
 
 # Exported classes.
