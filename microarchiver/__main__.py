@@ -227,7 +227,7 @@ class MainBody(object):
         if report_file:
             if path.exists(report_file):
                 rename_existing(report_file)
-            say.info('Writing report to {}'.format(report_file))
+            say.info('Writing report to ' + report_file)
             self.write_report(report_file, articles_list)
 
 
@@ -314,14 +314,21 @@ class MainBody(object):
     def write_articles(self, dest_dir, article_list):
         for article in article_list:
             if not article.doi:
-                if __debug__: log('article missing DOI: {}', article.title)
+                self._say.warn('Skipping article with missing DOI: ' + article.title)
                 article.status = 'missing-doi'
                 continue
             xml = self._metadata_xml(article)
             if not xml:
+                self._say.warn('Skipping article with no DataCite entry: ' + article.doi)
                 article.status = 'failed-datacite'
                 continue
-            dest_file = path.join(dest_dir, xml_filename(article))
+            article_dir = path.join(dest_dir, tail_of_doi(article))
+            try:
+                os.makedirs(article_dir)
+            except FileExistsError:
+                pass
+            dest_file = path.join(article_dir, xml_filename(article))
+            self._say.info('Writing ' + article.doi)
             with open(dest_file, 'w', encoding = 'utf8') as xml_file:
                 if __debug__: log('writing XML to {}', dest_file)
                 xml_file.write(xmltodict.unparse(xml))
