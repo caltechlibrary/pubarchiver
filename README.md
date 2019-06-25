@@ -49,7 +49,39 @@ sudo python3 -m pip install . --upgrade
 ▶︎ How to use Microarchiver
 --------------------
 
-_...FORTHCOMING...._
+Microarchiver is a command-line program.  The installation process should put a program named `microarchiver` in a location normally searched by your shell interpreter.  For help with usage at any time, run `microarchiver` with the option `-h` (or `/h` on Windows).
+
+The simplest use of `microarchiver` involves running it without any arguments:
+
+```bash
+microarchiver
+```
+
+By default, `microarchiver` will contact [micropublication.org](http://micropublication.org) to get a list of current articles. If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read instead instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from micropublication.org.
+
+The output will be written to the directory indicated by the value of the argument `-d` (or `/d` on Windows).  If no `-d` is given, the output will be written to the current directory instead.
+
+```bash
+microarchiver -d /tmp/micropublication-archive
+```
+
+The following is a screen recording of an actual run of `microarchiver`:
+
+<p align="center">
+  <a href="https://asciinema.org/a/KprJnt3xcfhKn45xZL3jlvXCx"><img src=".graphics/microarchiver-asciinema.png" alt="Screencast of simple microarchiver demo"></a>
+</p>
+
+As it works, microarchiver writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the argument `-r` (or `/r` on Windows).
+
+### _Additional command-line arguments_
+
+The output directory will also be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-A` (or `/A` on Windows) is given to prevent creation of the compressed archive file.
+
+If given the argument `-n` (or `/n` on Windows), microarchiver will _only_ display a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.
+
+Microarchiver will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control signals create problems for your terminal emulator.
+
+If given the `-V` argument (`/V` on Windows), this program will print version information and exit without doing anything else.
 
 
 ⁇ Getting help and support
