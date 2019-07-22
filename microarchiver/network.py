@@ -14,18 +14,14 @@ open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
-import datetime
 import http.client
 from   http.client import responses as http_responses
-from   os import path
 import requests
 from   requests.packages.urllib3.exceptions import InsecureRequestWarning
 from   time import sleep
-import shutil
 import ssl
 import urllib
 from   urllib import request
-from   urllib.parse import urlsplit
 import urllib3
 import warnings
 
