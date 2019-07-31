@@ -3,7 +3,6 @@ Microarchiver<img width="12%" align="right" src=".graphics/microarchiver-logo.sv
 
 A program to create archives of articles from [microPublication.org](https://www.micropublication.org) for sending to [Portico](https://www.portico.org).
 
-
 *Authors*:      [Michael Hucka](http://github.com/mhucka), [Tom Morrell](https://github.com/tmorrell)<br>
 *Repository*:   [https://github.com/caltechlibrary/microarchiver](https://github.com/caltechlibrary/microarchiver)<br>
 *License*:      BSD/MIT derivative &ndash; see the [LICENSE](LICENSE) file for more information
@@ -29,7 +28,7 @@ Table of Contents
 ☀ Introduction
 -----------------------------
 
-The Caltech Library is the publisher of the online journal [microPublication](https://www.micropublication.org) and provides services to the journal that include archiving the journal in a dark archive (specifically, [Portico](https://www.portico.org)).  The archiving process involves pulling down articles from [microPublication](https://www.micropublication.org) and packaging them up in a format suitable for sending to Portico.  The programs in this repository are used to automate this process.
+The Caltech Library is the publisher of the online journal [microPublication](https://www.micropublication.org) and provides services to the journal that include archiving the journal in a dark archive (specifically, [Portico](https://www.portico.org)).  The archiving process involves pulling down articles from [microPublication](https://www.micropublication.org) and packaging them up in a format suitable for sending to Portico.  `Microarchiver` is a program to automate this process.
 
 
 ✺ Installation
@@ -160,7 +159,12 @@ _Microarchiver_ makes use of numerous open-source packages, without which it wou
 Finally, we are grateful for computing &amp; institutional resources made available by the California Institute of Technology.
     
 <div align="center">
+  <a href="https://micropublication.org">
+    <img height="100" src=".graphics/micropublication-logo-main.png">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://www.caltech.edu">
     <img width="100" height="100" src=".graphics/caltech-round.svg">
   </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </div>
