@@ -9,7 +9,7 @@ A program to create archives of articles from [microPublication.org](https://www
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg?style=flat-square)](https://choosealicense.com/licenses/bsd-3-clause)
 [![Python](https://img.shields.io/badge/Python-3.4+-brightgreen.svg?style=flat-square)](http://shields.io)
-[![Latest release](https://img.shields.io/badge/Latest_release-1.0.0-b44e88.svg?style=flat-square)](http://shields.io)
+[![Latest release](https://img.shields.io/badge/Latest_release-1.1.0-b44e88.svg?style=flat-square)](http://shields.io)
 
 
 Table of Contents
@@ -64,10 +64,10 @@ The simplest use of `microarchiver` involves running it without any arguments.  
 microarchiver
 ```
 
-If given the argument `-d` (or `/d` on Windows), the output will be written to the directory named after the `-d`.  For example:
+If given the argument `-o` (or `/o` on Windows), the output will be written to the directory named after the `-o`.  For example:
 
 ```bash
-microarchiver -d /tmp/micropublication-archive
+microarchiver -o /tmp/micropublication-archive
 ```
 
 The following is a screen recording of an actual run of `microarchiver`:
@@ -80,13 +80,22 @@ The following is a screen recording of an actual run of `microarchiver`:
 
 If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read instead instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from microPublication.org.
 
+If the option `-d` is given, Microarchiver will download only articles whose publication dates are AFTER the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
+
+```
+  microarchiver -d "2014-08-29"   ....
+  microarchiver -d "12 Dec 2014"  ....
+  microarchiver -d "July 4, 2013"  ....
+  microarchiver -d "2 weeks ago"  ....
+```
+
 As it works, microarchiver writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the argument `-r` (or `/r` on Windows).
 
-The output directory will also be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-A` (or `/A` on Windows) is given to prevent creation of the compressed archive file.
+The output directory will also be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
 
 Microarchiver will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control signals create problems for your terminal emulator.
 
-If given the argument `-n` (or `/n` on Windows), microarchiver will _only_ display a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.
+If given the argument `-p` (or `/p` on Windows), microarchiver will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.
 
 
 ### _Summary of command-line options_
@@ -97,20 +106,21 @@ The following table summarizes all the command line options available. (Note: on
 | Short   | Long&nbsp;form&nbsp;opt | Meaning | Default |
 |---------|-------------------|----------------------|---------|
 | `-a`_A_ | `--articles`_A_   | Get list of articles from file _A_ | Get list from server |
-| `-d`_D_ | `--dest-dir`_D_   | Write output in directory _D_ | Write in current dir |
-| `-r`_R_ | `--report`_R_     | Write list of article & results in file _R_ | Don't write a report |
-| `-n`    | `--dry-run`       | Only print what would be obtained | Do the work |
-| `-q`    | `--quiet`         | Don't print info messages while working | Be chatty while working |
-| `-A`    | `--no-archive`    | Don't put output into one ZIP archive | ZIP up the output |
 | `-C`    | `--no-color`      | Don't color-code the output | Use colors in the terminal output |
+| `-d`_D_ | `--after-date`_D_ | Only get articles published after date _D_ | Get all articles |
+| `-o`_O_ | `--output-dir`_O_ | Write output in directory _O_ | Write in current dir |
+| `-p`    | `--print-only`    | Only print what would be obtained | Do the real work |
+| `-q`    | `--quiet`         | Only print important messages while working | Be chatty while working |
+| `-r`_R_ | `--report`_R_     | Write list of article & results in file _R_ | Don't write a report |
 | `-V`    | `--version`       | Print program version info and exit | Do other actions instead |
-| `-Z`    | `--debug`         | Debugging mode | Normal mode |
+| `-Z`    | `--no-zip`        | Don't put output into one ZIP archive | ZIP up the output |
+| `-@`    | `--debug`         | Debugging mode | Normal mode |
 
 
 ⚑ Known issues and limitations
 -------------------------------
 
-Currently, the only way to indicate that a subset of articles should be obtained from microPublication.org is to use the argument `-a` in combination with a file that contains the list of desired articles.
+Currently, the only way to indicate that a subset of articles should be obtained from microPublication.org is to use the argument `-a` in combination with a file that contains the list of desired articles, or the `-d` option to indicate a cut-off for the article publication date.
 
 
 ⁇ Getting help and support
