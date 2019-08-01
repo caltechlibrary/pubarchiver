@@ -18,6 +18,7 @@ file "LICENSE" for more information.
 import base64
 from   collections import namedtuple
 import csv
+import dateparser
 import datetime
 import humanize
 import json as jsonlib
@@ -26,6 +27,7 @@ import os
 import os.path as path
 import plac
 from   recordclass import recordclass
+import shutil
 import sys
 import traceback
 import xmltodict
@@ -64,25 +66,32 @@ _DATACITE_API_URL = 'https://api.datacite.org/dois/'
 
 _MICROPUBLICATION_ISSN = '2578-9430'
 
+_ARCHIVE_DIR_NAME = 'micropublication-org'
+
+_DATE_PRINT_FORMAT = '%b %d %Y %H:%M:%S %Z'
+'''Format in which lastmod date is printed back to the user. The value is used
+with datetime.strftime().'''
+
 
 # Main program.
 # .............................................................................
 
 @plac.annotations(
-    articles   = ('get articles list from file A (default: from network)', 'option', 'a'),
-    dest_dir   = ('write archive in directory D (default: current dir)',   'option', 'd'),
-    dry_run    = ('only print the articles list; do not create archive',   'flag',   'n'),
-    report     = ('write report to file R (default: print to terminal)',   'option', 'r'),
-    quiet      = ('do not print informational messages while working',     'flag',   'q'),
-    no_archive = ('do not zip up the output directory (default: do)',      'flag',   'A'),
-    no_color   = ('do not color-code terminal output',                     'flag',   'C'),
-    version    = ('print version info and exit',                           'flag',   'V'),
-    debug      = ('turn on debugging',                                     'flag',   'Z'),
+    articles   = ('get articles list from file A (default: from network)',  'option', 'a'),
+    no_color   = ('do not color-code terminal output',                      'flag',   'C'),
+    after_date = ('only get articles published after date "D"',             'option', 'd'),
+    output_dir = ('write archive in directory O (default: current dir)',    'option', 'o'),
+    print_only = ('print the articles list without downloading them',       'flag',   'p'),
+    quiet      = ('only print important diagnostic messages while working', 'flag',   'q'),
+    report     = ('write report to file R (default: print to terminal)',    'option', 'r'),
+    version    = ('print version information and exit',                     'flag',   'V'),
+    no_zip     = ('do not zip up the output directory (default: do)',       'flag',   'Z'),
+    debug      = ('turn on debugging',                                      'flag',   '@'),
 )
 
-def main(articles = 'A', dest_dir = 'D', report = 'R', dry_run = False,
-         quiet = False, no_archive = False, no_color = False,
-         version = False, debug = False):
+def main(articles = 'A', no_color = False, after_date = 'D', output_dir = 'O',
+         print_only = False, quiet = False, report = 'R', version = False,
+         no_zip = False, debug = False):
     '''Archive micropublication.org publications for Portico.
 
 By default, this program will contact micropublication.org to get a list of
@@ -92,10 +101,20 @@ the server. The contents of the file must be in the same XML format as the list
 obtain from micropublication.org.
 
 The output will be written to the directory indicated by the value of the
-argument -d (or /d on Windows). If no -d is given, the output will be written
-to the current directory instead. The output directory will also be put into
-a single-file archive in ZIP format unless the argument -A (or /A on Windows)
-is given to prevent creation of the compressed archive file.
+argument -o (or /o on Windows). If no -o is given, the output will be written
+to the current directory instead. The output will be put into a single-file
+archive in ZIP format unless the argument -Z (or /Z on Windows) is given to
+prevent creation of the compressed archive file.
+
+If the option -d is given, microarchiver will download only articles whose
+publication dates are AFTER the given date.  Valid date descriptors are those
+accepted by the Python dateparser library.  Make sure to enclose descriptions
+within single or double quotes.  Examples:
+
+  microarchiver -d "2014-08-29"   ....
+  microarchiver -d "12 Dec 2014"  ....
+  microarchiver -d "July 4, 2013"  ....
+  microarchiver -d "2 weeks ago"  ....
 
 As it works, microarchiver writes information to the terminal about the archives
 it puts into the archive, including whether any problems are encountered. To
@@ -104,7 +123,7 @@ save this info to a file, use the argument -r (or /r on Windows).
 Additional command-line arguments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If given the argument -n (or /n on Windows), microarchiver will ONLY display a
+If given the argument -p (or /p on Windows), microarchiver will ONLY display a
 list of articles it will archive and stop short of creating the archive. This
 is useful to see what would be produced without actually doing it.
 
@@ -122,35 +141,33 @@ Command-line arguments summary
 '''
     # Initial setup -----------------------------------------------------------
 
-    say = MessageHandler(not no_color, quiet)
+    say    = MessageHandler(not no_color, quiet)
     prefix = '/' if sys.platform.startswith('win') else '-'
-    hint = '(Use {}h for help.)'.format(prefix)
-    do_archive = not no_archive
+    hint   = '(Use {}h for help.)'.format(prefix)
+    do_zip = not no_zip
 
     # Process arguments -------------------------------------------------------
+
+    # We use default values that provide more intuitive help text printed by
+    # plac.  Rewrite the values to things we actually use.
+    source     = articles if articles != 'A' else None
+    output_dir = '.' if output_dir == 'O' else output_dir
+    after_date = None if after_date == 'D' else after_date
+    report     = None if report == 'R' else report
 
     if debug:
         set_debug(True)
     if version:
         print_version()
         exit()
-
-    # We use default values that provide more intuitive help text printed by
-    # plac.  Rewrite the values to things we actually use.
-    if articles == 'A':
-        articles = None
-    if dest_dir == 'D':
-        dest_dir = 'micropublication-org'
-    if report == 'R':
-        report = None
-    if dry_run and quiet:
-        exit(say.error_text('Option {}q is incompatible with {}n. {}'.format(
-            prefix, prefix, hint)))
+    if print_only and quiet:
+        text = 'Option {}q is incompatible with {}n. {}'.format(prefix, prefix, hint)
+        exit(say.error_text(text))
 
     # Do the real work --------------------------------------------------------
 
     try:
-        MainBody(articles, dest_dir, report, do_archive, dry_run, say).run()
+        MainBody(source, after_date, output_dir, do_zip, report, print_only, say).run()
     except (KeyboardInterrupt, UserCancelled) as ex:
         exit(say.error_text('Quitting'))
     except Exception as ex:
@@ -164,72 +181,94 @@ Command-line arguments summary
 class MainBody(object):
     '''Main body for Microarchiver.'''
 
-    def __init__(self, articles, dest_dir, report_file, do_archive, dry_run, say):
+    def __init__(self, source, after_date, output_dir, do_zip, report, print_only, say):
         '''Initialize internal variables.'''
-        self._articles    = articles
-        self._dest_dir    = dest_dir
-        self._report_file = report_file
-        self._do_archive  = do_archive
-        self._dry_run     = dry_run
-        self._say         = say
+
+        # Preliminary sanity checks.
+        if not network_available():
+            raise ServiceFailure('No network.')
+
+        if source and not readable(source):
+            raise RuntimeError('File not readable: {}'.format(source))
+        if source and not source.endswith('.xml'):
+            raise RuntimeError('Does not appear to be an XML file: {}'.format(source))
+
+        if not path.isabs(output_dir):
+            output_dir = path.realpath(path.join(os.getcwd(), output_dir))
+        if path.isdir(output_dir):
+            if not writable(output_dir):
+                raise RuntimeError('Directory not writable: {}'.format(output_dir))
+        else:
+            if path.exists(output_dir):
+                raise ValueError('Not a directory: {}'.format(output_dir))
+        dest_dir = path.join(output_dir, _ARCHIVE_DIR_NAME)
+        if not print_only:
+            make_dir(dest_dir)
+
+        if report and file_in_use(report):
+            raise RuntimeError("File is in use by another process: {}".format(report))
+
+        if after_date:
+            try:
+                after_date = parse_datetime(after_date)
+                if __debug__: log('Parsed after_date as {}', after_date)
+            except Exception as ex:
+                raise RuntimeError('Unable to parse date: {}'.format(str(ex)))
+
+        # Store the values we'll use.
+        self._source     = source
+        self._after_date = after_date
+        self._dest_dir   = dest_dir
+        self._do_zip     = do_zip
+        self._report     = report
+        self._print_only = print_only
+        self._say        = say
 
 
     def run(self):
         '''Execute the control logic.'''
 
         # Set shortcut variables for better code readability below.
-        articles    = self._articles
-        dest_dir    = self._dest_dir
-        report_file = self._report_file
-        do_archive  = self._do_archive
-        dry_run     = self._dry_run
-        say         = self._say
+        source     = self._source
+        after_date = self._after_date
+        dest_dir   = self._dest_dir
+        report     = self._report
+        do_zip     = self._do_zip
+        print_only = self._print_only
+        say        = self._say
 
-        # Preliminary sanity checks.
-        if not network_available():
-            raise ServiceFailure('No network.')
-        if articles and not readable(articles):
-            raise RuntimeError('File not readable: {}', articles)
-        if articles and not articles.endswith('.xml'):
-            raise RuntimeError('Does not appear to be an XML file: {}', articles)
-        if not path.isabs(dest_dir):
-            dest_dir = path.realpath(path.join(os.getcwd(), dest_dir))
-        if path.isdir(dest_dir):
-            if not writable(dest_dir):
-                raise RuntimeError('Directory not writable: {}', dest_dir)
-        else:
-            if path.exists(dest_dir):
-                raise ValueError('Not a directory: {}', dest_dir)
-            elif not dry_run:
-                make_dir(dest_dir)
-        if report_file and file_in_use(report_file):
-            raise RuntimeError("Cannot write file becase it's in use: {}", report_file)
-
-        # If we get this far, we're ready to do this thing.
-        if articles:
-            say.info('Reading articles list from XML file {}', articles)
-            articles_list = self.articles_from_xml(articles)
+        # Read the article list, then do optional filtering for date.
+        if source:
+            say.info('Reading articles list from XML file {}', source)
+            articles = self.articles_from_xml(source)
         else:
             say.info('Fetching articles list from {}', _URL_ARTICLES_LIST)
-            articles_list = self.articles_from_xml(_URL_ARTICLES_LIST)
+            articles = self.articles_from_xml(_URL_ARTICLES_LIST)
 
-        num_articles = len(articles_list)
+        if after_date:
+            after_date_str = after_date.strftime(_DATE_PRINT_FORMAT)
+            say.info('Will only keep articles published after {}', after_date_str)
+            articles = [x for x in articles if parse_datetime(x.date) > after_date]
+
+        num_articles = len(articles)
         say.info('Total articles: {}', humanize.intcomma(num_articles))
-        if dry_run:
-            self.print_articles(articles_list)
+        if print_only:
+            self.print_articles(articles)
         else:
-            say.info('Output will be written under directory "{}"', dest_dir)
-            self.write_articles(dest_dir, articles_list)
-            if do_archive:
+            say.info('Output will be written to directory "{}"', dest_dir)
+            self.write_articles(dest_dir, articles)
+            if do_zip:
                 archive_file = dest_dir + '.zip'
                 say.info('Creating ZIP archive file "{}"', archive_file)
                 comments = file_comments(num_articles)
                 create_archive(archive_file, '.zip', dest_dir, comments)
-        if report_file:
-            if path.exists(report_file):
-                rename_existing(report_file)
-            say.info('Writing report to ' + report_file)
-            self.write_report(report_file, articles_list)
+                say.info('Deleting directory "{}"', dest_dir)
+                shutil.rmtree(dest_dir)
+        if report:
+            if path.exists(report):
+                rename_existing(report)
+            say.info('Writing report to ' + report)
+            self.write_report(report, articles)
 
 
     def articles_from_xml(self, file_or_url):
@@ -427,6 +466,12 @@ def software_comments():
     text += '{} version {} <{}>'.format(
         microarchiver.__title__, microarchiver.__version__, microarchiver.__url__)
     return text
+
+
+def parse_datetime(string):
+    '''Parse a human-written time/date string using dateparser's parse()
+function with predefined settings.'''
+    return dateparser.parse(string, settings = {'RETURN_AS_TIMEZONE_AWARE': True})
 
 
 # Main entry point.
