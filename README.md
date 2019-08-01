@@ -73,7 +73,7 @@ microarchiver -o /tmp/micropublication-archive
 The following is a screen recording of an actual run of `microarchiver`:
 
 <p align="center">
-  <a href="https://asciinema.org/a/KprJnt3xcfhKn45xZL3jlvXCx"><img src=".graphics/microarchiver-asciinema.png" alt="Screencast of simple microarchiver demo"></a>
+  <a href="https://asciinema.org/a/260298"><img src=".graphics/microarchiver-asciinema.png" alt="Screencast of simple microarchiver demo"></a>
 </p>
 
 ### _Additional command-line arguments_
