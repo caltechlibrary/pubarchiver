@@ -78,9 +78,9 @@ The following is a screen recording of an actual run of `microarchiver`:
 
 ### _Additional command-line arguments_
 
-If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read instead instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from microPublication.org.
+If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from microPublication.org.
 
-If the option `-d` is given, Microarchiver will download only articles whose publication dates are AFTER the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
+If the option `-d` is given, Microarchiver will download only articles whose publication dates are _after_ the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
 
 ```
   microarchiver -d "2014-08-29"   ....
@@ -91,7 +91,7 @@ If the option `-d` is given, Microarchiver will download only articles whose pub
 
 As it works, microarchiver writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the argument `-r` (or `/r` on Windows).
 
-The output directory will also be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
+The output will be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
 
 Microarchiver will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control signals create problems for your terminal emulator.
 
@@ -155,6 +155,7 @@ The [vector artwork](https://thenounproject.com/search/?q=archive&i=158401) used
 _Microarchiver_ makes use of numerous open-source packages, without which it would have been effectively impossible to develop _Microarchiver_ with the resources we had.  We want to acknowledge this debt.  In alphabetical order, the packages are:
 
 * [colorama](https://github.com/tartley/colorama) &ndash; makes ANSI escape character sequences work under MS Windows terminals
+* [dateparser](https://github.com/scrapinghub/dateparser) &ndash; parser for human-readable dates
 * [humanize](https://github.com/jmoiron/humanize) &ndash; make numbers more easily readable by humans
 * [ipdb](https://github.com/gotcha/ipdb) &ndash; the IPython debugger
 * [lxml](https://lxml.de) &ndash; an XML parsing library for Python
