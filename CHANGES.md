@@ -1,6 +1,13 @@
 Change log for microarchiver
 ============================
 
+Version 1.2.0
+-------------
+
+* Improved installation instructions.
+* Changed debug flag from `-Z` to `-@`.
+* Internal code changes for message printing & colorization.
+
 Version 1.1.0
 -------------
 
