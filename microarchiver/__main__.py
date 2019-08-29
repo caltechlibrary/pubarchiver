@@ -202,8 +202,6 @@ class MainBody(object):
             if path.exists(output_dir):
                 raise ValueError('Not a directory: {}'.format(output_dir))
         dest_dir = path.join(output_dir, _ARCHIVE_DIR_NAME)
-        if not print_only:
-            make_dir(dest_dir)
 
         if report and file_in_use(report):
             raise RuntimeError("File is in use by another process: {}".format(report))
@@ -255,10 +253,12 @@ class MainBody(object):
         if print_only:
             self.print_articles(articles)
         else:
-            say.info('Output will be written to directory "{}"', dest_dir)
             if num_articles == 0:
                 say.info('No articles to archive')
             else:
+                say.info('Output will be written to directory "{}"', dest_dir)
+                if not print_only:
+                    make_dir(dest_dir)
                 self.write_articles(dest_dir, articles)
                 if do_zip:
                     archive_file = dest_dir + '.zip'
