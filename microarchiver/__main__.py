@@ -86,7 +86,7 @@ with datetime.strftime().'''
     report     = ('write report to file R (default: print to terminal)',    'option', 'r'),
     version    = ('print version information and exit',                     'flag',   'V'),
     no_zip     = ('do not zip up the output directory (default: do)',       'flag',   'Z'),
-    debug      = ('turn on debugging',                                      'flag',   '@'),
+    debug      = ('turn on debug tracing & exception catching',             'flag',   '@'),
 )
 
 def main(articles = 'A', no_color = False, after_date = 'D', output_dir = 'O',
@@ -172,17 +172,17 @@ Command-line arguments summary
         exit(say.error_text('Quitting'))
     except Exception as ex:
         if debug:
-            say.error('{}\n{}', str(ex), traceback.format_exc())
+            say.error('{}\n{}'.format(str(ex), traceback.format_exc()))
             import pdb; pdb.set_trace()
         else:
-            exit(say.error_text('{}', str(ex)))
+            exit(say.error_text('{}'.format(str(ex))))
 
 
 class MainBody(object):
     '''Main body for Microarchiver.'''
 
     def __init__(self, source, after_date, output_dir, do_zip, report, print_only, say):
-        '''Initialize internal variables.'''
+        '''Initialize internal state and prepare for running services.'''
 
         # Preliminary sanity checks.
         if not network_available():
@@ -476,13 +476,12 @@ function with predefined settings.'''
 
 # Main entry point.
 # .............................................................................
-# The following allows users to invoke this using "python3 -m microarchiver".
 
-if sys.platform.startswith('win'):
-    # When running on Windows, we want the command-line args to use the slash
-    # character intead of hyphen.
+# On windows, we want plac to use slash intead of hyphen for cmd-line options.
+if ON_WINDOWS:
     main.prefix_chars = '/'
 
+# The following allows users to invoke this using "python3 -m handprint".
 if __name__ == '__main__':
     plac.call(main)
 
