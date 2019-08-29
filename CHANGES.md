@@ -1,6 +1,12 @@
 Change log for microarchiver
 ============================
 
+Version 1.3.1
+-------------
+
+* If there are no articles to archive, don't create the output directory either.
+
+
 Version 1.3.0
 -------------
 
