@@ -478,7 +478,7 @@ function with predefined settings.'''
 # .............................................................................
 
 # On windows, we want plac to use slash intead of hyphen for cmd-line options.
-if ON_WINDOWS:
+if sys.platform.startswith('win'):
     main.prefix_chars = '/'
 
 # The following allows users to invoke this using "python3 -m handprint".
