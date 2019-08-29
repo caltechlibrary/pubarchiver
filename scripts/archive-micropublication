@@ -1,0 +1,74 @@
+#!/bin/bash -x
+# =============================================================================
+# @file    archive-micropublication
+# @brief   Script meant to be run from cron
+# @author  Michael Hucka <mhucka@caltech.edu>
+# @license Please see the file named LICENSE in the project directory
+# @website https://github.com/caltechlibrary/microarchiver
+# =============================================================================
+#
+# Principles:
+#
+#  1. The frequency of archives is set by the cron schedule, not in here.
+#
+#  2. The FTP credentials for the Portico server are passed via environment
+#     variables FTP_USER and FTP_PASS.
+#
+#  3. A timestamp file is created in the output directory, and microarchiver
+#     is run with that date stamp as the "after date" argument.
+#
+#  4. Archives are created in subdirectories of the output directory named
+#     after the date they were done.  E.g., "2019-08-29".
+#
+#  5. A report file is written to the output directory and named "report.csv".
+#
+#  6. A log file is written to the output directory and named "run.log".
+
+outputroot=/raid/micropublication/archives
+datestampfile=$outputroot/last-run-date
+today=$(date +%Y-%m-%d)
+now=$(date +%Y-%m-%d-%H%M)
+
+# Read the date stamp.
+
+if [[ -e $datestampfile ]]; then
+    read lastrun < $datestampfile
+else
+    # We've never run, or someone reset the date stamp.
+    # Use a fake date that basically signifies "since forever".
+    lastrun="1900-01-01"
+fi
+
+# Create the output directory where we'll write this run's archive.
+# However, tag the output directory with the current time rather than
+# merely today's date, because if we run multiple times per day, we
+# would otherwise overwrite the previous data.
+
+outputdir=$outputroot/$now
+mkdir -p $outputdir
+
+# Run microarchiver.
+
+logfile=$outputdir/run.log
+echo "Starting at $now" >> $logfile
+echo "=== Running microarchiver ===" >> $logfile
+microarchiver -C -o $outputdir -d $lastrun -r $outputdir/report.csv >> $logfile 2>&1
+
+# Write out the date stamp, for next time.
+echo $today > $datestampfile
+
+# If we have new articles, ftp them to Portico.
+
+if grep -Fxq "Total articles: 0" $logfile; then
+    exit 0
+fi
+
+archivefile=$outputdir/micropublication-org.zip
+if [[ ! -e $archivefile ]]; then
+    echo "Microarchiver failed to create archive file"
+    exit 1
+fi
+
+echo "" >> $logfile
+echo "=== FTP'ing file using curl ===" >> $logfile
+curl -T $archivefile ftp://ftp.portico.org --user $FTP_USER:$FTP_PASS >> $logfile 2>&1
