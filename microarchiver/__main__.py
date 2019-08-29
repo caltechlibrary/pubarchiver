@@ -256,14 +256,17 @@ class MainBody(object):
             self.print_articles(articles)
         else:
             say.info('Output will be written to directory "{}"', dest_dir)
-            self.write_articles(dest_dir, articles)
-            if do_zip:
-                archive_file = dest_dir + '.zip'
-                say.info('Creating ZIP archive file "{}"', archive_file)
-                comments = file_comments(num_articles)
-                create_archive(archive_file, '.zip', dest_dir, comments)
-                say.info('Deleting directory "{}"', dest_dir)
-                shutil.rmtree(dest_dir)
+            if num_articles == 0:
+                say.info('No articles to archive')
+            else:
+                self.write_articles(dest_dir, articles)
+                if do_zip:
+                    archive_file = dest_dir + '.zip'
+                    say.info('Creating ZIP archive file "{}"', archive_file)
+                    comments = file_comments(num_articles)
+                    create_archive(archive_file, '.zip', dest_dir, comments)
+                    say.info('Deleting directory "{}"', dest_dir)
+                    shutil.rmtree(dest_dir)
         if report:
             if path.exists(report):
                 rename_existing(report)
