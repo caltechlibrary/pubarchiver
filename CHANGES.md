@@ -1,10 +1,11 @@
 Change log for microarchiver
 ============================
 
-Version 1.3.1
+Version 1.4.0
 -------------
 
-* If there are no articles to archive, don't create the output directory either.
+* Add new `scripts` subdirectory with script for use with cron.
+* Fix behavior: if there are no articles to archive, don't create the output directory either.
 
 
 Version 1.3.0
