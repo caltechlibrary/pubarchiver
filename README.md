@@ -34,16 +34,21 @@ The Caltech Library is the publisher of the online journal [microPublication](ht
 ✺ Installation
 -------------
 
-You can download the source code for Microarchiver and run the programs using a Python&nbsp;3 interpreter on macOS, Windows or Linux.  The following is probably the simplest and most direct way to install this software on your computer:
+On **Linux**, **macOS**, and **Windows** operating systems, you should be able to install Microarchiver directly from the GitHub repository using [pip](https://pip.pypa.io/en/stable/installing/).  If you don't have the `pip` package or are uncertain if you do, first run the following command in a terminal command line interpreter: 
+```
+sudo python3 -m ensurepip
+```
+
+Then, install this software by running the following command on your computer:
 ```sh
-sudo python3 -m pip install git+https://github.com/caltechlibrary/microarchiver.git --upgrade
+python3 -m pip install git+https://github.com/caltechlibrary/microarchiver.git --user --upgrade 
 ```
 
 Alternatively, you can clone this GitHub repository and then run `setup.py`:
 ```sh
 git clone https://github.com/caltechlibrary/microarchiver.git
 cd microarchiver
-sudo python3 -m pip install . --upgrade
+python3 -m pip install . --user --upgrade
 ```
 
 
