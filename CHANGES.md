@@ -1,12 +1,19 @@
 Change log for microarchiver
 ============================
 
+Version 1.3.0
+-------------
+
+* If there are no articles to archive, don't create a zip file.
+
+
 Version 1.2.0
 -------------
 
 * Improved installation instructions.
 * Changed debug flag from `-Z` to `-@`.
 * Internal code changes for message printing & colorization.
+
 
 Version 1.1.0
 -------------
