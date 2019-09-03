@@ -80,8 +80,9 @@ with datetime.strftime().'''
     articles   = ('get articles list from file A (default: from network)',  'option', 'a'),
     no_color   = ('do not color-code terminal output',                      'flag',   'C'),
     after_date = ('only get articles published after date "D"',             'option', 'd'),
+    get_xml    = ('print the current archive list from the server & exit',  'flag',   'g'),
     output_dir = ('write archive in directory O (default: current dir)',    'option', 'o'),
-    print_only = ('print the articles list without downloading them',       'flag',   'p'),
+    preview    = ('preview the list of articles that would be downloaded',  'flag',   'p'),
     quiet      = ('only print important diagnostic messages while working', 'flag',   'q'),
     report     = ('write report to file R (default: print to terminal)',    'option', 'r'),
     version    = ('print version information and exit',                     'flag',   'V'),
@@ -89,16 +90,17 @@ with datetime.strftime().'''
     debug      = ('turn on debug tracing & exception catching',             'flag',   '@'),
 )
 
-def main(articles = 'A', no_color = False, after_date = 'D', output_dir = 'O',
-         print_only = False, quiet = False, report = 'R', version = False,
-         no_zip = False, debug = False):
+def main(articles = 'A', no_color = False, after_date = 'D', get_xml = False,
+         output_dir = 'O', preview = False, quiet = False, report = 'R',
+         version = False, no_zip = False, debug = False):
     '''Archive micropublication.org publications for Portico.
 
 By default, this program will contact micropublication.org to get a list of
 current articles. If given the argument -a (or /a on Windows) followed by a
 file name, the given file will be read instead instead of getting the list from
 the server. The contents of the file must be in the same XML format as the list
-obtain from micropublication.org.
+obtain from micropublication.org; see option -g, described below, for a way to
+get the current article list from the server.
 
 The output will be written to the directory indicated by the value of the
 argument -o (or /o on Windows). If no -o is given, the output will be written
@@ -122,6 +124,14 @@ save this info to a file, use the argument -r (or /r on Windows).
 
 Additional command-line arguments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If given the argument -g (or /g on Windows), microarchiver will write to
+standard output the complete current article list from the micropublication.org
+server, in XML format, and exit without doing anything else.  This is useful
+as a starting point for creating the file used by option -a.  It's probably a
+good idea to redirect the output to a file; e.g.,
+
+  microarchiver -g > article-list.xml
 
 If given the argument -p (or /p on Windows), microarchiver will ONLY display a
 list of articles it will archive and stop short of creating the archive. This
@@ -151,8 +161,8 @@ Command-line arguments summary
     # We use default values that provide more intuitive help text printed by
     # plac.  Rewrite the values to things we actually use.
     source     = articles if articles != 'A' else None
+    after      = None if after_date == 'D' else after_date
     output_dir = '.' if output_dir == 'O' else output_dir
-    after_date = None if after_date == 'D' else after_date
     report     = None if report == 'R' else report
 
     if debug:
@@ -160,14 +170,14 @@ Command-line arguments summary
     if version:
         print_version()
         exit()
-    if print_only and quiet:
+    if preview and quiet:
         text = 'Option {}q is incompatible with {}n. {}'.format(prefix, prefix, hint)
         exit(say.error_text(text))
 
     # Do the real work --------------------------------------------------------
 
     try:
-        MainBody(source, after_date, output_dir, do_zip, report, print_only, say).run()
+        MainBody(source, after, output_dir, do_zip, report, get_xml, preview, say).run()
     except (KeyboardInterrupt, UserCancelled) as ex:
         exit(say.error_text('Quitting'))
     except Exception as ex:
@@ -181,12 +191,17 @@ Command-line arguments summary
 class MainBody(object):
     '''Main body for Microarchiver.'''
 
-    def __init__(self, source, after_date, output_dir, do_zip, report, print_only, say):
+    def __init__(self, source, after_date, output_dir, do_zip, report, get_xml, preview, say):
         '''Initialize internal state and prepare for running services.'''
 
         # Preliminary sanity checks.
         if not network_available():
             raise ServiceFailure('No network.')
+
+        if get_xml:
+            if __debug__: log('Fetching articles from server')
+            print(self.get_articles_list())
+            exit()
 
         if source and not readable(source):
             raise RuntimeError('File not readable: {}'.format(source))
@@ -219,7 +234,7 @@ class MainBody(object):
         self._dest_dir   = dest_dir
         self._do_zip     = do_zip
         self._report     = report
-        self._print_only = print_only
+        self._preview    = preview
         self._say        = say
 
 
@@ -232,7 +247,7 @@ class MainBody(object):
         dest_dir   = self._dest_dir
         report     = self._report
         do_zip     = self._do_zip
-        print_only = self._print_only
+        preview = self._preview
         say        = self._say
 
         # Read the article list, then do optional filtering for date.
@@ -250,14 +265,14 @@ class MainBody(object):
 
         num_articles = len(articles)
         say.info('Total articles: {}', humanize.intcomma(num_articles))
-        if print_only:
+        if preview:
             self.print_articles(articles)
         else:
             if num_articles == 0:
                 say.info('No articles to archive')
             else:
                 say.info('Output will be written to directory "{}"', dest_dir)
-                if not print_only:
+                if not preview:
                     make_dir(dest_dir)
                 self.write_articles(dest_dir, articles)
                 if do_zip:
@@ -272,6 +287,16 @@ class MainBody(object):
                 rename_existing(report)
             say.info('Writing report to ' + report)
             self.write_report(report, articles)
+
+
+    def get_articles_list(self):
+        '''Write to standard output the XML article list from the server.'''
+        (response, error) = net('get', _URL_ARTICLES_LIST)
+        if not error and response and response.text:
+            # The micropublication xml declaration explicit uses ascii encoding.
+            return response.text
+        else:
+            return ''
 
 
     def articles_from_xml(self, file_or_url):
@@ -427,7 +452,10 @@ def print_version():
 
 
 def short(url):
-    return url.replace('https://www.micropublication.org', '')
+    for prefix in ['https://micropublication.org', 'https://www.micropublication.org']:
+        if url.startswith(prefix):
+            return url[len(prefix):]
+    return url
 
 
 def volume_for_year(year):
