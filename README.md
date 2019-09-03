@@ -9,7 +9,8 @@ A program to create archives of articles from [microPublication.org](https://www
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg?style=flat-square)](https://choosealicense.com/licenses/bsd-3-clause)
 [![Python](https://img.shields.io/badge/Python-3.4+-brightgreen.svg?style=flat-square)](http://shields.io)
-[![Latest release](https://img.shields.io/badge/Latest_release-1.4.0-b44e88.svg?style=flat-square)](http://shields.io)
+[![Latest release](https://img.shields.io/badge/Latest_release-1.5.0-b44e88.svg?style=flat-square)](http://shields.io)
+[![DOI](http://img.shields.io/badge/DOI-10.22002%20%2f%20D1.1274-navy.svg?style=flat-square)](https://data.caltech.edu/records/1274)
 
 
 Table of Contents
@@ -83,7 +84,8 @@ The following is a screen recording of an actual run of `microarchiver`:
 
 ### _Additional command-line arguments_
 
-If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from microPublication.org.
+If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from microPublication.org; see option `-g`, described below, for a way to
+get the current article list from the server.
 
 If the option `-d` is given, Microarchiver will download only articles whose publication dates are _after_ the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
 
@@ -102,6 +104,12 @@ Microarchiver will print informational messages as it works. To reduce messages 
 
 If given the argument `-p` (or `/p` on Windows), microarchiver will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.
 
+If given the argument `-g` (or `/g` on Windows), microarchiver will _only_ write out a file named `article-list.xml` containing the complete current article list from the micropublication.org server, and exit without doing anything else.  This is useful as a starting point for creating the file used by option `-a`.  It's probably a good idea to redirect the output to a file; e.g.,
+
+```
+microarchiver -g > article-list.xml
+```
+
 
 ### _Summary of command-line options_
 
@@ -113,8 +121,9 @@ The following table summarizes all the command line options available. (Note: on
 | `-a`_A_ | `--articles`_A_   | Get list of articles from file _A_ | Get list from server |
 | `-C`    | `--no-color`      | Don't color-code the output | Use colors in the terminal output |
 | `-d`_D_ | `--after-date`_D_ | Only get articles published after date _D_ | Get all articles |
+| `-g`    | `--get-xml`       | Print the current article list from server and exit | Do other actions instead |
 | `-o`_O_ | `--output-dir`_O_ | Write output in directory _O_ | Write in current dir |
-| `-p`    | `--print-only`    | Only print what would be obtained | Do the real work |
+| `-p`    | `--preview`       | Preview what would be obtained | Obtain the articles |
 | `-q`    | `--quiet`         | Only print important messages while working | Be chatty while working |
 | `-r`_R_ | `--report`_R_     | Write list of article & results in file _R_ | Don't write a report |
 | `-V`    | `--version`       | Print program version info and exit | Do other actions instead |
