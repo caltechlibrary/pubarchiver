@@ -1,17 +1,24 @@
 Change log for microarchiver
 ============================
 
+Version 1.5.0
+-------------
+
+* Added new `-g` option to print the raw XML article list from the server.
+* Did very minor internal code refactoring.
+
+
 Version 1.4.0
 -------------
 
-* Add new `scripts` subdirectory with script for use with cron.
-* Fix behavior: if there are no articles to archive, don't create the output directory either.
+* Added new `scripts` subdirectory with script for use with cron.
+* Fixed behavior: if there are no articles to archive, don't create the output directory either.
 
 
 Version 1.3.0
 -------------
 
-* If there are no articles to archive, don't create a zip file.
+* Now if there are no articles to archive, it won't create a zip file.
 
 
 Version 1.2.0
