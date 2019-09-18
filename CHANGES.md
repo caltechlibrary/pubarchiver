@@ -1,6 +1,13 @@
 Change log for microarchiver
 ============================
 
+Version 1.5.1
+-------------
+
+* Fix bug in propagating network failures up to the top of main.
+* Fix case of variable being shadowed inside a block.
+
+
 Version 1.5.0
 -------------
 
