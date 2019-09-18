@@ -48,7 +48,7 @@ def set_debug(enabled):
     if __debug__:
         from logging import DEBUG, WARNING
         logging.getLogger(__package__).setLevel(DEBUG if enabled else WARNING)
-        setattr(sys.modules[__package__], '_debugging', True)
+        setattr(sys.modules[__package__], '_debugging', enabled)
 
 
 def log(s, *other_args):
