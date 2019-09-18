@@ -311,12 +311,7 @@ class MainBody(object):
                 if __debug__: log('error reading from micropublication.org server')
                 if isinstance(error, NoContent):
                     self._say.fatal('Server returned no content')
-                    raise
-                elif isinstance(error, ServiceFailure):
-                    self._say.fatal('Server failure -- try again later')
-                    raise
-                else:
-                    raise error
+                raise error
             else:
                 raise InternalError('Unexpected response from server')
         else: # Assume it's a file.
