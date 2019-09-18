@@ -182,7 +182,7 @@ Command-line arguments summary
         exit(say.error_text('Quitting'))
     except Exception as ex:
         if debug:
-            say.error('{}\n{}'.format(str(ex), traceback.format_exc()))
+            say.error('{}\n{}', str(ex), traceback.format_exc())
             import pdb; pdb.set_trace()
         else:
             exit(say.error_text('{}'.format(str(ex))))
