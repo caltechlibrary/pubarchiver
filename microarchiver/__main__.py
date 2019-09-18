@@ -311,12 +311,7 @@ class MainBody(object):
                 if __debug__: log('error reading from micropublication.org server')
                 if isinstance(error, NoContent):
                     self._say.fatal('Server returned no content')
-                    raise
-                elif isinstance(error, ServiceFailure):
-                    self._say.fatal('Server failure -- try again later')
-                    raise
-                else:
-                    raise error
+                raise error
             else:
                 raise InternalError('Unexpected response from server')
         else: # Assume it's a file.
@@ -405,9 +400,9 @@ class MainBody(object):
             xml_file = path.join(article_dir, xml_filename(article))
             pdf_file = path.join(article_dir, pdf_filename(article))
             self._say.info('Writing ' + article.doi)
-            with open(xml_file, 'w', encoding = 'utf8') as xml_file:
+            with open(xml_file, 'w', encoding = 'utf8') as f:
                 if __debug__: log('writing XML to {}', xml_file)
-                xml_file.write(xmltodict.unparse(xml))
+                f.write(xmltodict.unparse(xml))
             if __debug__: log('downloading PDF to {}', pdf_file)
             download(article.pdf, pdf_file)
         return article_list
