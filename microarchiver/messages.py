@@ -52,6 +52,7 @@ class MessageHandler():
 
     def info(self, text, *args):
         '''Prints an informational message.'''
+        if __debug__: log(text, *args)
         if not self.be_quiet():
             print(self.info_text(text, *args), flush = True)
 
@@ -63,6 +64,7 @@ class MessageHandler():
 
     def warn(self, text, *args):
         '''Prints a nonfatal, noncritical warning message.'''
+        if __debug__: log(text, *args)
         print(self.warn_text(text, *args), flush = True)
 
 
@@ -73,6 +75,7 @@ class MessageHandler():
 
     def error(self, text, *args):
         '''Prints a message reporting a critical error.'''
+        if __debug__: log(text, *args)
         print(self.error_text(text, *args), flush = True)
 
 
@@ -89,6 +92,7 @@ class MessageHandler():
         exit the program; it leaves that to the caller in case the caller
         needs to perform additional tasks before exiting.
         '''
+        if __debug__: log(text, *args)
         print(self.fatal_text(text, *args), flush = True)
 
 
@@ -102,6 +106,7 @@ class MessageHandler():
 
 
     def msg(self, text, flags = None):
+        if __debug__: log(text, *args)
         print(self.msg_text(text, flags), flush = True)
 
 
