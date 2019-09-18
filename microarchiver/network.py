@@ -180,7 +180,7 @@ def net(get_or_post, url, session = None, polling = False, recursing = 0, **kwar
     elif code == 503:
         error = ServiceFailure('Server is unavailable -- try again later')
     elif code in [500, 501, 502, 506, 507, 508]:
-        error = ServiceFailure('Dimensions server error (HTTP code {})'.format(code))
+        error = ServiceFailure('Server error (HTTP code {})'.format(code))
     elif not (200 <= code < 400):
         error = NetworkFailure("Unable to resolve {}".format(url))
     return (req, error)
