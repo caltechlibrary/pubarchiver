@@ -400,9 +400,9 @@ class MainBody(object):
             xml_file = path.join(article_dir, xml_filename(article))
             pdf_file = path.join(article_dir, pdf_filename(article))
             self._say.info('Writing ' + article.doi)
-            with open(xml_file, 'w', encoding = 'utf8') as xml_file:
+            with open(xml_file, 'w', encoding = 'utf8') as f:
                 if __debug__: log('writing XML to {}', xml_file)
-                xml_file.write(xmltodict.unparse(xml))
+                f.write(xmltodict.unparse(xml))
             if __debug__: log('downloading PDF to {}', pdf_file)
             download(article.pdf, pdf_file)
         return article_list
