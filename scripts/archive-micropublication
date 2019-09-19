@@ -50,25 +50,31 @@ mkdir -p $outputdir
 # Run microarchiver.
 
 logfile=$outputdir/run.log
+debugfile=$outputdir/debug.log
+csvfile=$outputdir/report.csv
+
 echo "Starting at $now" >> $logfile
+
+echo "" >> $logfile
 echo "=== Running microarchiver ===" >> $logfile
-microarchiver -C -o $outputdir -d $lastrun -r $outputdir/report.csv >> $logfile 2>&1
+microarchiver -C -d $lastrun -o $outputdir -r $csvfile -@ $debugfile >> $logfile 2>&1
 
 # Write out the date stamp, for next time.
 echo $today > $datestampfile
 
 # If we have new articles, ftp them to Portico.
+if ! grep -Fxq "Total articles: 0" $logfile; then
+    archivefile=$outputdir/micropublication-org.zip
+    if [[ ! -e $archivefile ]]; then
+        echo "Microarchiver failed to create archive file"
+        exit 1
+    fi
 
-if grep -Fxq "Total articles: 0" $logfile; then
-    exit 0
+    echo "" >> $logfile
+    echo "=== FTP'ing file using curl ===" >> $logfile
+    curl -T $archivefile ftp://ftp.portico.org --user $FTP_USER:$FTP_PASS >> $logfile 2>&1
 fi
 
-archivefile=$outputdir/micropublication-org.zip
-if [[ ! -e $archivefile ]]; then
-    echo "Microarchiver failed to create archive file"
-    exit 1
-fi
-
-echo "" >> $logfile
-echo "=== FTP'ing file using curl ===" >> $logfile
-curl -T $archivefile ftp://ftp.portico.org --user $FTP_USER:$FTP_PASS >> $logfile 2>&1
+# Always send mail with the results.
+grep -F "Total articles" $logfile | \
+    mail -s"Portico archiving results for $today" -a $csvfile -a $logfile mhucka@caltech.edu
