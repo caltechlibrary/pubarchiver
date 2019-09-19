@@ -445,10 +445,11 @@ class MainBody(object):
 # .............................................................................
 
 def print_version():
-    print('{} version {}'.format(microarchiver.__title__, microarchiver.__version__))
-    print('Author: {}'.format(microarchiver.__author__))
-    print('URL: {}'.format(microarchiver.__url__))
-    print('License: {}'.format(microarchiver.__license__))
+    this_module = sys.modules[__package__]
+    print('{} version {}'.format(this_module.__name__, this_module.__version__))
+    print('Authors: {}'.format(this_module.__author__))
+    print('URL: {}'.format(this_module.__url__))
+    print('License: {}'.format(this_module.__license__))
 
 
 def short(url):

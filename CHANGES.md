@@ -1,6 +1,13 @@
 Change log for microarchiver
 ============================
 
+Version 1.6.0
+-------------
+
+* Change the debug flag `-@` to accept an argument for where to send the debug output trace. The behavior change of `-@` is not backward compatible.
+* Put metadata in `setup.cfg` and change how Microarchiver gets the metadata internally.
+
+
 Version 1.5.1
 -------------
 
