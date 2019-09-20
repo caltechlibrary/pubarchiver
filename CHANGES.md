@@ -1,6 +1,13 @@
 Change log for microarchiver
 ============================
 
+Version 1.6.1
+-------------
+
+* Fix broken handling of debug trace output destination.
+* Update `README.md`.
+
+
 Version 1.6.0
 -------------
 
