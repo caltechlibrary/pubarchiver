@@ -8,8 +8,8 @@ A program to create archives of articles from [microPublication.org](https://www
 *License*:      BSD/MIT derivative &ndash; see the [LICENSE](LICENSE) file for more information
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg?style=flat-square)](https://choosealicense.com/licenses/bsd-3-clause)
-[![Python](https://img.shields.io/badge/Python-3.4+-brightgreen.svg?style=flat-square)](http://shields.io)
-[![Latest release](https://img.shields.io/github/v/release/caltechlibrary/microarchiver.svg?style=flat-square&color=b44e88)](http://shields.io)
+[![Python](https://img.shields.io/badge/Python-3.4+-brightgreen.svg?style=flat-square)](https://www.python.org/downloads/release/python-350/)
+[![Latest release](https://img.shields.io/github/v/release/caltechlibrary/microarchiver.svg?style=flat-square&color=b44e88)](https://github.com/caltechlibrary/microarchiver/releases)
 [![DOI](https://img.shields.io/badge/dynamic/json.svg?label=DOI&style=flat-square&colorA=gray&colorB=navy&query=$.metadata.doi&uri=https://data.caltech.edu/api/record/1282)](https://data.caltech.edu/records/1282)
 
 
@@ -87,7 +87,7 @@ The following is a screen recording of an actual run of `microarchiver`:
 If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from microPublication.org; see option `-g`, described below, for a way to
 get the current article list from the server.
 
-If the option `-d` is given, Microarchiver will download only articles whose publication dates are _after_ the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
+If the option `-d` is given, `microarchiver` will download only articles whose publication dates are _after_ the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
 
 ```
   microarchiver -d "2014-08-29"   ....
@@ -96,19 +96,21 @@ If the option `-d` is given, Microarchiver will download only articles whose pub
   microarchiver -d "2 weeks ago"  ....
 ```
 
-As it works, microarchiver writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the argument `-r` (or `/r` on Windows).
+As it works, `microarchiver` writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the argument `-r` (or `/r` on Windows).
 
 The output will be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
 
-Microarchiver will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control signals create problems for your terminal emulator.
+`microarchiver` will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control sequences create problems for your terminal emulator.
 
-If given the argument `-p` (or `/p` on Windows), microarchiver will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.
+If given the argument `-p` (or `/p` on Windows), `microarchiver` will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.
 
-If given the argument `-g` (or `/g` on Windows), microarchiver will _only_ write out a file named `article-list.xml` containing the complete current article list from the micropublication.org server, and exit without doing anything else.  This is useful as a starting point for creating the file used by option `-a`.  It's probably a good idea to redirect the output to a file; e.g.,
+If given the argument `-g` (or `/g` on Windows), `microarchiver` will _only_ write out a file named `article-list.xml` containing the complete current article list from the micropublication.org server, and exit without doing anything else.  This is useful as a starting point for creating the file used by option `-a`.  It's probably a good idea to redirect the output to a file; e.g.,
 
 ```
 microarchiver -g > article-list.xml
 ```
+
+If given the `-@` argument (`/@` on Windows), this program will output a detailed trace of what it is doing, and will also drop into a debugger upon the occurrence of any errors.  The debug trace will be written to the given destination, which can be a dash character (`-`) to indicate console output, or a file path.
 
 
 ### _Summary of command-line options_
@@ -116,19 +118,22 @@ microarchiver -g > article-list.xml
 
 The following table summarizes all the command line options available. (Note: on Windows computers, `/` must be used as the prefix character instead of `-`):
 
-| Short   | Long&nbsp;form&nbsp;opt | Meaning | Default |
-|---------|-------------------|----------------------|---------|
-| `-a`_A_ | `--articles`_A_   | Get list of articles from file _A_ | Get list from server |
-| `-C`    | `--no-color`      | Don't color-code the output | Use colors in the terminal output |
-| `-d`_D_ | `--after-date`_D_ | Only get articles published after date _D_ | Get all articles |
-| `-g`    | `--get-xml`       | Print the current article list from server and exit | Do other actions instead |
-| `-o`_O_ | `--output-dir`_O_ | Write output in directory _O_ | Write in current dir |
-| `-p`    | `--preview`       | Preview what would be obtained | Obtain the articles |
-| `-q`    | `--quiet`         | Only print important messages while working | Be chatty while working |
-| `-r`_R_ | `--report`_R_     | Write list of article & results in file _R_ | Don't write a report |
-| `-V`    | `--version`       | Print program version info and exit | Do other actions instead |
-| `-Z`    | `--no-zip`        | Don't put output into one ZIP archive | ZIP up the output |
-| `-@`    | `--debug`         | Debugging mode | Normal mode |
+| Short&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Long&nbsp;form&nbsp;opt&nbsp;&nbsp; | Meaning | Default | |
+|---------|-------------------|----------------------|---------|--|
+| `-a`_A_ | `--articles`_A_   | Get list of articles from file _A_ | Get list from server | |
+| `-C`    | `--no-color`      | Don't color-code the output | Use colors in the terminal output | |
+| `-d`_D_ | `--after-date`_D_ | Only get articles published after date _D_ | Get all articles | ⬥ |
+| `-g`    | `--get-xml`       | Print the server's article list & exit | Do other actions instead | |
+| `-o`_O_ | `--output-dir`_O_ | Write output in directory _O_ | Write in current dir | |
+| `-p`    | `--preview`       | Preview what would be obtained | Obtain the articles | |
+| `-q`    | `--quiet`         | Only print important messages | Be chatty while working | |
+| `-r`_R_ | `--report`_R_     | Write list of article & results in file _R_ | Don't write a report | |
+| `-V`    | `--version`       | Print program version info and exit | Do other actions instead | |
+| `-Z`    | `--no-zip`        | Don't put output into one ZIP archive | ZIP up the output | |
+| `-@`_OUT_ | `--debug`_OUT_  | Debugging mode; write trace to _OUT_ | Normal mode | ⚑ |
+
+⬥ &nbsp; Enclose the date in quotes if it contains space characters; e.g., `"12 Dec 2014"`.<br>
+⚑ &nbsp; To write to the console, use the character `-` as the value of _OUT_; otherwise, _OUT_ must be the name of a file where the output should be written.
 
 
 ⚑ Known issues and limitations
@@ -158,7 +163,7 @@ Copyright &copy; 2019, Caltech.  This software is freely distributed under a BSD
 ❡ Authors and history
 --------------------
 
-[Tom Morrell](https://github.com/tmorrell) developed the original algorithm for extracting metadata from DataCite and creating XML files for use with Portico submissions of microPublication.org articles.  [Mike Hucka](https://github.com/mhucka) created the much-expanded second version now known as `microarchiver`.
+[Tom Morrell](https://github.com/tmorrell) developed the original algorithm for extracting metadata from DataCite and creating XML files for use with Portico submissions of microPublication.org articles.  [Mike Hucka](https://github.com/mhucka) created the much-expanded second version now known as Microarchiver.
 
 
 ♥︎ Acknowledgments
@@ -166,7 +171,7 @@ Copyright &copy; 2019, Caltech.  This software is freely distributed under a BSD
 
 The [vector artwork](https://thenounproject.com/search/?q=archive&i=158401) used as a starting point for the logo for this repository was created by [Thomas Helbig](https://thenounproject.com/dergraph/) for the [Noun Project](https://thenounproject.com).  It is licensed under the Creative Commons [Attribution 3.0 Unported](https://creativecommons.org/licenses/by/3.0/deed.en) license.  The vector graphics was modified by Mike Hucka to change the color.
 
-_Microarchiver_ makes use of numerous open-source packages, without which it would have been effectively impossible to develop _Microarchiver_ with the resources we had.  We want to acknowledge this debt.  In alphabetical order, the packages are:
+Microarchiver makes use of numerous open-source packages, without which it would have been effectively impossible to develop Microarchiver with the resources we had.  We want to acknowledge this debt.  In alphabetical order, the packages are:
 
 * [colorama](https://github.com/tartley/colorama) &ndash; makes ANSI escape character sequences work under MS Windows terminals
 * [dateparser](https://github.com/scrapinghub/dateparser) &ndash; parser for human-readable dates
