@@ -87,12 +87,12 @@ with datetime.strftime().'''
     report     = ('write report to file R (default: print to terminal)',    'option', 'r'),
     version    = ('print version information and exit',                     'flag',   'V'),
     no_zip     = ('do not zip up the output directory (default: do)',       'flag',   'Z'),
-    debug      = ('catch exceptions; also send debug trace to "output"',    'option', '@'),
+    debug      = ('write detailed trace to "OUT" (use "-" for console)',    'option', '@'),
 )
 
 def main(articles = 'A', no_color = False, after_date = 'D', get_xml = False,
          output_dir = 'O', preview = False, quiet = False, report = 'R',
-         version = False, no_zip = False, debug = 'out'):
+         version = False, no_zip = False, debug = 'OUT'):
     '''Archive micropublication.org publications for Portico.
 
 By default, this program will contact micropublication.org to get a list of
@@ -147,9 +147,10 @@ If given the -V argument (/V on Windows), this program will print version
 information and exit without doing anything else.
 
 If given the -@ argument (/@ on Windows), this program will output a detailed
-trace of execution and also catch any exceptions that occurr.  The debug trace
-will be sent to the given destination, which can be '-' to indicate console
-output, or a file path to send the output to a file.
+trace of what it is doing to the terminal window, and will also drop into a
+debugger upon the occurrence of any errors.  The debug trace will be sent to
+the given destination, which can be '-' to indicate console output, or a file
+path to send the output to a file.
 
 Command-line arguments summary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -170,7 +171,7 @@ Command-line arguments summary
     output_dir = '.' if output_dir == 'O' else output_dir
     report     = None if report == 'R' else report
 
-    if debug:
+    if debug != 'OUT':
         set_debug(True, debug)
     if version:
         print_version()
