@@ -35,7 +35,7 @@ The Caltech Library is the publisher of the online journal [microPublication](ht
 ✺ Installation
 -------------
 
-On **Linux**, **macOS**, and **Windows** operating systems, you should be able to install microarchiver directly from the GitHub repository using [pip](https://pip.pypa.io/en/stable/installing/).  If you don't have the `pip` package or are uncertain if you do, first run the following command in a terminal command line interpreter: 
+On **Linux**, **macOS**, and **Windows** operating systems, you should be able to install Microarchiver directly from the GitHub repository using [pip](https://pip.pypa.io/en/stable/installing/).  If you don't have the `pip` package or are uncertain if you do, first run the following command in a terminal command line interpreter: 
 ```
 sudo python3 -m ensurepip
 ```
@@ -87,7 +87,7 @@ The following is a screen recording of an actual run of `microarchiver`:
 If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from microPublication.org; see option `-g`, described below, for a way to
 get the current article list from the server.
 
-If the option `-d` is given, Microarchiver will download only articles whose publication dates are _after_ the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
+If the option `-d` is given, `microarchiver` will download only articles whose publication dates are _after_ the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
 
 ```
   microarchiver -d "2014-08-29"   ....
@@ -96,15 +96,15 @@ If the option `-d` is given, Microarchiver will download only articles whose pub
   microarchiver -d "2 weeks ago"  ....
 ```
 
-As it works, microarchiver writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the argument `-r` (or `/r` on Windows).
+As it works, `microarchiver` writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the argument `-r` (or `/r` on Windows).
 
 The output will be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
 
-Microarchiver will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control sequences create problems for your terminal emulator.
+`microarchiver` will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control sequences create problems for your terminal emulator.
 
-If given the argument `-p` (or `/p` on Windows), microarchiver will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.
+If given the argument `-p` (or `/p` on Windows), `microarchiver` will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.
 
-If given the argument `-g` (or `/g` on Windows), microarchiver will _only_ write out a file named `article-list.xml` containing the complete current article list from the micropublication.org server, and exit without doing anything else.  This is useful as a starting point for creating the file used by option `-a`.  It's probably a good idea to redirect the output to a file; e.g.,
+If given the argument `-g` (or `/g` on Windows), `microarchiver` will _only_ write out a file named `article-list.xml` containing the complete current article list from the micropublication.org server, and exit without doing anything else.  This is useful as a starting point for creating the file used by option `-a`.  It's probably a good idea to redirect the output to a file; e.g.,
 
 ```
 microarchiver -g > article-list.xml
@@ -163,7 +163,7 @@ Copyright &copy; 2019, Caltech.  This software is freely distributed under a BSD
 ❡ Authors and history
 --------------------
 
-[Tom Morrell](https://github.com/tmorrell) developed the original algorithm for extracting metadata from DataCite and creating XML files for use with Portico submissions of microPublication.org articles.  [Mike Hucka](https://github.com/mhucka) created the much-expanded second version now known as `microarchiver`.
+[Tom Morrell](https://github.com/tmorrell) developed the original algorithm for extracting metadata from DataCite and creating XML files for use with Portico submissions of microPublication.org articles.  [Mike Hucka](https://github.com/mhucka) created the much-expanded second version now known as Microarchiver.
 
 
 ♥︎ Acknowledgments
@@ -171,7 +171,7 @@ Copyright &copy; 2019, Caltech.  This software is freely distributed under a BSD
 
 The [vector artwork](https://thenounproject.com/search/?q=archive&i=158401) used as a starting point for the logo for this repository was created by [Thomas Helbig](https://thenounproject.com/dergraph/) for the [Noun Project](https://thenounproject.com).  It is licensed under the Creative Commons [Attribution 3.0 Unported](https://creativecommons.org/licenses/by/3.0/deed.en) license.  The vector graphics was modified by Mike Hucka to change the color.
 
-_Microarchiver_ makes use of numerous open-source packages, without which it would have been effectively impossible to develop _Microarchiver_ with the resources we had.  We want to acknowledge this debt.  In alphabetical order, the packages are:
+Microarchiver makes use of numerous open-source packages, without which it would have been effectively impossible to develop Microarchiver with the resources we had.  We want to acknowledge this debt.  In alphabetical order, the packages are:
 
 * [colorama](https://github.com/tartley/colorama) &ndash; makes ANSI escape character sequences work under MS Windows terminals
 * [dateparser](https://github.com/scrapinghub/dateparser) &ndash; parser for human-readable dates
