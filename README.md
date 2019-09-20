@@ -8,8 +8,8 @@ A program to create archives of articles from [microPublication.org](https://www
 *License*:      BSD/MIT derivative &ndash; see the [LICENSE](LICENSE) file for more information
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg?style=flat-square)](https://choosealicense.com/licenses/bsd-3-clause)
-[![Python](https://img.shields.io/badge/Python-3.4+-brightgreen.svg?style=flat-square)](http://shields.io)
-[![Latest release](https://img.shields.io/github/v/release/caltechlibrary/microarchiver.svg?style=flat-square&color=b44e88)](http://shields.io)
+[![Python](https://img.shields.io/badge/Python-3.4+-brightgreen.svg?style=flat-square)](https://www.python.org/downloads/release/python-350/)
+[![Latest release](https://img.shields.io/github/v/release/caltechlibrary/microarchiver.svg?style=flat-square&color=b44e88)](https://github.com/caltechlibrary/microarchiver/releases)
 [![DOI](https://img.shields.io/badge/dynamic/json.svg?label=DOI&style=flat-square&colorA=gray&colorB=navy&query=$.metadata.doi&uri=https://data.caltech.edu/api/record/1282)](https://data.caltech.edu/records/1282)
 
 
@@ -35,7 +35,7 @@ The Caltech Library is the publisher of the online journal [microPublication](ht
 ✺ Installation
 -------------
 
-On **Linux**, **macOS**, and **Windows** operating systems, you should be able to install Microarchiver directly from the GitHub repository using [pip](https://pip.pypa.io/en/stable/installing/).  If you don't have the `pip` package or are uncertain if you do, first run the following command in a terminal command line interpreter: 
+On **Linux**, **macOS**, and **Windows** operating systems, you should be able to install microarchiver directly from the GitHub repository using [pip](https://pip.pypa.io/en/stable/installing/).  If you don't have the `pip` package or are uncertain if you do, first run the following command in a terminal command line interpreter: 
 ```
 sudo python3 -m ensurepip
 ```
@@ -100,7 +100,7 @@ As it works, microarchiver writes information to the terminal about the archives
 
 The output will be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
 
-Microarchiver will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control signals create problems for your terminal emulator.
+Microarchiver will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control sequences create problems for your terminal emulator.
 
 If given the argument `-p` (or `/p` on Windows), microarchiver will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.
 
@@ -110,25 +110,30 @@ If given the argument `-g` (or `/g` on Windows), microarchiver will _only_ write
 microarchiver -g > article-list.xml
 ```
 
+If given the `-@` argument (`/@` on Windows), this program will output a detailed trace of what it is doing, and will also drop into a debugger upon the occurrence of any errors.  The debug trace will be written to the given destination, which can be a dash character (`-`) to indicate console output, or a file path.
+
 
 ### _Summary of command-line options_
 
 
 The following table summarizes all the command line options available. (Note: on Windows computers, `/` must be used as the prefix character instead of `-`):
 
-| Short   | Long&nbsp;form&nbsp;opt | Meaning | Default |
-|---------|-------------------|----------------------|---------|
-| `-a`_A_ | `--articles`_A_   | Get list of articles from file _A_ | Get list from server |
-| `-C`    | `--no-color`      | Don't color-code the output | Use colors in the terminal output |
-| `-d`_D_ | `--after-date`_D_ | Only get articles published after date _D_ | Get all articles |
-| `-g`    | `--get-xml`       | Print the current article list from server and exit | Do other actions instead |
-| `-o`_O_ | `--output-dir`_O_ | Write output in directory _O_ | Write in current dir |
-| `-p`    | `--preview`       | Preview what would be obtained | Obtain the articles |
-| `-q`    | `--quiet`         | Only print important messages while working | Be chatty while working |
-| `-r`_R_ | `--report`_R_     | Write list of article & results in file _R_ | Don't write a report |
-| `-V`    | `--version`       | Print program version info and exit | Do other actions instead |
-| `-Z`    | `--no-zip`        | Don't put output into one ZIP archive | ZIP up the output |
-| `-@`    | `--debug`         | Debugging mode | Normal mode |
+| Short&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Long&nbsp;form&nbsp;opt&nbsp;&nbsp; | Meaning | Default | |
+|---------|-------------------|----------------------|---------|--|
+| `-a`_A_ | `--articles`_A_   | Get list of articles from file _A_ | Get list from server | |
+| `-C`    | `--no-color`      | Don't color-code the output | Use colors in the terminal output | |
+| `-d`_D_ | `--after-date`_D_ | Only get articles published after date _D_ | Get all articles | ⬥ |
+| `-g`    | `--get-xml`       | Print the server's article list & exit | Do other actions instead | |
+| `-o`_O_ | `--output-dir`_O_ | Write output in directory _O_ | Write in current dir | |
+| `-p`    | `--preview`       | Preview what would be obtained | Obtain the articles | |
+| `-q`    | `--quiet`         | Only print important messages | Be chatty while working | |
+| `-r`_R_ | `--report`_R_     | Write list of article & results in file _R_ | Don't write a report | |
+| `-V`    | `--version`       | Print program version info and exit | Do other actions instead | |
+| `-Z`    | `--no-zip`        | Don't put output into one ZIP archive | ZIP up the output | |
+| `-@`_OUT_ | `--debug`_OUT_  | Debugging mode; write trace to _OUT_ | Normal mode | ⚑ |
+
+⬥ &nbsp; Enclose the date in quotes if it contains space characters; e.g., `"12 Dec 2014"`.<br>
+⚑ &nbsp; To write to the console, use the character `-` as the value of _OUT_; otherwise, _OUT_ must be the name of a file where the output should be written.
 
 
 ⚑ Known issues and limitations
