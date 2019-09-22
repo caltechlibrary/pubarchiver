@@ -495,9 +495,8 @@ def file_comments(num_articles):
 
 def software_comments():
     text  = '\n'
-    text += 'The software used to create this archive file was:\n'
-    text += '{} version {} <{}>'.format(
-        microarchiver.__title__, microarchiver.__version__, microarchiver.__url__)
+    text += 'The software used to create this archive file was microarchiver\n'
+    text += 'version {} <{}>'.format(microarchiver.__version__, microarchiver.__url__)
     return text
 
 
