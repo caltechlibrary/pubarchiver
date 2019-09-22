@@ -483,8 +483,9 @@ def file_comments(num_articles):
     text += 'About this ZIP archive file:\n'
     text += '\n'
     text += 'This archive contains a directory of articles from microPublication.org\n'
-    text += 'created on {}. There are {} articles in this archive.'.format(
-        str(datetime.date.today()), num_articles)
+    text += 'created on {}. There {} {} article{} in this archive.'.format(
+        str(datetime.date.today()), 'is' if num_articles == 1 else 'are',
+        num_articles, '' if num_articles == 1 else 's')
     text += '\n'
     text += software_comments()
     text += '\n'
