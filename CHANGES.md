@@ -1,11 +1,17 @@
 Change log for microarchiver
 ============================
 
+Version 1.6.2
+-------------
+
+* Fix crasher in writing comment into zip file because of reference to no-longer-existing package attribute.
+
+
 Version 1.6.1
 -------------
 
 * Fix broken handling of debug trace output destination.
-* Update `README.md`.
+* Update `README.md` to describe changes to debug flag.
 
 
 Version 1.6.0
