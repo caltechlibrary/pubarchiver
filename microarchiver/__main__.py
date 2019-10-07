@@ -29,7 +29,6 @@ import plac
 from   recordclass import recordclass
 import shutil
 import sys
-import traceback
 import xmltodict
 
 import microarchiver
@@ -161,6 +160,7 @@ Command-line arguments summary
     prefix = '/' if sys.platform.startswith('win') else '-'
     hint   = '(Use {}h for help.)'.format(prefix)
     do_zip = not no_zip
+    debugging = debug != 'OUT'
 
     # Process arguments -------------------------------------------------------
 
@@ -171,7 +171,7 @@ Command-line arguments summary
     output_dir = '.' if output_dir == 'O' else output_dir
     report     = None if report == 'R' else report
 
-    if debug != 'OUT':
+    if debugging:
         set_debug(True, debug)
     if version:
         print_version()
@@ -187,7 +187,8 @@ Command-line arguments summary
     except (KeyboardInterrupt, UserCancelled) as ex:
         exit(say.error_text('Quitting'))
     except Exception as ex:
-        if debug:
+        if debugging:
+            import traceback
             say.error('{}\n{}', str(ex), traceback.format_exc())
             import pdb; pdb.set_trace()
         else:
