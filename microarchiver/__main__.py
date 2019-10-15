@@ -314,10 +314,12 @@ class MainBody(object):
             if not error and response and response.text:
                 # The micropublication xml declaration explicit uses ascii encoding.
                 xml = response.text.encode('ascii')
+            elif error and isinstance(error, NoContent):
+                if __debug__: log('request for article list was met with code 404 or 410')
+                self._say.fatal(str(error))
+                return []
             elif error:
                 if __debug__: log('error reading from micropublication.org server')
-                if isinstance(error, NoContent):
-                    self._say.fatal('Server returned no content')
                 raise error
             else:
                 raise InternalError('Unexpected response from server')
