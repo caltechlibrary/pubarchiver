@@ -336,20 +336,24 @@ class MainBody(object):
         '''
         if __debug__: log('parsing XML data')
         articles = []
-        for element in etree.fromstring(xml).findall('article'):
-            pdf   = (element.find('pdf-url').text or '').strip()
-            doi   = (element.find('doi').text or '').strip()
-            title = (element.find('article-title').text or '').strip()
-            date  = element.find('date-published')
-            if date != None:
-                year  = (date.find('year').text or '').strip()
-                month = (date.find('month').text or '').strip()
-                day   = (date.find('day').text or '').strip()
-                date  = year + '-' + month + '-' + day
-            else:
-                date = ''
-            status = 'incomplete' if not(all([pdf, doi, title, date])) else 'complete'
-            articles.append(Article(doi, date, title, pdf, status))
+        try:
+            for element in etree.fromstring(xml).findall('article'):
+                pdf   = (element.find('pdf-url').text or '').strip()
+                doi   = (element.find('doi').text or '').strip()
+                title = (element.find('article-title').text or '').strip()
+                date  = element.find('date-published')
+                if date != None:
+                    year  = (date.find('year').text or '').strip()
+                    month = (date.find('month').text or '').strip()
+                    day   = (date.find('day').text or '').strip()
+                    date  = year + '-' + month + '-' + day
+                else:
+                    date = ''
+                status = 'incomplete' if not(all([pdf, doi, title, date])) else 'complete'
+                articles.append(Article(doi, date, title, pdf, status))
+        except Exception as ex:
+            if __debug__: log('could not parse XML from server')
+            self._say.error('Unexpected or badly formed XML returned by server')
         return articles
 
 
