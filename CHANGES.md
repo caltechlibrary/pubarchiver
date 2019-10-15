@@ -1,6 +1,12 @@
 Change log for microarchiver
 ============================
 
+Version 1.6.3
+-------------
+
+* Catch and handle no-content errors more gracefully.
+* Detect mangled XML returned by micropublication.org and handle it more gracefully.
+
 Version 1.6.2
 -------------
 
