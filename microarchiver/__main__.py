@@ -29,7 +29,6 @@ import plac
 from   recordclass import recordclass
 import shutil
 import sys
-import traceback
 import xmltodict
 
 import microarchiver
@@ -161,6 +160,7 @@ Command-line arguments summary
     prefix = '/' if sys.platform.startswith('win') else '-'
     hint   = '(Use {}h for help.)'.format(prefix)
     do_zip = not no_zip
+    debugging = debug != 'OUT'
 
     # Process arguments -------------------------------------------------------
 
@@ -171,7 +171,7 @@ Command-line arguments summary
     output_dir = '.' if output_dir == 'O' else output_dir
     report     = None if report == 'R' else report
 
-    if debug != 'OUT':
+    if debugging:
         set_debug(True, debug)
     if version:
         print_version()
@@ -187,7 +187,8 @@ Command-line arguments summary
     except (KeyboardInterrupt, UserCancelled) as ex:
         exit(say.error_text('Quitting'))
     except Exception as ex:
-        if debug:
+        if debugging:
+            import traceback
             say.error('{}\n{}', str(ex), traceback.format_exc())
             import pdb; pdb.set_trace()
         else:
@@ -313,10 +314,12 @@ class MainBody(object):
             if not error and response and response.text:
                 # The micropublication xml declaration explicit uses ascii encoding.
                 xml = response.text.encode('ascii')
+            elif error and isinstance(error, NoContent):
+                if __debug__: log('request for article list was met with code 404 or 410')
+                self._say.fatal(str(error))
+                return []
             elif error:
                 if __debug__: log('error reading from micropublication.org server')
-                if isinstance(error, NoContent):
-                    self._say.fatal('Server returned no content')
                 raise error
             else:
                 raise InternalError('Unexpected response from server')
@@ -333,20 +336,24 @@ class MainBody(object):
         '''
         if __debug__: log('parsing XML data')
         articles = []
-        for element in etree.fromstring(xml).findall('article'):
-            pdf   = (element.find('pdf-url').text or '').strip()
-            doi   = (element.find('doi').text or '').strip()
-            title = (element.find('article-title').text or '').strip()
-            date  = element.find('date-published')
-            if date != None:
-                year  = (date.find('year').text or '').strip()
-                month = (date.find('month').text or '').strip()
-                day   = (date.find('day').text or '').strip()
-                date  = year + '-' + month + '-' + day
-            else:
-                date = ''
-            status = 'incomplete' if not(all([pdf, doi, title, date])) else 'complete'
-            articles.append(Article(doi, date, title, pdf, status))
+        try:
+            for element in etree.fromstring(xml).findall('article'):
+                pdf   = (element.find('pdf-url').text or '').strip()
+                doi   = (element.find('doi').text or '').strip()
+                title = (element.find('article-title').text or '').strip()
+                date  = element.find('date-published')
+                if date != None:
+                    year  = (date.find('year').text or '').strip()
+                    month = (date.find('month').text or '').strip()
+                    day   = (date.find('day').text or '').strip()
+                    date  = year + '-' + month + '-' + day
+                else:
+                    date = ''
+                status = 'incomplete' if not(all([pdf, doi, title, date])) else 'complete'
+                articles.append(Article(doi, date, title, pdf, status))
+        except Exception as ex:
+            if __debug__: log('could not parse XML from server')
+            self._say.error('Unexpected or badly formed XML returned by server')
         return articles
 
 
