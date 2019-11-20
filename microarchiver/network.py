@@ -54,7 +54,7 @@ def network_available():
         r = urllib.request.urlopen("http://www.google.com")
         return True
     except Exception:
-        if __debug__: log('could not connect to https://www.google.com')
+        if __debug__: log('could not connect to http://www.google.com')
         return False
     if r:
         r.close()
