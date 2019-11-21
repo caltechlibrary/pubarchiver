@@ -156,13 +156,13 @@ Command-line arguments summary
 '''
     # Initial setup -----------------------------------------------------------
 
-    say    = MessageHandler(not no_color, quiet)
-    prefix = '/' if sys.platform.startswith('win') else '-'
-    hint   = '(Use {}h for help.)'.format(prefix)
-    do_zip = not no_zip
+    say       = MessageHandler(not no_color, quiet)
+    prefix    = '/' if sys.platform.startswith('win') else '-'
+    hint      = '(Use {}h for help.)'.format(prefix)
+    do_zip    = not no_zip
     debugging = debug != 'OUT'
 
-    # Process arguments -------------------------------------------------------
+    # Process arguments and handle early exits --------------------------------
 
     # We use default values that provide more intuitive help text printed by
     # plac.  Rewrite the values to things we actually use.
@@ -173,17 +173,17 @@ Command-line arguments summary
 
     if debugging:
         set_debug(True, debug)
+        import faulthandler
+        faulthandler.enable()
     if version:
         print_version()
         exit()
-    if preview and quiet:
-        text = 'Option {}q is incompatible with {}n. {}'.format(prefix, prefix, hint)
-        exit(say.error_text(text))
 
     # Do the real work --------------------------------------------------------
 
     try:
-        MainBody(source, after, output_dir, do_zip, report, get_xml, preview, say).run()
+        body = MainBody(source, after, output_dir, do_zip, report, get_xml, preview, say)
+        body.run()
     except (KeyboardInterrupt, UserCancelled) as ex:
         exit(say.error_text('Quitting'))
     except Exception as ex:
@@ -201,13 +201,11 @@ class MainBody(object):
     def __init__(self, source, after_date, output_dir, do_zip, report, get_xml, preview, say):
         '''Initialize internal state and prepare for running services.'''
 
-        # Preliminary sanity checks.
         if not network_available():
             raise ServiceFailure('No network.')
-
         if get_xml:
             if __debug__: log('Fetching articles from server')
-            print(self.get_articles_list())
+            print(articles_list())
             exit()
 
         if source and not readable(source):
@@ -294,16 +292,6 @@ class MainBody(object):
                 rename_existing(report)
             say.info('Writing report to ' + report)
             self.write_report(report, articles)
-
-
-    def get_articles_list(self):
-        '''Write to standard output the XML article list from the server.'''
-        (response, error) = net('get', _URL_ARTICLES_LIST)
-        if not error and response and response.text:
-            # The micropublication xml declaration explicit uses ascii encoding.
-            return response.text
-        else:
-            return ''
 
 
     def articles_from_xml(self, file_or_url):
@@ -458,6 +446,16 @@ def print_version():
     print('Authors: {}'.format(this_module.__author__))
     print('URL: {}'.format(this_module.__url__))
     print('License: {}'.format(this_module.__license__))
+
+
+def articles_list(self):
+    '''Write to standard output the XML article list from the server.'''
+    (response, error) = net('get', _URL_ARTICLES_LIST)
+    if not error and response and response.text:
+        # The micropublication xml declaration explicit uses ascii encoding.
+        return response.text
+    else:
+        return ''
 
 
 def short(url):
