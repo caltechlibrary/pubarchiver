@@ -14,10 +14,6 @@ open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
-class UserCancelled(Exception):
-    '''The user elected to cancel/quit the program.'''
-    pass
-
 class NetworkFailure(Exception):
     '''Unrecoverable problem involving network operations.'''
     pass
@@ -43,8 +39,4 @@ class RateLimitExceeded(Exception):
 
 class InternalError(Exception):
     '''Unrecoverable problem involving Microarchiver itself.'''
-    pass
-
-class RequestError(Exception):
-    '''Problem with the server request.'''
     pass
