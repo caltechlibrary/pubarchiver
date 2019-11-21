@@ -32,12 +32,13 @@ import sys
 import xmltodict
 
 import microarchiver
-from microarchiver.debug import set_debug, log
-from microarchiver.exceptions import *
-from microarchiver.files import readable, writable, file_in_use, rename_existing
-from microarchiver.files import make_dir, create_archive, verify_archive
-from microarchiver.messages import MessageHandler
-from microarchiver.network import net, network_available, download
+from microarchiver import print_version
+from .debug import set_debug, log
+from .exceptions import *
+from .files import readable, writable, file_in_use, rename_existing
+from .files import make_dir, create_archive, verify_archive
+from .network import net, network_available, download
+from .ui import UI, inform, warn, alert, alert_fatal
 
 
 # Simple data type definitions.
@@ -154,147 +155,133 @@ path to send the output to a file.
 Command-line arguments summary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-    # Initial setup -----------------------------------------------------------
-
-    say       = MessageHandler(not no_color, quiet)
-    prefix    = '/' if sys.platform.startswith('win') else '-'
-    hint      = '(Use {}h for help.)'.format(prefix)
-    do_zip    = not no_zip
-    debugging = debug != 'OUT'
-
     # Process arguments and handle early exits --------------------------------
 
-    # We use default values that provide more intuitive help text printed by
-    # plac.  Rewrite the values to things we actually use.
-    source     = articles if articles != 'A' else None
-    after      = None if after_date == 'D' else after_date
-    output_dir = '.' if output_dir == 'O' else output_dir
-    report     = None if report == 'R' else report
-
+    debugging = debug != 'OUT'
     if debugging:
         set_debug(True, debug)
         import faulthandler
         faulthandler.enable()
+
     if version:
         print_version()
+        exit()
+
+    if not network_available():
+        alert('No network.')
+        exit()
+
+    if get_xml:
+        if __debug__: log('Fetching articles from server')
+        print(articles_list())
         exit()
 
     # Do the real work --------------------------------------------------------
 
     try:
-        body = MainBody(source, after, output_dir, do_zip, report, get_xml, preview, say)
+        ui = UI('Microarchiver', use_color = not no_color, be_quiet = quiet)
+        body = MainBody(source  = articles if articles != 'A' else None,
+                        dest    = '.' if output_dir == 'O' else output_dir,
+                        after   = None if after_date == 'D' else after_date,
+                        report  = None if report == 'R' else report,
+                        do_zip  = not no_zip,
+                        preview = preview,
+                        ui      = ui)
         body.run()
-    except (KeyboardInterrupt, UserCancelled) as ex:
-        exit(say.error_text('Quitting'))
+    except KeyboardInterrupt as ex:
+        warn('Quitting')
+        exit(1)
     except Exception as ex:
         if debugging:
             import traceback
-            say.error('{}\n{}', str(ex), traceback.format_exc())
+            alert('{}\n{}', str(ex), traceback.format_exc())
             import pdb; pdb.set_trace()
         else:
-            exit(say.error_text('{}'.format(str(ex))))
+            alert_fatal('{}'.format(str(ex)))
+            exit(2)
 
 
 class MainBody(object):
     '''Main body for Microarchiver.'''
 
-    def __init__(self, source, after_date, output_dir, do_zip, report, get_xml, preview, say):
+    def __init__(self, **kwargs):
         '''Initialize internal state and prepare for running services.'''
-
-        if not network_available():
-            raise ServiceFailure('No network.')
-        if get_xml:
-            if __debug__: log('Fetching articles from server')
-            print(articles_list())
-            exit()
-
-        if source and not readable(source):
-            raise RuntimeError('File not readable: {}'.format(source))
-        if source and not source.endswith('.xml'):
-            raise RuntimeError('Does not appear to be an XML file: {}'.format(source))
-
-        if not path.isabs(output_dir):
-            output_dir = path.realpath(path.join(os.getcwd(), output_dir))
-        if path.isdir(output_dir):
-            if not writable(output_dir):
-                raise RuntimeError('Directory not writable: {}'.format(output_dir))
-        else:
-            if path.exists(output_dir):
-                raise ValueError('Not a directory: {}'.format(output_dir))
-        dest_dir = path.join(output_dir, _ARCHIVE_DIR_NAME)
-
-        if report and file_in_use(report):
-            raise RuntimeError("File is in use by another process: {}".format(report))
-
-        if after_date:
-            try:
-                after_date = parse_datetime(after_date)
-                if __debug__: log('Parsed after_date as {}', after_date)
-            except Exception as ex:
-                raise RuntimeError('Unable to parse date: {}'.format(str(ex)))
-
-        # Store the values we'll use.
-        self._source     = source
-        self._after_date = after_date
-        self._dest_dir   = dest_dir
-        self._do_zip     = do_zip
-        self._report     = report
-        self._preview    = preview
-        self._say        = say
+        # Assign parameters to self to make them available within this object.
+        self.__dict__ = kwargs
 
 
     def run(self):
         '''Execute the control logic.'''
 
-        # Set shortcut variables for better code readability below.
-        source     = self._source
-        after_date = self._after_date
-        dest_dir   = self._dest_dir
-        report     = self._report
-        do_zip     = self._do_zip
-        preview = self._preview
-        say        = self._say
+        # Check and process argument values & fail early if there's a problem.
+        self._process_arguments()
 
         # Read the article list, then do optional filtering for date.
-        if source:
-            say.info('Reading articles list from XML file {}', source)
-            articles = self.articles_from_xml(source)
+        if self.source:
+            inform('Reading articles list from XML file {}', self.source)
+            articles = self._articles_from_xml(self.source)
         else:
-            say.info('Fetching articles list from {}', _URL_ARTICLES_LIST)
-            articles = self.articles_from_xml(_URL_ARTICLES_LIST)
+            inform('Fetching articles list from {}', _URL_ARTICLES_LIST)
+            articles = self._articles_from_xml(_URL_ARTICLES_LIST)
 
-        if after_date:
-            after_date_str = after_date.strftime(_DATE_PRINT_FORMAT)
-            say.info('Will only keep articles published after {}', after_date_str)
-            articles = [x for x in articles if parse_datetime(x.date) > after_date]
+        if self.after:
+            date_str = self.after.strftime(_DATE_PRINT_FORMAT)
+            inform('Will only keep articles published after {}', date_str)
+            articles = [x for x in articles if parse_datetime(x.date) > self.after]
 
         num_articles = len(articles)
-        say.info('Total articles: {}', humanize.intcomma(num_articles))
-        if preview:
-            self.print_articles(articles)
+        inform('Total articles: {}', humanize.intcomma(num_articles))
+        if self.preview:
+            self._print_articles(articles)
         else:
             if num_articles == 0:
-                say.info('No articles to archive')
+                inform('No articles to archive')
             else:
-                say.info('Output will be written to directory "{}"', dest_dir)
-                if not preview:
-                    make_dir(dest_dir)
-                self.write_articles(dest_dir, articles)
-                if do_zip:
-                    archive_file = dest_dir + '.zip'
-                    say.info('Creating ZIP archive file "{}"', archive_file)
+                inform('Output will be written to directory "{}"', self.dest)
+                make_dir(self.dest)
+                self._save_articles(self.dest, articles)
+                if self.do_zip:
+                    archive_file = self.dest + '.zip'
+                    inform('Creating ZIP archive file "{}"', archive_file)
                     comments = file_comments(num_articles)
-                    create_archive(archive_file, '.zip', dest_dir, comments)
-                    say.info('Deleting directory "{}"', dest_dir)
-                    shutil.rmtree(dest_dir)
-        if report:
-            if path.exists(report):
-                rename_existing(report)
-            say.info('Writing report to ' + report)
-            self.write_report(report, articles)
+                    create_archive(archive_file, '.zip', self.dest, comments)
+                    inform('Deleting directory "{}"', self.dest)
+                    shutil.rmtree(self.dest)
+        if self.report:
+            if path.exists(self.report):
+                rename_existing(self.report)
+            inform('Writing report to ' + self.report)
+            self._write_report(self.report, articles)
 
 
-    def articles_from_xml(self, file_or_url):
+    def _process_arguments(self):
+        if self.source and not readable(self.source):
+            raise RuntimeError('File not readable: {}'.format(self.source))
+        if self.source and not self.source.endswith('.xml'):
+            raise RuntimeError('Does not appear to be an XML file: {}'.format(self.source))
+
+        if not path.isabs(self.dest):
+            self.dest = path.realpath(path.join(os.getcwd(), self.dest))
+        if path.isdir(self.dest):
+            if not writable(self.dest):
+                raise RuntimeError('Directory not writable: {}'.format(self.dest))
+        else:
+            if path.exists(self.dest):
+                raise ValueError('Not a directory: {}'.format(self.dest))
+        self.dest = path.join(self.dest, _ARCHIVE_DIR_NAME)
+
+        if self.report and file_in_use(self.report):
+            raise RuntimeError("File is in use by another process: {}".format(self.report))
+
+        if self.after:
+            try:
+                self.after = parse_datetime(self.after)
+                if __debug__: log('Parsed after_date as {}', self.after)
+            except Exception as ex:
+                raise RuntimeError('Unable to parse date: {}'.format(str(ex)))
+
+
+    def _articles_from_xml(self, file_or_url):
         '''Returns a list of `Article` tuples from the given URL or file.'''
         # Read the XML.
         if file_or_url.startswith('http'):
@@ -304,7 +291,7 @@ class MainBody(object):
                 xml = response.text.encode('ascii')
             elif error and isinstance(error, NoContent):
                 if __debug__: log('request for article list was met with code 404 or 410')
-                self._say.fatal(str(error))
+                alert_fatal(str(error))
                 return []
             elif error:
                 if __debug__: log('error reading from micropublication.org server')
@@ -341,27 +328,27 @@ class MainBody(object):
                 articles.append(Article(doi, date, title, pdf, status))
         except Exception as ex:
             if __debug__: log('could not parse XML from server')
-            self._say.error('Unexpected or badly formed XML returned by server')
+            alert('Unexpected or badly formed XML returned by server')
         return articles
 
 
-    def print_articles(self, articles_list):
-        self._say.info('-'*89)
-        self._say.info('{:3}  {:<32}  {:10}  {:20}'.format(
+    def _print_articles(self, articles_list):
+        inform('-'*89)
+        inform('{:3}  {:<32}  {:10}  {:20}'.format(
             '?', 'DOI', 'Date', 'URL (https://micropublication.org)'))
-        self._say.info('-'*89)
+        inform('-'*89)
         count = 0
         for article in articles_list:
             count += 1
-            self._say.info('{:3}  {:<32}  {:10}  {:20}'.format(
-                self._say.error_text('err') if article.status == 'incomplete' else 'OK',
-                article.doi if article.doi else self._say.error_text('missing DOI'),
-                article.date if article.date else self._say.error_text('missing date'),
-                short(article.pdf) if article.pdf else self._say.error_text('missing URL')))
-        self._say.info('-'*89)
+            inform('{:3}  {:<32}  {:10}  {:20}'.format(
+                self.ui.error_text('err') if article.status == 'incomplete' else 'OK',
+                article.doi if article.doi else self.ui.error_text('missing DOI'),
+                article.date if article.date else self.ui.error_text('missing date'),
+                short(article.pdf) if article.pdf else self.ui.error_text('missing URL')))
+        inform('-'*89)
 
 
-    def write_report(self, report_file, articles_list):
+    def _write_report(self, report_file, articles_list):
         if __debug__: log('writing report file {}', report_file)
         try:
             with open(report_file, 'w', newline='') as file:
@@ -375,20 +362,20 @@ class MainBody(object):
             raise
 
 
-    def write_articles(self, dest_dir, article_list):
+    def _save_articles(self, dest_dir, article_list):
         for article in article_list:
             # Start by testing that we have all the data we will need.
             if not article.doi:
-                self._say.warn('Skipping article with missing DOI: ' + article.title)
+                warn('Skipping article with missing DOI: ' + article.title)
                 article.status = 'missing-doi'
                 continue
             if not article.pdf:
-                self._say.warn('Skipping article with missing PDF URL: ' + article.doi)
+                warn('Skipping article with missing PDF URL: ' + article.doi)
                 article.status = 'missing-pdf'
                 continue
             xml = self._metadata_xml(article)
             if not xml:
-                self._say.warn('Skipping article with no DataCite entry: ' + article.doi)
+                warn('Skipping article with no DataCite entry: ' + article.doi)
                 article.status = 'failed-datacite'
                 continue
 
@@ -400,7 +387,7 @@ class MainBody(object):
                 pass
             xml_file = path.join(article_dir, xml_filename(article))
             pdf_file = path.join(article_dir, pdf_filename(article))
-            self._say.info('Writing ' + article.doi)
+            inform('Writing ' + article.doi)
             with open(xml_file, 'w', encoding = 'utf8') as f:
                 if __debug__: log('writing XML to {}', xml_file)
                 f.write(xmltodict.unparse(xml))
@@ -440,15 +427,7 @@ class MainBody(object):
 # Miscellaneous utilities.
 # .............................................................................
 
-def print_version():
-    this_module = sys.modules[__package__]
-    print('{} version {}'.format(this_module.__name__, this_module.__version__))
-    print('Authors: {}'.format(this_module.__author__))
-    print('URL: {}'.format(this_module.__url__))
-    print('License: {}'.format(this_module.__license__))
-
-
-def articles_list(self):
+def articles_list():
     '''Write to standard output the XML article list from the server.'''
     (response, error) = net('get', _URL_ARTICLES_LIST)
     if not error and response and response.text:
