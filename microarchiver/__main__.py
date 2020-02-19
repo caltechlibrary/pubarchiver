@@ -36,7 +36,8 @@ from microarchiver import print_version
 from .debug import set_debug, log
 from .exceptions import *
 from .files import readable, writable, file_in_use, rename_existing
-from .files import make_dir, create_archive, verify_archive
+from .files import module_path, make_dir, create_archive, verify_archive
+from .files import validate_xml
 from .network import net, network_available, download
 from .ui import UI, inform, warn, alert, alert_fatal
 
@@ -72,6 +73,12 @@ _DATE_PRINT_FORMAT = '%b %d %Y %H:%M:%S %Z'
 '''Format in which lastmod date is printed back to the user. The value is used
 with datetime.strftime().'''
 
+_INTERNAL_DTD_DIR = 'JATS-Archiving-1-2-MathML3-DTD'
+'''Directory relative to <module>/data containing JATS DTD files.'''
+
+_JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
+'''Name of the root DTD file for JATS.'''
+
 
 # Main program.
 # .............................................................................
@@ -86,13 +93,14 @@ with datetime.strftime().'''
     quiet      = ('only print important diagnostic messages while working', 'flag',   'q'),
     report     = ('write report to file R (default: print to terminal)',    'option', 'r'),
     version    = ('print version information and exit',                     'flag',   'V'),
+    no_check   = ('do not validate JATS XML files against the DTD',         'flag'  , 'X'),
     no_zip     = ('do not zip up the output directory (default: do)',       'flag',   'Z'),
     debug      = ('write detailed trace to "OUT" (use "-" for console)',    'option', '@'),
 )
 
 def main(articles = 'A', no_color = False, after_date = 'D', get_xml = False,
          output_dir = 'O', preview = False, quiet = False, report = 'R',
-         version = False, no_zip = False, debug = 'OUT'):
+         version = False, no_check = False, no_zip = False, debug = 'OUT'):
     '''Archive micropublication.org publications for Portico.
 
 By default, this program will contact micropublication.org to get a list of
@@ -180,13 +188,14 @@ Command-line arguments summary
 
     try:
         ui = UI('Microarchiver', use_color = not no_color, be_quiet = quiet)
-        body = MainBody(source  = articles if articles != 'A' else None,
-                        dest    = '.' if output_dir == 'O' else output_dir,
-                        after   = None if after_date == 'D' else after_date,
-                        report  = None if report == 'R' else report,
-                        do_zip  = not no_zip,
-                        preview = preview,
-                        ui      = ui)
+        body = MainBody(source      = articles if articles != 'A' else None,
+                        dest        = '.' if output_dir == 'O' else output_dir,
+                        after       = None if after_date == 'D' else after_date,
+                        report      = None if report == 'R' else report,
+                        do_validate = not no_check,
+                        do_zip      = not no_zip,
+                        preview     = preview,
+                        uip         = ui)
         body.run()
     except KeyboardInterrupt as ex:
         warn('Quitting')
@@ -279,6 +288,27 @@ class MainBody(object):
                 if __debug__: log('Parsed after_date as {}', self.after)
             except Exception as ex:
                 raise RuntimeError('Unable to parse date: {}'.format(str(ex)))
+
+        if self.do_validate:
+            data_dir = path.join(module_path(), 'data')
+            dtd_dir = path.join(data_dir, _INTERNAL_DTD_DIR)
+            dtd_file = path.join(dtd_dir, _JATS_DTD_FILENAME)
+            if not path.exists(data_dir) or not path.isdir(data_dir):
+                raise RuntimeError('Data directory is missing: {}'.format(data_dir))
+            elif not path.exists(dtd_dir) or not path.isdir(dtd_dir):
+                warn('Cannot find internal DTD directory -- validation turned off')
+                self.do_validate = False
+            elif not path.exists(dtd_file) or not readable(dtd_file):
+                warn('Cannot find internal copy of JATS DTD -- validation turned off')
+                self.do_validate = False
+            else:
+                current_dir = os.getcwd()
+                try:
+                    os.chdir(dtd_dir)
+                    if __debug__: log('using JATS DTD at {}', dtd_file)
+                    self._dtd = etree.DTD(dtd_file)
+                finally:
+                    os.chdir(current_dir)
 
 
     def _articles_from_xml(self, file_or_url):
@@ -401,7 +431,10 @@ class MainBody(object):
             download(article.pdf, pdf_file)
             if __debug__: log('downloading JATS XML to {}', jats_file)
             download(article.jats, jats_file)
-            # FIXME: add validation
+            if self.do_validate:
+                validate_xml(jats_file, self._dtd)
+            else:
+                if __debug__: log('skipping DTD validation of {}', jats_file)
             if article.image:
                 if __debug__: log('downloading image file to {}', image_file)
                 download(article.jats, image_file)
