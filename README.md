@@ -64,7 +64,7 @@ microarchiver -h
 
 ### _Basic usage_
 
-The simplest use of `microarchiver` involves running it without any arguments.  This will make it will contact [microPublication.org](http://micropublication.org) to get a list of current articles, and create an archive of all the articles in a subdirectory of the current directory.
+The simplest use of `microarchiver` involves running it without any arguments.  It will contact [microPublication.org](http://micropublication.org) to get a list of current articles, and create an archive of all the articles in a subdirectory of the current directory.
 
 ```bash
 microarchiver
@@ -115,7 +115,6 @@ If given the `-@` argument (`/@` on Windows), this program will output a detaile
 
 ### _Summary of command-line options_
 
-
 The following table summarizes all the command line options available. (Note: on Windows computers, `/` must be used as the prefix character instead of `-`):
 
 | Short&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Long&nbsp;form&nbsp;opt&nbsp;&nbsp; | Meaning | Default | |
@@ -129,6 +128,7 @@ The following table summarizes all the command line options available. (Note: on
 | `-q`    | `--quiet`         | Only print important messages | Be chatty while working | |
 | `-r`_R_ | `--report`_R_     | Write list of article & results in file _R_ | Don't write a report | |
 | `-V`    | `--version`       | Print program version info and exit | Do other actions instead | |
+| `-X`    | `--no-check`      | Don't validate JATS XML files | Validate JATS XML | |
 | `-Z`    | `--no-zip`        | Don't put output into one ZIP archive | ZIP up the output | |
 | `-@`_OUT_ | `--debug`_OUT_  | Debugging mode; write trace to _OUT_ | Normal mode | ⚑ |
 
