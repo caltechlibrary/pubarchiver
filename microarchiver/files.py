@@ -14,6 +14,7 @@ open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
+from   lxml import etree
 import os
 from   os import path
 import shutil
@@ -26,6 +27,7 @@ import zipfile
 from   zipfile import ZipFile, ZIP_STORED, ZIP_DEFLATED
 
 from .debug import log
+from .ui import warn, alert
 
 
 # Main functions.
@@ -103,6 +105,15 @@ def file_in_use(file):
     return False
 
 
+def module_path():
+    '''Returns the absolute path to our module installation directory.'''
+    # The path returned by module.__path__ is to the directory containing
+    # the __init__.py file.
+    this_module = sys.modules[__package__]
+    module_path = this_module.__path__[0]
+    return path.abspath(module_path)
+
+
 def make_dir(dir_path):
     '''Creates directory 'dir_path' (including intermediate directories).'''
     if path.isdir(dir_path):
@@ -158,3 +169,30 @@ def verify_archive(archive_file, type):
         finally:
             if tfile:
                 tfile.close()
+
+
+def validate_xml(xml_file, dtd):
+    if __debug__: log('parsing XML file {}', xml_file)
+    try:
+        root = etree.parse(xml_file)
+    except etree.XMLSyntaxError as ex:
+        alert('File contains XML syntax errors: {}', xml_file)
+        # The string form of XMLSyntaxError includes line/col & file name.
+        alert(str(ex))
+        return False
+    except Exception as ex:
+        alert('Failed to parse XML file: {}', xml_file)
+        alert(str(ex))
+        return False
+    if __debug__: log('validating {}', xml_file)
+    if dtd.validate(root):
+        if __debug__: log('validated without errors')
+        return True
+    else:
+        warn('Failed to validate {}', xml_file)
+        warn('{} validation error{} encountered:', len(dtd.error_log),
+             's' if len(dtd.error_log) > 1 else '')
+        for item in dtd.error_log:
+            warn('Line {}, col {} ({}): {}', item.line, item.column,
+                 item.type_name, item.message)
+        return False
