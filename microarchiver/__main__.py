@@ -44,7 +44,7 @@ from .ui import UI, inform, warn, alert, alert_fatal
 # Simple data type definitions.
 # .............................................................................
 
-Article = recordclass('Article', 'doi date title pdf status')
+Article = recordclass('Article', 'doi date title pdf jats image status')
 '''
 Record class used internally to communicate information about articles in the
 article list.  The value of the "status" field can be as follows, and will
@@ -147,10 +147,10 @@ If given the -V argument (/V on Windows), this program will print version
 information and exit without doing anything else.
 
 If given the -@ argument (/@ on Windows), this program will output a detailed
-trace of what it is doing to the terminal window, and will also drop into a
-debugger upon the occurrence of any errors.  The debug trace will be sent to
-the given destination, which can be '-' to indicate console output, or a file
-path to send the output to a file.
+trace of what it is doing, and will also drop into a debugger upon the
+occurrence of any errors.  The debug trace will be sent to the given
+destination, which can be '-' to indicate console output, or a file path to
+send the output to a file.
 
 Command-line arguments summary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -314,8 +314,10 @@ class MainBody(object):
         try:
             for element in etree.fromstring(xml).findall('article'):
                 pdf   = (element.find('pdf-url').text or '').strip()
+                jats  = (element.find('jats-url').text or '').strip()
                 doi   = (element.find('doi').text or '').strip()
                 title = (element.find('article-title').text or '').strip()
+                image = (element.find('image-url').text or '').strip()
                 date  = element.find('date-published')
                 if date != None:
                     year  = (date.find('year').text or '').strip()
@@ -325,7 +327,7 @@ class MainBody(object):
                 else:
                     date = ''
                 status = 'incomplete' if not(all([pdf, doi, title, date])) else 'complete'
-                articles.append(Article(doi, date, title, pdf, status))
+                articles.append(Article(doi, date, title, pdf, jats, image, status))
         except Exception as ex:
             if __debug__: log('could not parse XML from server')
             alert('Unexpected or badly formed XML returned by server')
@@ -381,18 +383,30 @@ class MainBody(object):
 
             # Looks good. Carry on.
             article_dir = path.join(dest_dir, tail_of_doi(article))
+            jats_dir    = path.join(article_dir, 'jats')
             try:
                 os.makedirs(article_dir)
+                os.makedirs(jats_dir)
             except FileExistsError:
                 pass
-            xml_file = path.join(article_dir, xml_filename(article))
-            pdf_file = path.join(article_dir, pdf_filename(article))
+            xml_file   = path.join(article_dir, xml_filename(article))
+            pdf_file   = path.join(article_dir, pdf_filename(article))
+            jats_file  = path.join(jats_dir, jats_filename(article))
+            image_file = path.join(jats_dir, image_filename(article))
             inform('Writing ' + article.doi)
             with open(xml_file, 'w', encoding = 'utf8') as f:
                 if __debug__: log('writing XML to {}', xml_file)
                 f.write(xmltodict.unparse(xml))
             if __debug__: log('downloading PDF to {}', pdf_file)
             download(article.pdf, pdf_file)
+            if __debug__: log('downloading JATS XML to {}', jats_file)
+            download(article.jats, jats_file)
+            # FIXME: add validation
+            if article.image:
+                if __debug__: log('downloading image file to {}', image_file)
+                download(article.jats, image_file)
+            else:
+                if __debug__: log('skipping empty image file URL for {}', article.doi)
         return article_list
 
 
@@ -459,6 +473,15 @@ def pdf_filename(article):
 
 def xml_filename(article):
     return tail_of_doi(article) + '.xml'
+
+
+def jats_filename(article):
+    return tail_of_doi(article) + '.xml'
+
+
+def image_filename(article):
+    slash = article.image.rfind('/')
+    return article.image[slash + 1:]
 
 
 def file_comments(num_articles):
