@@ -5,6 +5,7 @@ Version 1.7.0
 -------------
 
 * Store JATS XML for each article.
+* Add `-X` option to disable automatic JATS DTD validation.
 * Internal code changes and refactoring.
 
 
