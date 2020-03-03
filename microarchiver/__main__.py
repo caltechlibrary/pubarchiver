@@ -78,6 +78,7 @@ _INTERNAL_DTD_DIR = 'JATS-Archiving-1-2-MathML3-DTD'
 _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
 '''Name of the root DTD file for JATS.'''
 
+
 
 # Main program.
 # .............................................................................
@@ -126,8 +127,9 @@ within single or double quotes.  Examples:
   microarchiver -d "2 weeks ago"  ....
 
 As it works, microarchiver writes information to the terminal about the archives
-it puts into the archive, including whether any problems are encountered. To
-save this info to a file, use the argument -r (or /r on Windows).
+it puts into the archive, including whether any problems are encountered.  To
+save this info to a file, use the argument -r (or /r on Windows), which will
+make microarchiver write a report file in CSV format.
 
 Previewing the list of articles
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -147,6 +149,25 @@ as a starting point for creating the file used by option -a.  It's probably a
 good idea to redirect the output to a file; e.g.,
 
   microarchiver -g > article-list.xml
+
+Return values
+~~~~~~~~~~~~~
+
+This program exits with a return code of 0 if no problems are encountered
+while fetching data from the server.  It returns a nonzero value otherwise,
+following [conventions](https://unix.stackexchange.com/a/99134/141997) used in
+shells such as bash which only understand return code values of 0 to 255.  If
+it is interrupted (e.g., using control-c) it returns a value of 1; if it
+encounters a fatal error, it returns a value of 2.  If it encounters any
+non-fatal problems (such as a missing PDF file or JATS validation error), it
+returns a nonzero value equal to 100 + the number of articles that had
+failures.  Summarizing the possible return codes:
+
+        0 = no errors were encountered -- success
+        1 = no network detected -- cannot proceed
+        2 = the user interrupted program execution
+        3 = an exception or fatal error occurred
+  100 + n = encountered non-fatal problems on a total of n articles
 
 Additional command-line arguments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -184,16 +205,16 @@ Command-line arguments summary
 
     if version:
         print_version()
-        exit()
+        exit(0)
 
     if not network_available():
         alert('No network.')
-        exit()
+        exit(1)
 
     if get_xml:
         if __debug__: log('Fetching articles from server')
         print(articles_list())
-        exit()
+        exit(0)
 
     # Do the real work --------------------------------------------------------
 
@@ -208,9 +229,12 @@ Command-line arguments summary
                         preview     = preview,
                         uip         = ui)
         body.run()
+        if __debug__: log('finished with {} failures', body.failures)
+        exit(100 + body.failures if body.failures > 0 else 0)
     except KeyboardInterrupt as ex:
         warn('Quitting')
-        exit(1)
+        if __debug__: log('returning with exit code 1')
+        exit(2)
     except Exception as ex:
         if debugging:
             import traceback
@@ -218,8 +242,8 @@ Command-line arguments summary
             import pdb; pdb.set_trace()
         else:
             alert_fatal('{}'.format(str(ex)))
-            exit(2)
-    # FIXME return status code from body
+            if __debug__: log('returning with exit code 2')
+            exit(3)
 
 
 class MainBody(object):
@@ -229,6 +253,8 @@ class MainBody(object):
         '''Initialize internal state and prepare for running services.'''
         # Assign parameters to self to make them available within this object.
         self.__dict__ = kwargs
+        # Assign default return status.
+        self.failures = 0
 
 
     def run(self):
@@ -273,7 +299,9 @@ class MainBody(object):
                 rename_existing(self.report)
             inform('Writing report to ' + self.report)
             self._write_report(self.report, articles)
-            import pdb; pdb.set_trace()
+
+        # Count any failures by looking at the article statuses.
+        self.failures = sum(a.status.startswith('fail') for a in articles)
 
 
     def _process_arguments(self):
