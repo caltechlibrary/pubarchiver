@@ -171,7 +171,7 @@ def verify_archive(archive_file, type):
                 tfile.close()
 
 
-def validate_xml(xml_file, dtd):
+def valid_xml(xml_file, dtd):
     if __debug__: log('parsing XML file {}', xml_file)
     try:
         root = etree.parse(xml_file)
@@ -185,14 +185,17 @@ def validate_xml(xml_file, dtd):
         alert(str(ex))
         return False
     if __debug__: log('validating {}', xml_file)
-    if dtd.validate(root):
-        if __debug__: log('validated without errors')
-        return True
+    if dtd:
+        if dtd.validate(root):
+            if __debug__: log('validated without errors')
+            return True
+        else:
+            warn('Failed to validate {}', xml_file)
+            warn('{} validation error{} encountered:', len(dtd.error_log),
+                 's' if len(dtd.error_log) > 1 else '')
+            for item in dtd.error_log:
+                warn('Line {}, col {} ({}): {}', item.line, item.column,
+                     item.type_name, item.message)
+            return False
     else:
-        warn('Failed to validate {}', xml_file)
-        warn('{} validation error{} encountered:', len(dtd.error_log),
-             's' if len(dtd.error_log) > 1 else '')
-        for item in dtd.error_log:
-            warn('Line {}, col {} ({}): {}', item.line, item.column,
-                 item.type_name, item.message)
-        return False
+        return True
