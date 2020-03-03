@@ -16,7 +16,6 @@ file "LICENSE" for more information.
 '''
 
 import base64
-from   collections import namedtuple
 import csv
 import dateparser
 import datetime
@@ -37,8 +36,8 @@ from .debug import set_debug, log
 from .exceptions import *
 from .files import readable, writable, file_in_use, rename_existing
 from .files import module_path, make_dir, create_archive, verify_archive
-from .files import validate_xml
-from .network import net, network_available, download
+from .files import valid_xml
+from .network import net, network_available, download_file
 from .ui import UI, inform, warn, alert, alert_fatal
 
 
@@ -130,8 +129,16 @@ As it works, microarchiver writes information to the terminal about the archives
 it puts into the archive, including whether any problems are encountered. To
 save this info to a file, use the argument -r (or /r on Windows).
 
-Additional command-line arguments
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Previewing the list of articles
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If given the argument -p (or /p on Windows), microarchiver will ONLY display a
+list of articles it will archive and stop short of creating the archive. This
+is useful to see what would be produced without actually doing it.  However,
+note that because it does not attempt to download the articles and associated
+files, it will not be able to report on errors that might occur when not
+operating in preview mode.  Consequently, do not use the output of -p as a
+prediction of eventual success or failure.
 
 If given the argument -g (or /g on Windows), microarchiver will write to
 standard output the complete current article list from the micropublication.org
@@ -141,9 +148,13 @@ good idea to redirect the output to a file; e.g.,
 
   microarchiver -g > article-list.xml
 
-If given the argument -p (or /p on Windows), microarchiver will ONLY display a
-list of articles it will archive and stop short of creating the archive. This
-is useful to see what would be produced without actually doing it.
+Additional command-line arguments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Microarchiver always downloads the JATS XML version of articles from
+micropublication.org (in addition to downloading the PDF version), and by
+default, microarchiver validates the XML content against the JATS DTD.  To
+skip the XML validation step, use the option -X (/X on Windows).
 
 Microarchiver will print informational messages as it works. To reduce messages
 to only warnings and errors, use the argument -q (or /q on Windows). Also,
@@ -208,6 +219,7 @@ Command-line arguments summary
         else:
             alert_fatal('{}'.format(str(ex)))
             exit(2)
+    # FIXME return status code from body
 
 
 class MainBody(object):
@@ -356,7 +368,7 @@ class MainBody(object):
                     date  = year + '-' + month + '-' + day
                 else:
                     date = ''
-                status = 'incomplete' if not(all([pdf, doi, title, date])) else 'complete'
+                status = 'incomplete' if not(all([pdf, jats, doi, title, date])) else 'complete'
                 articles.append(Article(doi, date, title, pdf, jats, image, status))
         except Exception as ex:
             if __debug__: log('could not parse XML from server')
@@ -395,6 +407,8 @@ class MainBody(object):
 
 
     def _save_articles(self, dest_dir, article_list):
+        # This overwrites the article.status field of each article with an
+        # error description if there is an error.
         for article in article_list:
             # Start by testing that we have all the data we will need.
             if not article.doi:
@@ -419,27 +433,35 @@ class MainBody(object):
                 os.makedirs(jats_dir)
             except FileExistsError:
                 pass
-            xml_file   = path.join(article_dir, xml_filename(article))
-            pdf_file   = path.join(article_dir, pdf_filename(article))
-            jats_file  = path.join(jats_dir, jats_filename(article))
-            image_file = path.join(jats_dir, image_filename(article))
             inform('Writing ' + article.doi)
+            xml_file = path.join(article_dir, xml_filename(article))
             with open(xml_file, 'w', encoding = 'utf8') as f:
                 if __debug__: log('writing XML to {}', xml_file)
                 f.write(xmltodict.unparse(xml))
+
+            pdf_file = path.join(article_dir, pdf_filename(article))
             if __debug__: log('downloading PDF to {}', pdf_file)
-            download(article.pdf, pdf_file)
+            if not download_file(article.pdf, pdf_file):
+                article.status = 'failed-pdf-download'
+
+            jats_file  = path.join(jats_dir, jats_filename(article))
+            image_file = path.join(jats_dir, image_filename(article))
             if __debug__: log('downloading JATS XML to {}', jats_file)
-            download(article.jats, jats_file)
+            if not download_file(article.jats, jats_file):
+                article.status = 'failed-jats-download'
             if self.do_validate:
-                validate_xml(jats_file, self._dtd)
+                if not valid_xml(jats_file, self._dtd):
+                    article.status = 'failed-jats-validation'
             else:
                 if __debug__: log('skipping DTD validation of {}', jats_file)
             if article.image:
                 if __debug__: log('downloading image file to {}', image_file)
-                download(article.jats, image_file)
+                if not download_file(article.jats, image_file):
+                    article.status = 'failed-image-download'
             else:
                 if __debug__: log('skipping empty image file URL for {}', article.doi)
+
+
         return article_list
 
 
