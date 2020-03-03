@@ -233,7 +233,7 @@ Command-line arguments summary
         exit(100 + body.failures if body.failures > 0 else 0)
     except KeyboardInterrupt as ex:
         warn('Quitting')
-        if __debug__: log('returning with exit code 1')
+        if __debug__: log('returning with exit code 2')
         exit(2)
     except Exception as ex:
         if debugging:
@@ -242,7 +242,7 @@ Command-line arguments summary
             import pdb; pdb.set_trace()
         else:
             alert_fatal('{}'.format(str(ex)))
-            if __debug__: log('returning with exit code 2')
+            if __debug__: log('returning with exit code 3')
             exit(3)
 
 
@@ -494,8 +494,6 @@ class MainBody(object):
                     article.status = 'failed-image-download'
             else:
                 if __debug__: log('skipping empty image file URL for {}', article.doi)
-
-
         return article_list
 
 
