@@ -273,6 +273,7 @@ class MainBody(object):
                 rename_existing(self.report)
             inform('Writing report to ' + self.report)
             self._write_report(self.report, articles)
+            import pdb; pdb.set_trace()
 
 
     def _process_arguments(self):
@@ -442,21 +443,26 @@ class MainBody(object):
             pdf_file = path.join(article_dir, pdf_filename(article))
             if __debug__: log('downloading PDF to {}', pdf_file)
             if not download_file(article.pdf, pdf_file):
+                warn('Could not download PDF file for {}', article.doi)
                 article.status = 'failed-pdf-download'
 
             jats_file  = path.join(jats_dir, jats_filename(article))
             image_file = path.join(jats_dir, image_filename(article))
             if __debug__: log('downloading JATS XML to {}', jats_file)
             if not download_file(article.jats, jats_file):
+                warn('Could not download JATS file for {}', article.doi)
                 article.status = 'failed-jats-download'
             if self.do_validate:
                 if not valid_xml(jats_file, self._dtd):
+                    warn('Failed to validate JATS for {}', article.doi)
                     article.status = 'failed-jats-validation'
             else:
                 if __debug__: log('skipping DTD validation of {}', jats_file)
+
             if article.image:
                 if __debug__: log('downloading image file to {}', image_file)
                 if not download_file(article.jats, image_file):
+                    warn('Failed to download image for {}', article.doi)
                     article.status = 'failed-image-download'
             else:
                 if __debug__: log('skipping empty image file URL for {}', article.doi)
