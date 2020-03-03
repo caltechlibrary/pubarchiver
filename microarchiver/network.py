@@ -229,6 +229,20 @@ def unwrapped_urllib3_exception(ex):
         return ex
 
 
+def download_file(url, local_destination):
+    '''An exception-catching version of download(...) that returns True if
+    the content at 'url' could be downloaded to the file 'local_destination',
+    and False otherwise.  It does not throw an exception.'''
+
+    try:
+        download(url, local_destination)
+    except Exception as ex:
+        if __debug__: log('Download exception: {}', str(ex))
+        return False
+    else:
+        return True
+
+
 def download(url, local_destination, recursing = 0):
     '''Download the 'url' to the file 'local_destination'.'''
     def addurl(text):
