@@ -155,13 +155,12 @@ Return values
 
 This program exits with a return code of 0 if no problems are encountered
 while fetching data from the server.  It returns a nonzero value otherwise,
-following [conventions](https://unix.stackexchange.com/a/99134/141997) used in
-shells such as bash which only understand return code values of 0 to 255.  If
-it is interrupted (e.g., using control-c) it returns a value of 1; if it
-encounters a fatal error, it returns a value of 2.  If it encounters any
-non-fatal problems (such as a missing PDF file or JATS validation error), it
-returns a nonzero value equal to 100 + the number of articles that had
-failures.  Summarizing the possible return codes:
+following conventions used in shells such as bash which only understand return
+code values of 0 to 255.  If it is interrupted (e.g., using control-c) it
+returns a value of 1; if it encounters a fatal error, it returns a value of 2.
+If it encounters any non-fatal problems (such as a missing PDF file or JATS
+validation error), it returns a nonzero value equal to 100 + the number of
+articles that had failures.  Summarizing the possible return codes:
 
         0 = no errors were encountered -- success
         1 = no network detected -- cannot proceed
