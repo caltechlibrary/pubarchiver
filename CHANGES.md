@@ -7,9 +7,10 @@ Version 1.7.0
 * Store JATS XML for each article.
 * Perform JATS validation for each article by default.
 * Add `-X` option to disable automatic JATS DTD validation.
+* Change `-a` option to accept a file containing either a list of DOIs or the XML format sent by micropublication.org.
 * Change exit code numbering scheme.
 * Communicate number of failures in terms of exit codes; see [README](README.md) for more details.
-* Internal code changes and refactoring.
+* Refactor and change some internal code.
 
 
 Version 1.6.3
