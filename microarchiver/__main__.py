@@ -321,11 +321,17 @@ class MainBody(object):
             raise RuntimeError("File is in use by another process: {}".format(self.report))
 
         if self.after:
+            parsed_date = None
             try:
-                self.after = parse_datetime(self.after)
-                if __debug__: log('Parsed after_date as {}', self.after)
+                parsed_date = parse_datetime(self.after)
             except Exception as ex:
                 raise RuntimeError('Unable to parse date: {}'.format(str(ex)))
+            if parsed_date:
+                if __debug__: log('Parsed after_date as {}', parsed_date)
+                self._after = parsed_date
+            else:
+                # parse_datetime(...) returned None, which means it failed.
+                raise RuntimeError('Invalid date: {}'.format(self.after))
 
         if self.do_validate:
             data_dir = path.join(module_path(), 'data')

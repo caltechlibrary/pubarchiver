@@ -10,6 +10,7 @@ Version 1.7.0
 * Change `-a` option to accept a file containing either a list of DOIs or the XML format sent by micropublication.org.
 * Change exit code numbering scheme.
 * Communicate number of failures in terms of exit codes; see [README](README.md) for more details.
+* Test if date given to `-d` is syntactically correct but not a valid date.
 * Refactor and change some internal code.
 
 
