@@ -24,6 +24,7 @@ import json as jsonlib
 from   lxml import etree
 import os
 import os.path as path
+from   PIL import Image
 import plac
 from   recordclass import recordclass
 import shutil
@@ -36,7 +37,7 @@ from .debug import set_debug, log
 from .exceptions import *
 from .files import readable, writable, file_in_use, file_is_empty, make_dir
 from .files import rename_existing, module_path, create_archive, verify_archive
-from .files import valid_xml, filename_extension
+from .files import valid_xml, filename_extension, filename_basename
 from .network import net, network_available, download_file
 from .ui import UI, inform, warn, alert, alert_fatal
 
@@ -67,6 +68,9 @@ _DATACITE_API_URL = 'https://api.datacite.org/dois/'
 _MICROPUBLICATION_ISSN = '2578-9430'
 
 _ARCHIVE_DIR_NAME = 'micropublication-org'
+
+_TIFF_DPI = (500, 500)
+'''Resolution for the TIFF images saved with JATS content.'''
 
 _DATE_PRINT_FORMAT = '%b %d %Y %H:%M:%S %Z'
 '''Format in which lastmod date is printed back to the user. The value is used
@@ -101,7 +105,7 @@ _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
 def main(articles = 'A', no_color = False, after_date = 'D', get_xml = False,
          output_dir = 'O', preview = False, quiet = False, report = 'R',
          version = False, no_check = False, no_zip = False, debug = 'OUT'):
-    '''Archive micropublication.org publications for Portico.
+    '''Archive micropublication.org publications.
 
 By default, this program will contact micropublication.org to get a list of
 current articles. If given the argument -a (or /a on Windows) followed by a
@@ -109,12 +113,6 @@ file name, the given file will be read instead instead of getting the list from
 the server. The contents of the file can be either a list of DOIs, or article
 data in the same XML format as the list obtained from micropublication.org.
 (See option -g below for a way to get an article list in XML from the server.)
-
-The output will be written to the directory indicated by the value of the
-argument -o (or /o on Windows). If no -o is given, the output will be written
-to the current directory instead. The output will be put into a single-file
-archive in ZIP format unless the argument -Z (or /Z on Windows) is given to
-prevent creation of the compressed archive file.
 
 If the option -d is given, microarchiver will download only articles whose
 publication dates are AFTER the given date. Valid date descriptors are those
@@ -149,6 +147,21 @@ as a starting point for creating the file used by option -a. It's probably a
 good idea to redirect the output to a file; e.g.,
 
   microarchiver -g > article-list.xml
+
+Output
+~~~~~~
+
+The output will be written to the directory indicated by the value of the
+argument -o (or /o on Windows). If no -o is given, the output will be written
+to the directory in which microarchiver was started. Each article will be
+written to a subsubdirecory named after the DOI of the article. The output for
+each article will consist of an XML metadata file describing the article, the
+article itself in PDF format, and a subdirectory named "jats" containing the
+article in JATS XML format along with any image that may appear in the article.
+
+The collected output of all articles will be put into a single-file archive
+in ZIP format unless the argument -Z (or /Z on Windows) is given to prevent
+creation of the compressed archive file.
 
 Return values
 ~~~~~~~~~~~~~
@@ -520,7 +533,13 @@ class MainBody(object):
             image_file = image_filename(article, jats_dir, ext = image_extension)
             if article.image:
                 if __debug__: log('downloading image file to {}', image_file)
-                if not download_file(article.image, image_file):
+                if download_file(article.image, image_file):
+                    # Also generate an uncompressed TIFF version.
+                    with Image.open(image_file) as img:
+                        basename = filename_basename(image_file)
+                        img.save(basename + '.tif', dpi = _TIFF_DPI,
+                                 description = tiff_comments(article))
+                else:
                     warn('Failed to download image for {}', article.doi)
                     article.status = 'failed-image-download'
             else:
@@ -619,6 +638,21 @@ def image_filename(article, jats_dir = '', ext = '.png'):
         if name is None:
             return None
         return path.join(jats_dir, name + ext)
+
+
+def tiff_comments(article):
+    text = 'Image converted from '
+    text += article.image
+    text += ' on '
+    text += str(datetime.date.today())
+    text += ' for article titled "'
+    text += article.title
+    text += '", DOI '
+    text += article.doi
+    text += ', originally published on '
+    text += article.date
+    text += ' in microPublication.org.'
+    return text
 
 
 def file_comments(num_articles):
