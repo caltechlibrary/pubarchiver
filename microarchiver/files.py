@@ -89,6 +89,10 @@ def rename_existing(file):
         return
 
 
+def file_is_empty(file):
+    return os.stat(file).st_size == 0
+
+
 def file_in_use(file):
     '''Returns True if the given 'file' appears to be in use.  Note: this only
     works on Windows, currently.
