@@ -36,7 +36,7 @@ from .debug import set_debug, log
 from .exceptions import *
 from .files import readable, writable, file_in_use, file_is_empty, make_dir
 from .files import rename_existing, module_path, create_archive, verify_archive
-from .files import valid_xml
+from .files import valid_xml, filename_extension
 from .network import net, network_available, download_file
 from .ui import UI, inform, warn, alert, alert_fatal
 
@@ -493,19 +493,18 @@ class MainBody(object):
             except FileExistsError:
                 pass
             inform('Writing ' + article.doi)
-            xml_file = path.join(article_dir, xml_filename(article))
+            xml_file = xml_filename(article, article_dir)
             with open(xml_file, 'w', encoding = 'utf8') as f:
                 if __debug__: log('writing XML to {}', xml_file)
                 f.write(xmltodict.unparse(xml))
 
-            pdf_file = path.join(article_dir, pdf_filename(article))
+            pdf_file = pdf_filename(article, article_dir)
             if __debug__: log('downloading PDF to {}', pdf_file)
             if not download_file(article.pdf, pdf_file):
                 warn('Could not download PDF file for {}', article.doi)
                 article.status = 'failed-pdf-download'
 
-            jats_file  = path.join(jats_dir, jats_filename(article))
-            image_file = path.join(jats_dir, image_filename(article))
+            jats_file = jats_filename(article, jats_dir)
             if __debug__: log('downloading JATS XML to {}', jats_file)
             if not download_file(article.jats, jats_file):
                 warn('Could not download JATS file for {}', article.doi)
@@ -517,9 +516,11 @@ class MainBody(object):
             else:
                 if __debug__: log('skipping DTD validation of {}', jats_file)
 
+            image_extension = filename_extension(article.image)
+            image_file = image_filename(article, jats_dir, ext = image_extension)
             if article.image:
                 if __debug__: log('downloading image file to {}', image_file)
-                if not download_file(article.jats, image_file):
+                if not download_file(article.image, image_file):
                     warn('Failed to download image for {}', article.doi)
                     article.status = 'failed-image-download'
             else:
@@ -584,21 +585,40 @@ def tail_of_doi(article):
     return article.doi[slash + 1:]
 
 
-def pdf_filename(article):
-    return tail_of_doi(article) + '.pdf'
+def pdf_filename(article, article_dir = ''):
+    filename = tail_of_doi(article) + '.pdf'
+    return path.join(article_dir, filename)
 
 
-def xml_filename(article):
-    return tail_of_doi(article) + '.xml'
+def xml_filename(article, article_dir = ''):
+    filename = tail_of_doi(article) + '.xml'
+    return path.join(article_dir, filename)
 
 
-def jats_filename(article):
-    return tail_of_doi(article) + '.xml'
+def jats_filename(article, jats_dir = ''):
+    filename = tail_of_doi(article) + '.xml'
+    return path.join(jats_dir, filename)
 
 
-def image_filename(article):
-    slash = article.image.rfind('/')
-    return article.image[slash + 1:]
+def image_filename(article, jats_dir = '', ext = '.png'):
+    '''Extract the image file from the <graphic> element of the JATS file.'''
+    jats_file = jats_filename(article, jats_dir)
+    with open(jats_file, 'r') as f:
+        try:
+            root = etree.parse(jats_file)
+        except Exception as ex:
+            raise CorruptedContent('Bad XML in JATS file {}'.format(jats_file))
+        # <graphic> is inside <body>, but to avoid hardcoding the xml element
+        # path, this uses an XPath expression to find it anywhere.
+        graphic = root.find('.//graphic')
+        if graphic is None:
+            return None
+        # The element looks like this:
+        #  <graphic xlink:href="25789430-2019-micropub.biology.000102"/>
+        name = graphic.get('{http://www.w3.org/1999/xlink}href')
+        if name is None:
+            return None
+        return path.join(jats_dir, name + ext)
 
 
 def file_comments(num_articles):
