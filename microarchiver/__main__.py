@@ -34,8 +34,8 @@ import microarchiver
 from microarchiver import print_version
 from .debug import set_debug, log
 from .exceptions import *
-from .files import readable, writable, file_in_use, rename_existing
-from .files import module_path, make_dir, create_archive, verify_archive
+from .files import readable, writable, file_in_use, file_is_empty, make_dir
+from .files import rename_existing, module_path, create_archive, verify_archive
 from .files import valid_xml
 from .network import net, network_available, download_file
 from .ui import UI, inform, warn, alert, alert_fatal
@@ -84,7 +84,7 @@ _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
 # .............................................................................
 
 @plac.annotations(
-    articles   = ('get articles list from file A (default: from network)',  'option', 'a'),
+    articles   = ('read article list from file A (default: from network)',  'option', 'a'),
     no_color   = ('do not color-code terminal output',                      'flag',   'C'),
     after_date = ('only get articles published after date "D"',             'option', 'd'),
     get_xml    = ('print the current archive list from the server & exit',  'flag',   'g'),
@@ -106,9 +106,9 @@ def main(articles = 'A', no_color = False, after_date = 'D', get_xml = False,
 By default, this program will contact micropublication.org to get a list of
 current articles. If given the argument -a (or /a on Windows) followed by a
 file name, the given file will be read instead instead of getting the list from
-the server. The contents of the file must be in the same XML format as the list
-obtain from micropublication.org; see option -g, described below, for a way to
-get the current article list from the server.
+the server. The contents of the file can be either a list of DOIs, or article
+data in the same XML format as the list obtained from micropublication.org.
+(See option -g below for a way to get an article list in XML from the server.)
 
 The output will be written to the directory indicated by the value of the
 argument -o (or /o on Windows). If no -o is given, the output will be written
@@ -117,9 +117,9 @@ archive in ZIP format unless the argument -Z (or /Z on Windows) is given to
 prevent creation of the compressed archive file.
 
 If the option -d is given, microarchiver will download only articles whose
-publication dates are AFTER the given date.  Valid date descriptors are those
-accepted by the Python dateparser library.  Make sure to enclose descriptions
-within single or double quotes.  Examples:
+publication dates are AFTER the given date. Valid date descriptors are those
+accepted by the Python dateparser library. Make sure to enclose descriptions
+within single or double quotes. Examples:
 
   microarchiver -d "2014-08-29"   ....
   microarchiver -d "12 Dec 2014"  ....
@@ -127,7 +127,7 @@ within single or double quotes.  Examples:
   microarchiver -d "2 weeks ago"  ....
 
 As it works, microarchiver writes information to the terminal about the archives
-it puts into the archive, including whether any problems are encountered.  To
+it puts into the archive, including whether any problems are encountered. To
 save this info to a file, use the argument -r (or /r on Windows), which will
 make microarchiver write a report file in CSV format.
 
@@ -136,16 +136,16 @@ Previewing the list of articles
 
 If given the argument -p (or /p on Windows), microarchiver will ONLY display a
 list of articles it will archive and stop short of creating the archive. This
-is useful to see what would be produced without actually doing it.  However,
+is useful to see what would be produced without actually doing it. However,
 note that because it does not attempt to download the articles and associated
 files, it will not be able to report on errors that might occur when not
-operating in preview mode.  Consequently, do not use the output of -p as a
+operating in preview mode. Consequently, do not use the output of -p as a
 prediction of eventual success or failure.
 
 If given the argument -g (or /g on Windows), microarchiver will write to
 standard output the complete current article list from the micropublication.org
-server, in XML format, and exit without doing anything else.  This is useful
-as a starting point for creating the file used by option -a.  It's probably a
+server, in XML format, and exit without doing anything else. This is useful
+as a starting point for creating the file used by option -a. It's probably a
 good idea to redirect the output to a file; e.g.,
 
   microarchiver -g > article-list.xml
@@ -154,13 +154,13 @@ Return values
 ~~~~~~~~~~~~~
 
 This program exits with a return code of 0 if no problems are encountered
-while fetching data from the server.  It returns a nonzero value otherwise,
+while fetching data from the server. It returns a nonzero value otherwise,
 following conventions used in shells such as bash which only understand return
-code values of 0 to 255.  If it is interrupted (e.g., using control-c) it
+code values of 0 to 255. If it is interrupted (e.g., using control-c) it
 returns a value of 1; if it encounters a fatal error, it returns a value of 2.
 If it encounters any non-fatal problems (such as a missing PDF file or JATS
 validation error), it returns a nonzero value equal to 100 + the number of
-articles that had failures.  Summarizing the possible return codes:
+articles that had failures. Summarizing the possible return codes:
 
         0 = no errors were encountered -- success
         1 = no network detected -- cannot proceed
@@ -173,7 +173,7 @@ Additional command-line arguments
 
 Microarchiver always downloads the JATS XML version of articles from
 micropublication.org (in addition to downloading the PDF version), and by
-default, microarchiver validates the XML content against the JATS DTD.  To
+default, microarchiver validates the XML content against the JATS DTD. To
 skip the XML validation step, use the option -X (/X on Windows).
 
 Microarchiver will print informational messages as it works. To reduce messages
@@ -187,7 +187,7 @@ information and exit without doing anything else.
 
 If given the -@ argument (/@ on Windows), this program will output a detailed
 trace of what it is doing, and will also drop into a debugger upon the
-occurrence of any errors.  The debug trace will be sent to the given
+occurrence of any errors. The debug trace will be sent to the given
 destination, which can be '-' to indicate console output, or a file path to
 send the output to a file.
 
@@ -262,14 +262,11 @@ class MainBody(object):
         # Check and process argument values & fail early if there's a problem.
         self._process_arguments()
 
-        # Read the article list, then do optional filtering for date.
-        if self.source:
-            inform('Reading articles list from XML file {}', self.source)
-            articles = self._articles_from_xml(self.source)
-        else:
-            inform('Fetching articles list from {}', _URL_ARTICLES_LIST)
-            articles = self._articles_from_xml(_URL_ARTICLES_LIST)
+        # Read the article list from a file or the server
+        inform('Reading article list from {}', self.source or _URL_ARTICLES_LIST)
+        articles = self._articles_from(self.source or _URL_ARTICLES_LIST)
 
+        # Do optional filtering based on the date.
         if self.after:
             date_str = self.after.strftime(_DATE_PRINT_FORMAT)
             inform('Will only keep articles published after {}', date_str)
@@ -304,10 +301,11 @@ class MainBody(object):
 
 
     def _process_arguments(self):
-        if self.source and not readable(self.source):
-            raise RuntimeError('File not readable: {}'.format(self.source))
-        if self.source and not self.source.endswith('.xml'):
-            raise RuntimeError('Does not appear to be an XML file: {}'.format(self.source))
+        if self.source:
+            if not readable(self.source):
+                raise RuntimeError('File not readable: {}'.format(self.source))
+            if file_is_empty(self.source):
+                raise RuntimeError('File is empty: {}'.format(self.source))
 
         if not path.isabs(self.dest):
             self.dest = path.realpath(path.join(os.getcwd(), self.dest))
@@ -351,8 +349,21 @@ class MainBody(object):
                     os.chdir(current_dir)
 
 
-    def _articles_from_xml(self, file_or_url):
+    def _articles_from(self, file_or_url):
         '''Returns a list of `Article` tuples from the given URL or file.'''
+        if file_or_url.startswith('http'):
+            return self._articles_from_xml(file_or_url)
+        else:
+            with open(file_or_url, 'r') as f:
+                if f.readline().startswith('<?xml'):
+                    return self._articles_from_xml(file_or_url)
+                else:
+                    return self._articles_from_dois(file_or_url)
+
+
+    def _articles_from_xml(self, file_or_url):
+        '''Returns a list of `Article` tuples from the XML source, which can be
+        either a file or a network server responding to HTTP 'get'.'''
         # Read the XML.
         if file_or_url.startswith('http'):
             (response, error) = net('get', file_or_url)
@@ -373,6 +384,20 @@ class MainBody(object):
             with open(file_or_url, 'rb') as xml_file:
                 xml = xml_file.readlines()
         return self._article_tuples(xml)
+
+
+    def _articles_from_dois(self, input_file):
+        '''Read the given file (assumed to contain a list of DOIs) and return
+        a list of corresponding `Article` records.  A side-effect of doing this
+        is that this function has to contact the server to get a list of all
+        articles in XML format.'''
+        articles = self._articles_from_xml(_URL_ARTICLES_LIST)
+        dois = []
+        with open(input_file, 'r') as f:
+            dois = [line.strip() for line in f]
+        if not any(dois or articles):
+            return []
+        return [a for a in articles if a.doi in dois]
 
 
     def _article_tuples(self, xml):

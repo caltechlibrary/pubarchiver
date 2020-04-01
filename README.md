@@ -107,7 +107,7 @@ microarchiver -g > article-list.xml
 
 ### _Additional command-line arguments_
 
-If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file must be in the same XML format as the list obtain from microPublication.org; see option `-g`, described above, for a way to get the current article list from the server.
+If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file can be either a list of DOIs, or article data in the same XML format as the list obtained from micropublication.org.  (See option `-g` above for a way to get an article list in XML from the server.)
 
 The output will be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
 
