@@ -299,7 +299,7 @@ class MainBody(object):
                 if self.do_zip:
                     archive_file = self.dest + '.zip'
                     inform('Creating ZIP archive file "{}"', archive_file)
-                    comments = file_comments(num_articles)
+                    comments = zip_comments(num_articles)
                     create_archive(archive_file, '.zip', self.dest, comments)
                     inform('Deleting directory "{}"', self.dest)
                     shutil.rmtree(self.dest)
@@ -655,7 +655,7 @@ def tiff_comments(article):
     return text
 
 
-def file_comments(num_articles):
+def zip_comments(num_articles):
     text  = '~ '*35
     text += '\n'
     text += 'About this ZIP archive file:\n'
