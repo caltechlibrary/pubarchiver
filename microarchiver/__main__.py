@@ -328,7 +328,7 @@ class MainBody(object):
                 raise RuntimeError('Unable to parse date: {}'.format(str(ex)))
             if parsed_date:
                 if __debug__: log('Parsed after_date as {}', parsed_date)
-                self._after = parsed_date
+                self.after = parsed_date
             else:
                 # parse_datetime(...) returned None, which means it failed.
                 raise RuntimeError('Invalid date: {}'.format(self.after))
