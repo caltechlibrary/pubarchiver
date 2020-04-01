@@ -109,6 +109,14 @@ def file_in_use(file):
     return False
 
 
+def filename_extension(file):
+    parts = file.rpartition('.')
+    if len(parts) > 1:
+        return '.' + parts[-1].lower()
+    else:
+        return ''
+
+
 def module_path():
     '''Returns the absolute path to our module installation directory.'''
     # The path returned by module.__path__ is to the directory containing
