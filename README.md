@@ -178,7 +178,7 @@ We would be happy to receive your help and participation with enhancing `microar
 ☮︎ License
 ----------
 
-Copyright &copy; 2019, Caltech.  This software is freely distributed under a BSD/MIT type license.  Please see the [LICENSE](LICENSE) file for more information.
+Copyright &copy; 2019-2020, Caltech.  This software is freely distributed under a BSD/MIT type license.  Please see the [LICENSE](LICENSE) file for more information.
 
 
 ❡ Authors and history
