@@ -109,6 +109,14 @@ def file_in_use(file):
     return False
 
 
+def filename_basename(file):
+    parts = file.rpartition('.')
+    if len(parts) > 1:
+        return ''.join(parts[:-1]).rstrip('.')
+    else:
+        return file
+
+
 def filename_extension(file):
     parts = file.rpartition('.')
     if len(parts) > 1:
