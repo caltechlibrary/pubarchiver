@@ -77,4 +77,4 @@ fi
 
 # Always send mail with the results.
 grep -F "Total articles" $logfile | \
-    mail -s"Portico archiving results for $today" -a $csvfile -a $logfile mhucka@caltech.edu
+    mail -s"Portico archiving results for $today" -a $csvfile -a $logfile mhucka@caltech.edu,team@micropublication.org
