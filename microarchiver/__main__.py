@@ -293,6 +293,7 @@ class MainBody(object):
         inform('Total articles: {}', humanize.intcomma(num_articles))
         if self.preview:
             self._print_articles(articles)
+            return
         else:
             if num_articles == 0:
                 inform('No articles to archive')
