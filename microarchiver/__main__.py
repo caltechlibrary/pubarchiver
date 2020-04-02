@@ -24,12 +24,16 @@ import json as jsonlib
 from   lxml import etree
 import os
 import os.path as path
-from   PIL import Image
+from   PIL import Image, ImageFile
 import plac
 from   recordclass import recordclass
 import shutil
 import sys
 import xmltodict
+
+# Set this to prevent some image files from causing errors such as
+# "OSError: image file is truncated (10 bytes not processed)"
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 import microarchiver
 from microarchiver import print_version
