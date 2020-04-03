@@ -104,12 +104,16 @@ If given the argument `-g` (or `/g` on Windows), `microarchiver` will _only_ wri
 microarchiver -g > article-list.xml
 ```
 
+### Output
+
+The output will be written to the directory indicated by the value of the argument `-o` (or `/o` on Windows).  If no `-o` is given, the output will be written to the directory in which `microarchiver` was started. Each article will be written to a subsubdirecory named after the DOI of the article. The output for each article will consist of an XML metadata file describing the article, the article itself in PDF format, and a subdirectory named `jats` containing the article in JATS XML format along with any image that may appear in the article.  The image is always converted to uncompressed TIFF format (because it is considered a good preservation format).
+
+The output will be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
+
 
 ### _Additional command-line arguments_
 
 If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file can be either a list of DOIs, or article data in the same XML format as the list obtained from micropublication.org.  (See option `-g` above for a way to get an article list in XML from the server.)
-
-The output will be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
 
 Microarchiver always downloads the JATS XML version of articles from
 micropublication.org (in addition to downloading the PDF version), and by
@@ -119,6 +123,9 @@ skip the XML validation step, use the option `-X` (`/X` on Windows).
 `microarchiver` will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control sequences create problems for your terminal emulator.
 
 If given the `-@` argument (`/@` on Windows), this program will output a detailed trace of what it is doing, and will also drop into a debugger upon the occurrence of any errors.  The debug trace will be written to the given destination, which can be a dash character (`-`) to indicate console output, or a file path.
+
+If given the -V argument (/V on Windows), this program will print version
+information and exit without doing anything else.
 
 
 ### Return values
