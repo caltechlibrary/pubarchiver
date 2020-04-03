@@ -39,9 +39,10 @@ import microarchiver
 from microarchiver import print_version
 from .debug import set_debug, log
 from .exceptions import *
-from .files import readable, writable, file_in_use, file_is_empty, make_dir
-from .files import rename_existing, module_path, create_archive, verify_archive
-from .files import valid_xml, filename_extension, filename_basename
+from .files import readable, writable, file_in_use, file_is_empty
+from .files import filename_extension, filename_basename, module_path
+from .files import rename_existing, delete_existing, make_dir
+from .files import create_archive, verify_archive, valid_xml
 from .network import net, network_available, download_file
 from .ui import UI, inform, warn, alert, alert_fatal
 
@@ -85,7 +86,6 @@ _INTERNAL_DTD_DIR = 'JATS-Archiving-1-2-MathML3-DTD'
 
 _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
 '''Name of the root DTD file for JATS.'''
-
 
 
 # Main program.
@@ -162,6 +162,8 @@ written to a subsubdirecory named after the DOI of the article. The output for
 each article will consist of an XML metadata file describing the article, the
 article itself in PDF format, and a subdirectory named "jats" containing the
 article in JATS XML format along with any image that may appear in the article.
+The image is always converted to uncompressed TIFF format (because it is
+considered a good preservation format).
 
 The collected output of all articles will be put into a single-file archive
 in ZIP format unless the argument -Z (or /Z on Windows) is given to prevent
@@ -199,14 +201,14 @@ output is color-coded by default unless the -C argument (or /C on Windows) is
 given; this argument can be helpful if the color control signals create
 problems for your terminal emulator.
 
-If given the -V argument (/V on Windows), this program will print version
-information and exit without doing anything else.
-
 If given the -@ argument (/@ on Windows), this program will output a detailed
 trace of what it is doing, and will also drop into a debugger upon the
 occurrence of any errors. The debug trace will be sent to the given
 destination, which can be '-' to indicate console output, or a file path to
 send the output to a file.
+
+If given the -V argument (/V on Windows), this program will print version
+information and exit without doing anything else.
 
 Command-line arguments summary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -432,11 +434,11 @@ class MainBody(object):
         articles = []
         try:
             for element in etree.fromstring(xml).findall('article'):
+                doi   = (element.find('doi').text or '').strip()
                 pdf   = (element.find('pdf-url').text or '').strip()
                 jats  = (element.find('jats-url').text or '').strip()
-                doi   = (element.find('doi').text or '').strip()
-                title = (element.find('article-title').text or '').strip()
                 image = (element.find('image-url').text or '').strip()
+                title = (element.find('article-title').text or '').strip()
                 date  = element.find('date-published')
                 if date != None:
                     year  = (date.find('year').text or '').strip()
@@ -534,16 +536,21 @@ class MainBody(object):
             else:
                 if __debug__: log('skipping DTD validation of {}', jats_file)
 
+            # We need to store the image with the name that appears in the
+            # JATS file. That requires a little extra work to extract.
             image_extension = filename_extension(article.image)
             image_file = image_filename(article, jats_dir, ext = image_extension)
             if article.image:
                 if __debug__: log('downloading image file to {}', image_file)
                 if download_file(article.image, image_file):
-                    # Also generate an uncompressed TIFF version.
                     with Image.open(image_file) as img:
-                        basename = filename_basename(image_file)
-                        img.save(basename + '.tif', dpi = _TIFF_DPI,
+                        if __debug__: log('converting image to TIFF format')
+                        tiff_name = filename_basename(image_file) + '.tif'
+                        img.save(tiff_name, dpi = _TIFF_DPI, compression = None,
                                  description = tiff_comments(article))
+                    # We keep only the uncompressed TIFF version.
+                    if __debug__: log('deleting image file {}', image_file)
+                    delete_existing(image_file)
                 else:
                     warn('Failed to download image for {}', article.doi)
                     article.status = 'failed-image-download'
