@@ -498,6 +498,10 @@ class MainBody(object):
                 warn('Skipping article with missing PDF URL: ' + article.doi)
                 article.status = 'missing-pdf'
                 continue
+            if not article.jats:
+                warn('Skipping article with missing PDF URL: ' + article.doi)
+                article.status = 'missing-jats'
+                continue
             xml = self._metadata_xml(article)
             if not xml:
                 warn('Skipping article with no DataCite entry: ' + article.doi)
@@ -549,7 +553,7 @@ class MainBody(object):
                         img.save(tiff_name, dpi = _TIFF_DPI, compression = None,
                                  description = tiff_comments(article))
                     # We keep only the uncompressed TIFF version.
-                    if __debug__: log('deleting image file {}', image_file)
+                    if __debug__: log('deleting original image file {}', image_file)
                     delete_existing(image_file)
                 else:
                     warn('Failed to download image for {}', article.doi)
