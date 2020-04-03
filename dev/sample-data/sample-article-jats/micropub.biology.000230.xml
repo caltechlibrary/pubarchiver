@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article
+PUBLIC "-//NLM//DTD JATS (Z39.96) Journal Archiving and Interchange DTD v1.2 20190208//EN"
+       "http://jats.nlm.nih.gov/archiving/1.2/JATS-archivearticle1.dtd">
+<article article-type="brief-report" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <front>
+  <journal-meta>
+   <journal-title-group>
+    <journal-title>microPublication Biology</journal-title>
+   </journal-title-group>
+   <issn pub-type="epub">2578-9430</issn>
+   <publisher>
+    <publisher-name>Caltech Library</publisher-name>
+   </publisher>
+  </journal-meta>
+  <article-meta>
+   <article-id pub-id-type="doi">10.17912/micropub.biology.000230</article-id>
+   <article-categories>
+    <subj-group subj-group-type="heading">
+     <subject>New Finding</subject>
+    </subj-group>
+    <subj-group subj-group-type="subject">
+     <subject>Phenotype Data</subject>
+    </subj-group>
+   </article-categories>
+   <title-group>
+    <article-title>Loss of <italic>fuss</italic> in <italic>Drosophila melanogaster</italic> results in decreased locomotor activity due to an increased number of pauses</article-title>
+   </title-group>
+   <contrib-group>
+    <contrib contrib-type="author">
+     <name>
+      <surname>Rass</surname>
+      <given-names>Mathias</given-names>
+     </name>
+     <role vocab="CRediT" vocab-identifier="http://dictionary.casrai.org/Contributor_Roles" vocab-term="Conceptualization" vocab-term-identifier="http://dictionary.casrai.org/Contributor_Roles/Conceptualization">Conceptualization</role>
+     <role vocab="CRediT" vocab-identifier="http://dictionary.casrai.org/Contributor_Roles" vocab-term="Software" vocab-term-identifier="http://dictionary.casrai.org/Contributor_Roles/Software">Software</role>
+     <role vocab="CRediT" vocab-identifier="http://dictionary.casrai.org/Contributor_Roles" vocab-term="Visualization" vocab-term-identifier="http://dictionary.casrai.org/Contributor_Roles/Visualization">Visualization</role>
+     <role vocab="CRediT" vocab-identifier="http://dictionary.casrai.org/Contributor_Roles" vocab-term="Writing - original draft" vocab-term-identifier="http://dictionary.casrai.org/Contributor_Roles/Writing_%E2%80%93_original_draft">Writing - original draft</role>
+     <role vocab="CRediT" vocab-identifier="http://dictionary.casrai.org/Contributor_Roles" vocab-term="Writing - review and editing" vocab-term-identifier="http://dictionary.casrai.org/Contributor_Roles/Writing_%E2%80%93_review_%26_editing">Writing - review and editing</role>
+     <role vocab="CRediT" vocab-identifier="http://dictionary.casrai.org/Contributor_Roles" vocab-term="Investigation" vocab-term-identifier="http://dictionary.casrai.org/Contributor_Roles/Investigation">Investigation</role>
+     <xref ref-type="aff" rid="aff1">1</xref>
+     <xref ref-type="corresp" rid="cor1">&#xa7;</xref>
+    </contrib>
+    <contrib contrib-type="author">
+     <name>
+      <surname>Oestreich</surname>
+      <given-names>Svenja</given-names>
+     </name>
+     <role vocab="CRediT" vocab-identifier="http://dictionary.casrai.org/Contributor_Roles" vocab-term="Investigation" vocab-term-identifier="http://dictionary.casrai.org/Contributor_Roles/Investigation">Investigation</role>
+     <role vocab="CRediT" vocab-identifier="http://dictionary.casrai.org/Contributor_Roles" vocab-term="Writing - review and editing" vocab-term-identifier="http://dictionary.casrai.org/Contributor_Roles/Writing_%E2%80%93_review_%26_editing">Writing - review and editing</role>
+     <xref ref-type="aff" rid="aff1">1</xref>
+    </contrib>
+    <contrib contrib-type="author">
+     <name>
+      <surname>Manaj</surname>
+      <given-names>Ardi</given-names>
+     </name>
+     <role vocab="CRediT" vocab-identifier="http://dictionary.casrai.org/Contributor_Roles" vocab-term="Investigation" vocab-term-identifier="http://dictionary.casrai.org/Contributor_Roles/Investigation">Investigation</role>
+     <xref ref-type="aff" rid="aff1">1</xref>
+    </contrib>
+    <contrib contrib-type="author">
+     <name>
+      <surname>Schneuwly</surname>
+      <given-names>Stephan</given-names>
+     </name>
+     <role vocab="CRediT" vocab-identifier="http://dictionary.casrai.org/Contributor_Roles" vocab-term="Writing - review and editing" vocab-term-identifier="http://dictionary.casrai.org/Contributor_Roles/Writing_%E2%80%93_review_%26_editing">Writing - review and editing</role>
+     <xref ref-type="aff" rid="aff1">1</xref>
+    </contrib>
+    <aff id="aff1">
+     <label>1</label>
+Department of Developmental Biology, Institute of Zoology, University of Regensburg, Regensburg, Bavaria, Germany </aff>
+   </contrib-group>
+   <contrib-group>
+    <contrib contrib-type="reviewer">
+     <name>
+      <surname>Marygold</surname>
+      <given-names>Steven</given-names>
+     </name>
+    </contrib>
+   </contrib-group>
+   <author-notes>
+    <corresp id="cor1">
+     <label>&#xa7;</label>
+Correspondence to: Mathias Rass (<email>mathias.rass@ur.de</email>)</corresp>
+   </author-notes>
+   <pub-date date-type="pub" publication-format="electronic">
+    <day>09</day>
+    <month>03</month>
+    <year>2020</year>
+   </pub-date>
+   <elocation-id>10.17912/micropub.biology.000230</elocation-id>
+   <history>
+    <date date-type="received">
+     <day>19</day>
+     <month>12</month>
+     <year>2019</year>
+    </date>
+    <date date-type="accepted">
+     <day>06</day>
+     <month>03</month>
+     <year>2020</year>
+    </date>
+   </history>
+   <permissions>
+    <copyright-statement>Copyright: &#x00a9;</copyright-statement>
+    <copyright-year>2020</copyright-year>
+    <license license-type="open-access" xlink:href="https://creativecommons.org/licenses/by/4.0/">
+     <license-p>This is an open-access article distributed under the terms of the Creative Commons Attribution License, which permits unrestricted use, distribution, and reproduction in any medium, provided the original author and source are credited.</license-p>
+    </license>
+   </permissions>
+   <abstract>
+<p>In <italic>Drosophila melanogaster</italic>, two members of the Ski/Sno protein family exist, the Ski novel oncogene (Snoo) (Barrio <italic>et al.</italic> 2007) and the functional Smad suppressing element (Fuss) (Fischer <italic>et al.</italic> 2012). We have previously shown that Fuss is specifically expressed in gustatory receptor neurons (GRNs) and interneurons in the central nervous system (CNS). We created a loss of function allele <italic>fuss<sup>delDS</sup></italic> and showed that loss of <italic>fuss</italic> had no impact on survival rate during development or on adult life span. In fact, <italic>fuss<sup>delDS</sup></italic> flies display an impaired bitter GRN development and bitter taste reception (Rass <italic>et al.</italic> 2019).</p></abstract>
+  </article-meta>
+ </front>
+ <body>
+  <fig position="anchor" id="f1">
+   <label>Loss of fuss results in reduced locomotor activity</label>
+   <caption>
+<p>(A) Climbing speed of homozygous <italic>fuss</italic> mutant flies is reduced in contrast to control flies (mean speed (Mutant): 11.2 mm/s; mean speed (Control): 17.8 mm/s; Student&#x2019;s t-test: p &lt; 0.001). (B) In a Buridan&#x2019;s assay, walking speed during active times is similar between genotypes (mean speed (Mutant): 19.7 mm/s, mean speed (Control): 19.1 mm/s). (C) Number of walks between stripes is slightly but insignificantly reduced in <italic>fuss</italic> mutant flies compared to controls (mean number of walks (Mutant): 22.7; mean number of walks (Control): 27.4). (D) Activity time is significantly reduced in <italic>fuss</italic> mutant flies compared to controls (mean activity time (Mutant): 248.1 s; mean activity time (Control): 340.3 s; Student&#x2019;s t-test: p &lt; 0.05). (E) Number of pauses is strongly increased in <italic>fuss</italic> mutant flies (mean number of pauses (Mutant): 78.0; mean number of pauses (Control): 49.1; Student&#x2019;s t-test: p &lt; 0.001). (F) Pause length is similar between <italic>fuss</italic> mutant flies and controls (mean pause length (Mutant): 2.6s; mean pause length (Control): 2.3s). (G) Stripe perception of <italic>fuss</italic> mutant flies is similar to control flies as shown by transition plots and stripe deviation (mean stripe deviation (Mutant): 17.6&#xB0;; mean stripe deviation (Control): 16.6&#xB0;). n = 13 &#x2013; 15 for each genotype.</p></caption>
+   <graphic xlink:href="25789430-2020-micropub.biology.000230"/>
+  </fig>
+  <sec>
+   <title>Description</title>
+
+<p>In <italic>Drosophila melanogaster</italic>, two members of the Ski/Sno protein family exist, the Ski novel oncogene (Snoo) (Barrio <italic>et al.</italic> 2007) and the functional Smad suppressing element (Fuss) (Fischer <italic>et al.</italic> 2012). We have previously shown that Fuss is specifically expressed in gustatory receptor neurons (GRNs) and interneurons in the central nervous system (CNS). We created a loss of function allele <italic>fuss<sup>delDS</sup></italic> and showed that loss of <italic>fuss</italic> had no impact on survival rate during development or on adult life span. In fact, <italic>fuss<sup>delDS</sup></italic> flies display an impaired bitter GRN development and bitter taste reception (Rass <italic>et al.</italic> 2019).</p><p>To address if <italic>fuss<sup>delDS</sup></italic> shows other behavioural phenotypes we tested these flies in different behavioural assays (circadian rhythm, optomotor response, climbing and Buridan&#x2019;s paradigm), but we only found phenotypes in a climbing (Botella <italic>et al.</italic> 2004) and Buridan&#x2019;s paradigm assay (B&#xFC;lthoff <italic>et al.</italic> 1982; Colomb <italic>et al.</italic> 2012). In the climbing assay, flies were allowed to climb as high as possible in a pipette within 12 seconds. Interestingly, although <italic>fuss</italic> is not expressed in motoneurons, a strong reduction of the mean climbing speed of homozygous mutant <italic>fuss<sup>delDS</sup></italic> flies was detected if compared to heterozygous controls (<italic>fuss<sup>delDS</sup></italic> /+) (Fig 1, A). Upon closer examination of this phenotype, we noticed that the flies did not show any impairment in climbing capability but rather exhibited an increased number of pauses during testing. To record several different traits, we chose to test the flies using the Buridan&#x2019;s paradigm assay. One day old flies&#x2019; wings were clipped, flies were allowed to recover for one night and underwent testing the next day. Flies were placed on a platform surrounded by water. The arena is homogenously illuminated except for two black stripes on opposite sides. If flies perceive the stripes, they will try to reach them mainly in an alternating fashion. The movement of every fly was recorded for 10 minutes with BuriTrack and analysed with the CeTrAn analysis software (Colomb <italic>et al.</italic> 2012). Interestingly, no difference between mutant and control flies in speed could be observed anymore, because the speed in this assay is only measured during activity (Fig 1, B). Furthermore, the number of walks between stripes was not significantly different between genotypes and showed only a slight tendency to a lesser number of walks between stripes in mutant flies (Fig 1, C). However, the overall activity time of mutant flies was significantly reduced in contrast to control flies (Fig 1, D). Similar to our previous observation, the number of pauses was strongly increased in mutant flies (Fig 1, E), whereas the pause length was unchanged (Fig 1, F). Overall, we can say that, due to the increased number of parameters recorded via BuriTrack and analysed with CeTrAn, the reduced climbing speed observed in the climbing assay is not the consequence of slower walking, but rather due to an increased number of pauses during walking, which ultimately leads to a reduced locomotor activity. Additionally, we have found that mutant <italic>fuss<sup>delDS </sup></italic>flies have no problems in perceiving the black stripes as shown by the average trajectory plot and the stripe deviation (Fig 1, G).</p><p>In future experiments, it will be of particular interest how the loss of <italic>fuss</italic> impairs the interneurons on a molecular and cellular level and if these interneurons are somehow synaptically connected to motoneurons, which would explain the increased number of walking pauses. In humans a reduced expression of the <italic>fuss</italic> homolog <italic>Skor1</italic> has been shown to be linked to Restless Legs Syndrome (RLS) (Catoire <italic>et al.</italic> 2018). However, it is rather unlikely that fly <italic>fuss</italic> has a similar function as human <italic>Skor1</italic>, or that <italic>fuss</italic> mutant flies could serve as a model for RLS, because a loss of function <italic>dBTBD9</italic> RLS fly model is associated with a higher activity and a reduced number of pauses in Buridan&#x2019;s assay (Freeman <italic>et al.</italic> 2012).</p></sec>
+  <sec>
+   <title>Methods</title>
+
+<p>Generation and characterisation of the <italic>fuss<sup>delDS </sup></italic>(FBal0349586) allele has been described before (Rass <italic>et al.</italic> 2019). <italic>The fuss<sup>delDS </sup></italic>allele has been introduced into wild-type Berlin (WTB) background by backcrossing it five times to WTB flies. In the behavioural assays, only male flies underwent testing and homozygous <italic>fuss<sup>delDS</sup></italic> flies were crossed to WTB and heterozygous progeny served as controls. <italic>fuss<sup>delDS</sup>/+</italic> control flies did not show differences compared to WTB males. In climbing and Buridan&#xB4;s assays, thirteen control flies and fifteen mutant flies have been analysed. For Buridan&#xB4;s assay, we used the devices and software described previously in Colomb <italic>et al.</italic> (2012). For data visualisation the Python libraries pandas, matplotlib and seaborn have been used. For statistical testing the Python library SciPy was used.</p></sec>
+ </body>
+ <back>
+  <ack>
+   <sec>
+    <title>Funding</title>
+<p>This work was supported by the Deutsche Forschungsgemeinschaft (FI2133/1-1). The funders had no role in study design, data collection and analysis, decision to publish, or preparation of the manuscript.</p></sec>
+  </ack>
+  <ref-list>
+   <ref id="R1">
+    <element-citation publication-type="journal">
+     <article-title>Characterization of dSnoN and its relationship to Decapentaplegic signaling in Drosophila.</article-title>
+     <year>2007</year>
+     <month>03</month>
+     <day>01</day>
+     <person-group person-group-type="author">
+      <name>
+       <surname>Barrio</surname>
+       <given-names>R</given-names>
+      </name>
+      <name>
+       <surname>López-Varea</surname>
+       <given-names>A</given-names>
+      </name>
+      <name>
+       <surname>Casado</surname>
+       <given-names>M</given-names>
+      </name>
+      <name>
+       <surname>de Celis</surname>
+       <given-names>JF</given-names>
+      </name>
+     </person-group>
+     <volume>306</volume>
+     <source>Dev Biol</source>
+     <issue>1</issue>
+     <issn>0012-1606</issn>
+     <pub-id pub-id-type="doi">10.1016/j.ydbio.2007.02.039</pub-id>
+     <pub-id pub-id-type="pmid">17434471</pub-id>
+     <fpage>66</fpage>
+     <lpage>81</lpage>
+    </element-citation>
+   </ref>
+   <ref id="R2">
+    <element-citation publication-type="journal">
+     <article-title>The Drosophila carbonyl reductase sniffer prevents oxidative stress-induced neurodegeneration.</article-title>
+     <year>2004</year>
+     <month>05</month>
+     <day>01</day>
+     <person-group person-group-type="author">
+      <name>
+       <surname>Botella</surname>
+       <given-names>JA</given-names>
+      </name>
+      <name>
+       <surname>Ulschmid</surname>
+       <given-names>JK</given-names>
+      </name>
+      <name>
+       <surname>Gruenewald</surname>
+       <given-names>C</given-names>
+      </name>
+      <name>
+       <surname>Moehle</surname>
+       <given-names>C</given-names>
+      </name>
+      <name>
+       <surname>Kretzschmar</surname>
+       <given-names>D</given-names>
+      </name>
+      <name>
+       <surname>Becker</surname>
+       <given-names>K</given-names>
+      </name>
+      <name>
+       <surname>Schneuwly</surname>
+       <given-names>S</given-names>
+      </name>
+     </person-group>
+     <volume>14</volume>
+     <source>Curr Biol</source>
+     <issue>9</issue>
+     <issn>0960-9822</issn>
+     <pub-id pub-id-type="doi">10.1016/j.cub.2004.04.036</pub-id>
+     <pub-id pub-id-type="pmid">15120069</pub-id>
+     <fpage>782</fpage>
+     <lpage>786</lpage>
+    </element-citation>
+   </ref>
+   <ref id="R3">
+    <element-citation publication-type="journal">
+     <article-title>JATS Generator</article-title>
+     <year>2020</year>
+     <month>03</month>
+     <day>09</day>
+     <person-group person-group-type="author">
+      <name>
+       <surname>Rass</surname>
+       <given-names>Mathias</given-names>
+      </name>
+      <name>
+       <surname>Oestreich</surname>
+       <given-names>Svenja</given-names>
+      </name>
+      <name>
+       <surname>Manaj</surname>
+       <given-names>Ardi</given-names>
+      </name>
+      <name>
+       <surname>Schneuwly</surname>
+       <given-names>Stephan</given-names>
+      </name>
+     </person-group>
+     <source>microPublication Biology</source>
+     <pub-id pub-id-type="doi">10.1007/BF00619785</pub-id>
+    </element-citation>
+   </ref>
+   <ref id="R4">
+    <element-citation publication-type="journal">
+     <article-title>A direct interaction between two Restless Legs Syndrome predisposing genes: MEIS1 and SKOR1.</article-title>
+     <year>2018</year>
+     <month>08</month>
+     <day>15</day>
+     <person-group person-group-type="author">
+      <name>
+       <surname>Catoire</surname>
+       <given-names>H</given-names>
+      </name>
+      <name>
+       <surname>Sarayloo</surname>
+       <given-names>F</given-names>
+      </name>
+      <name>
+       <surname>Mourabit Amari</surname>
+       <given-names>K</given-names>
+      </name>
+      <name>
+       <surname>Apuzzo</surname>
+       <given-names>S</given-names>
+      </name>
+      <name>
+       <surname>Grant</surname>
+       <given-names>A</given-names>
+      </name>
+      <name>
+       <surname>Rochefort</surname>
+       <given-names>D</given-names>
+      </name>
+      <name>
+       <surname>Xiong</surname>
+       <given-names>L</given-names>
+      </name>
+      <name>
+       <surname>Montplaisir</surname>
+       <given-names>J</given-names>
+      </name>
+      <name>
+       <surname>Earley</surname>
+       <given-names>CJ</given-names>
+      </name>
+      <name>
+       <surname>Turecki</surname>
+       <given-names>G</given-names>
+      </name>
+      <name>
+       <surname>Dion</surname>
+       <given-names>PA</given-names>
+      </name>
+      <name>
+       <surname>Rouleau</surname>
+       <given-names>GA</given-names>
+      </name>
+     </person-group>
+     <volume>8</volume>
+     <source>Sci Rep</source>
+     <issue>1</issue>
+     <pub-id pub-id-type="doi">10.1038/s41598-018-30665-6</pub-id>
+     <pub-id pub-id-type="pmid">30111810</pub-id>
+     <fpage>12173</fpage>
+     <lpage>12173</lpage>
+    </element-citation>
+   </ref>
+   <ref id="R5">
+    <element-citation publication-type="journal">
+     <article-title>Open source tracking and analysis of adult Drosophila locomotion in Buridan's paradigm with and without visual targets.</article-title>
+     <year>2012</year>
+     <month>08</month>
+     <day>01</day>
+     <person-group person-group-type="author">
+      <name>
+       <surname>Colomb</surname>
+       <given-names>J</given-names>
+      </name>
+      <name>
+       <surname>Reiter</surname>
+       <given-names>L</given-names>
+      </name>
+      <name>
+       <surname>Blaszkiewicz</surname>
+       <given-names>J</given-names>
+      </name>
+      <name>
+       <surname>Wessnitzer</surname>
+       <given-names>J</given-names>
+      </name>
+      <name>
+       <surname>Brembs</surname>
+       <given-names>B</given-names>
+      </name>
+     </person-group>
+     <volume>7</volume>
+     <source>PLoS One</source>
+     <issue>8</issue>
+     <pub-id pub-id-type="doi">10.1371/journal.pone.0042247</pub-id>
+     <pub-id pub-id-type="pmid">22912692</pub-id>
+     <fpage>e42247</fpage>
+     <lpage>e42247</lpage>
+    </element-citation>
+   </ref>
+   <ref id="R6">
+    <element-citation publication-type="journal">
+     <article-title>fussel (fuss)--A negative regulator of BMP signaling in Drosophila melanogaster.</article-title>
+     <year>2012</year>
+     <month>08</month>
+     <day>01</day>
+     <person-group person-group-type="author">
+      <name>
+       <surname>Fischer</surname>
+       <given-names>S</given-names>
+      </name>
+      <name>
+       <surname>Bayersdorfer</surname>
+       <given-names>F</given-names>
+      </name>
+      <name>
+       <surname>Harant</surname>
+       <given-names>E</given-names>
+      </name>
+      <name>
+       <surname>Reng</surname>
+       <given-names>R</given-names>
+      </name>
+      <name>
+       <surname>Arndt</surname>
+       <given-names>S</given-names>
+      </name>
+      <name>
+       <surname>Bosserhoff</surname>
+       <given-names>AK</given-names>
+      </name>
+      <name>
+       <surname>Schneuwly</surname>
+       <given-names>S</given-names>
+      </name>
+     </person-group>
+     <volume>7</volume>
+     <source>PLoS One</source>
+     <issue>8</issue>
+     <pub-id pub-id-type="doi">10.1371/journal.pone.0042349</pub-id>
+     <pub-id pub-id-type="pmid">22879948</pub-id>
+     <fpage>e42349</fpage>
+     <lpage>e42349</lpage>
+    </element-citation>
+   </ref>
+   <ref id="R7">
+    <element-citation publication-type="journal">
+     <article-title>Sleep fragmentation and motor restlessness in a Drosophila model of Restless Legs Syndrome.</article-title>
+     <year>2012</year>
+     <month>05</month>
+     <day>31</day>
+     <person-group person-group-type="author">
+      <name>
+       <surname>Freeman</surname>
+       <given-names>A</given-names>
+      </name>
+      <name>
+       <surname>Pranski</surname>
+       <given-names>E</given-names>
+      </name>
+      <name>
+       <surname>Miller</surname>
+       <given-names>RD</given-names>
+      </name>
+      <name>
+       <surname>Radmard</surname>
+       <given-names>S</given-names>
+      </name>
+      <name>
+       <surname>Bernhard</surname>
+       <given-names>D</given-names>
+      </name>
+      <name>
+       <surname>Jinnah</surname>
+       <given-names>HA</given-names>
+      </name>
+      <name>
+       <surname>Betarbet</surname>
+       <given-names>R</given-names>
+      </name>
+      <name>
+       <surname>Rye</surname>
+       <given-names>DB</given-names>
+      </name>
+      <name>
+       <surname>Sanyal</surname>
+       <given-names>S</given-names>
+      </name>
+     </person-group>
+     <volume>22</volume>
+     <source>Curr Biol</source>
+     <issue>12</issue>
+     <issn>0960-9822</issn>
+     <pub-id pub-id-type="doi">10.1016/j.cub.2012.04.027</pub-id>
+     <pub-id pub-id-type="pmid">22658601</pub-id>
+     <fpage>1142</fpage>
+     <lpage>1148</lpage>
+    </element-citation>
+   </ref>
+   <ref id="R8">
+    <element-citation publication-type="journal">
+     <article-title>The Drosophila fussel gene is required for bitter gustatory neuron differentiation acting within an Rpd3 dependent chromatin modifying complex.</article-title>
+     <year>2019</year>
+     <month>02</month>
+     <day>01</day>
+     <person-group person-group-type="author">
+      <name>
+       <surname>Rass</surname>
+       <given-names>M</given-names>
+      </name>
+      <name>
+       <surname>Oestreich</surname>
+       <given-names>S</given-names>
+      </name>
+      <name>
+       <surname>Guetter</surname>
+       <given-names>S</given-names>
+      </name>
+      <name>
+       <surname>Fischer</surname>
+       <given-names>S</given-names>
+      </name>
+      <name>
+       <surname>Schneuwly</surname>
+       <given-names>S</given-names>
+      </name>
+     </person-group>
+     <volume>15</volume>
+     <source>PLoS Genet</source>
+     <issue>2</issue>
+     <issn>1553-7390</issn>
+     <pub-id pub-id-type="doi">10.1371/journal.pgen.1007940</pub-id>
+     <pub-id pub-id-type="pmid">30730884</pub-id>
+     <fpage>e1007940</fpage>
+     <lpage>e1007940</lpage>
+    </element-citation>
+   </ref>
+  </ref-list>
+ </back>
+</article>
+
