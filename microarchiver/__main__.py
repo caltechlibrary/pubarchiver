@@ -18,7 +18,8 @@ file "LICENSE" for more information.
 import base64
 import csv
 import dateparser
-import datetime
+from   datetime import date
+from   datetime import datetime as dt
 import humanize
 import json as jsonlib
 from   lxml import etree
@@ -77,7 +78,7 @@ _ARCHIVE_DIR_NAME = 'micropublication-org'
 _TIFF_DPI = (500, 500)
 '''Resolution for the TIFF images saved with JATS content.'''
 
-_DATE_PRINT_FORMAT = '%b %d %Y %H:%M:%S %Z'
+_DATE_FORMAT = '%b %d %Y %H:%M:%S %Z'
 '''Format in which lastmod date is printed back to the user. The value is used
 with datetime.strftime().'''
 
@@ -221,6 +222,8 @@ Command-line arguments summary
         import faulthandler
         faulthandler.enable()
 
+    if __debug__: log('='*8 + ' started {}' + '='*8, dt.now().strftime(_DATE_FORMAT))
+
     if version:
         print_version()
         exit(0)
@@ -230,7 +233,7 @@ Command-line arguments summary
         exit(1)
 
     if get_xml:
-        if __debug__: log('Fetching articles from server')
+        if __debug__: log('fetching articles from server')
         print(articles_list())
         exit(0)
 
@@ -287,7 +290,7 @@ class MainBody(object):
 
         # Do optional filtering based on the date.
         if self.after:
-            date_str = self.after.strftime(_DATE_PRINT_FORMAT)
+            date_str = self.after.strftime(_DATE_FORMAT)
             inform('Will only keep articles published after {}', date_str)
             articles = [x for x in articles if parse_datetime(x.date) > self.after]
 
@@ -347,7 +350,7 @@ class MainBody(object):
             except Exception as ex:
                 raise RuntimeError('Unable to parse date: {}'.format(str(ex)))
             if parsed_date:
-                if __debug__: log('Parsed after_date as {}', parsed_date)
+                if __debug__: log('parsed after_date as {}', parsed_date)
                 self.after = parsed_date
             else:
                 # parse_datetime(...) returned None, which means it failed.
@@ -660,7 +663,7 @@ def tiff_comments(article):
     text = 'Image converted from '
     text += article.image
     text += ' on '
-    text += str(datetime.date.today())
+    text += str(date.today())
     text += ' for article titled "'
     text += article.title
     text += '", DOI '
@@ -678,7 +681,7 @@ def zip_comments(num_articles):
     text += '\n'
     text += 'This archive contains a directory of articles from microPublication.org\n'
     text += 'created on {}. There {} {} article{} in this archive.'.format(
-        str(datetime.date.today()), 'is' if num_articles == 1 else 'are',
+        str(date.today()), 'is' if num_articles == 1 else 'are',
         num_articles, '' if num_articles == 1 else 's')
     text += '\n'
     text += software_comments()
