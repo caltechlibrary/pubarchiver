@@ -89,6 +89,24 @@ def rename_existing(file):
         return
 
 
+def delete_existing(file):
+    '''Delete the given file.'''
+    # Check if it's actually a directory.
+    if path.isdir(file):
+        if __debug__: log('doing rmtree on directory {}', file)
+        try:
+            shutil.rmtree(file)
+        except:
+            if __debug__: log('unable to rmtree {}; will try renaming', file)
+            try:
+                rename_existing(file)
+            except:
+                if __debug__: log('unable to rmtree or rename {}', file)
+    else:
+        if __debug__: log('doing os.remove on file {}', file)
+        os.remove(file)
+
+
 def file_is_empty(file):
     return os.stat(file).st_size == 0
 
