@@ -61,6 +61,7 @@ def network_available(address = "8.8.8.8", port = 53, timeout = 5):
         if __debug__: log('testing if we have a network connection')
         socket.setdefaulttimeout(timeout)
         socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((address, port))
+        if __debug__: log('we have a network connection')
         return True
     except Exception:
         if __debug__: log('could not connect to https://www.google.com')
@@ -237,7 +238,7 @@ def download_file(url, local_destination):
     try:
         download(url, local_destination)
     except Exception as ex:
-        if __debug__: log('Download exception: {}', str(ex))
+        if __debug__: log('download exception: {}', str(ex))
         return False
     else:
         return True
@@ -287,7 +288,7 @@ def download(url, local_destination, recursing = 0):
         # Code 202 = Accepted, "received but not yet acted upon."
         sleep(1)                        # Sleep a short time and try again.
         recursing += 1
-        if __debug__: log('Calling download() recursively for http code 202')
+        if __debug__: log('calling download() recursively for http code 202')
         download(url, local_destination, recursing)
     elif 200 <= code < 400:
         # This started as code in https://stackoverflow.com/a/13137873/743730
