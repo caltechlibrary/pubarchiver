@@ -10,7 +10,7 @@ A program to create archives of articles from [microPublication.org](https://www
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg?style=flat-square)](https://choosealicense.com/licenses/bsd-3-clause)
 [![Python](https://img.shields.io/badge/Python-3.5+-brightgreen.svg?style=flat-square)](https://www.python.org/downloads/release/python-350/)
 [![Latest release](https://img.shields.io/github/v/release/caltechlibrary/microarchiver.svg?style=flat-square&color=b44e88)](https://github.com/caltechlibrary/microarchiver/releases)
-[![DOI](https://img.shields.io/badge/dynamic/json.svg?label=DOI&style=flat-square&colorA=gray&colorB=navy&query=$.metadata.doi&uri=https://data.caltech.edu/api/record/1285)](https://data.caltech.edu/records/1285)
+[![DOI](https://img.shields.io/badge/dynamic/json.svg?label=DOI&style=flat-square&colorA=gray&colorB=navy&query=$.metadata.doi&uri=https://data.caltech.edu/api/record/1399)](https://data.caltech.edu/records/1399)
 
 
 Table of Contents
@@ -115,10 +115,7 @@ The output will be put into a single-file archive in [ZIP](https://en.wikipedia.
 
 If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file can be either a list of DOIs, or article data in the same XML format as the list obtained from micropublication.org.  (See option `-g` above for a way to get an article list in XML from the server.)
 
-Microarchiver always downloads the JATS XML version of articles from
-micropublication.org (in addition to downloading the PDF version), and by
-default, microarchiver validates the XML content against the JATS DTD.  To
-skip the XML validation step, use the option `-X` (`/X` on Windows).
+Microarchiver always downloads the JATS XML version of articles from micropublication.org (in addition to downloading the PDF version), and by default, microarchiver validates the XML content against the JATS DTD.  To skip the XML validation step, use the option `-X` (`/X` on Windows).
 
 `microarchiver` will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control sequences create problems for your terminal emulator.
 
@@ -206,6 +203,7 @@ Microarchiver makes use of numerous open-source packages, without which it would
 * [humanize](https://github.com/jmoiron/humanize) &ndash; make numbers more easily readable by humans
 * [ipdb](https://github.com/gotcha/ipdb) &ndash; the IPython debugger
 * [lxml](https://lxml.de) &ndash; an XML parsing library for Python
+* [Pillow](https://github.com/python-pillow/Pillow) &ndash; a fork of the Python Imaging Library
 * [plac](http://micheles.github.io/plac/) &ndash; a command line argument parser
 * [recordclass](https://github.com/intellimath/recordclass) &ndash; a mutable version of Python named tuples
 * [requests](http://docs.python-requests.org) &ndash; an HTTP library for Python
