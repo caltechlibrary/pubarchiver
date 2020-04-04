@@ -9,14 +9,10 @@ Michael Hucka <mhucka@caltech.edu> -- Caltech Library
 Copyright
 ---------
 
-Copyright (c) 2019 by the California Institute of Technology.  This code is
-open-source software released under a 3-clause BSD license.  Please see the
+Copyright (c) 2019-2020 by the California Institute of Technology.  This code
+is open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
-
-class UserCancelled(Exception):
-    '''The user elected to cancel/quit the program.'''
-    pass
 
 class NetworkFailure(Exception):
     '''Unrecoverable problem involving network operations.'''
@@ -43,8 +39,4 @@ class RateLimitExceeded(Exception):
 
 class InternalError(Exception):
     '''Unrecoverable problem involving Microarchiver itself.'''
-    pass
-
-class RequestError(Exception):
-    '''Problem with the server request.'''
     pass

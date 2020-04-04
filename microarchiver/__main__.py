@@ -10,40 +10,48 @@ Michael Hucka <mhucka@caltech.edu> -- Caltech Library
 Copyright
 ---------
 
-Copyright (c) 2019 by the California Institute of Technology.  This code is
-open-source software released under a 3-clause BSD license.  Please see the
+Copyright (c) 2019-2020 by the California Institute of Technology.  This code
+is open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
 import base64
-from   collections import namedtuple
 import csv
 import dateparser
-import datetime
+from   datetime import date
+from   datetime import datetime as dt
 import humanize
 import json as jsonlib
 from   lxml import etree
 import os
 import os.path as path
+from   PIL import Image, ImageFile
 import plac
 from   recordclass import recordclass
 import shutil
 import sys
 import xmltodict
 
+# Set this to prevent some image files from causing errors such as
+# "OSError: image file is truncated (10 bytes not processed)"
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 import microarchiver
-from microarchiver.debug import set_debug, log
-from microarchiver.exceptions import *
-from microarchiver.files import readable, writable, file_in_use, rename_existing
-from microarchiver.files import make_dir, create_archive, verify_archive
-from microarchiver.messages import MessageHandler
-from microarchiver.network import net, network_available, download
+from microarchiver import print_version
+from .debug import set_debug, log
+from .exceptions import *
+from .files import readable, writable, file_in_use, file_is_empty
+from .files import filename_extension, filename_basename, module_path
+from .files import rename_existing, delete_existing, make_dir
+from .files import create_archive, verify_archive, valid_xml
+from .network import net, network_available, download_file
+from .ui import UI, inform, warn, alert, alert_fatal
 
 
 # Simple data type definitions.
 # .............................................................................
 
-Article = recordclass('Article', 'doi date title pdf status')
+Article = recordclass('Article', 'doi date title pdf jats image status')
 '''
 Record class used internally to communicate information about articles in the
 article list.  The value of the "status" field can be as follows, and will
@@ -67,16 +75,25 @@ _MICROPUBLICATION_ISSN = '2578-9430'
 
 _ARCHIVE_DIR_NAME = 'micropublication-org'
 
-_DATE_PRINT_FORMAT = '%b %d %Y %H:%M:%S %Z'
+_TIFF_DPI = (500, 500)
+'''Resolution for the TIFF images saved with JATS content.'''
+
+_DATE_FORMAT = '%b %d %Y %H:%M:%S %Z'
 '''Format in which lastmod date is printed back to the user. The value is used
 with datetime.strftime().'''
+
+_INTERNAL_DTD_DIR = 'JATS-Archiving-1-2-MathML3-DTD'
+'''Directory relative to <module>/data containing JATS DTD files.'''
+
+_JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
+'''Name of the root DTD file for JATS.'''
 
 
 # Main program.
 # .............................................................................
 
 @plac.annotations(
-    articles   = ('get articles list from file A (default: from network)',  'option', 'a'),
+    articles   = ('read article list from file A (default: from network)',  'option', 'a'),
     no_color   = ('do not color-code terminal output',                      'flag',   'C'),
     after_date = ('only get articles published after date "D"',             'option', 'd'),
     get_xml    = ('print the current archive list from the server & exit',  'flag',   'g'),
@@ -85,32 +102,27 @@ with datetime.strftime().'''
     quiet      = ('only print important diagnostic messages while working', 'flag',   'q'),
     report     = ('write report to file R (default: print to terminal)',    'option', 'r'),
     version    = ('print version information and exit',                     'flag',   'V'),
+    no_check   = ('do not validate JATS XML files against the DTD',         'flag'  , 'X'),
     no_zip     = ('do not zip up the output directory (default: do)',       'flag',   'Z'),
     debug      = ('write detailed trace to "OUT" (use "-" for console)',    'option', '@'),
 )
 
 def main(articles = 'A', no_color = False, after_date = 'D', get_xml = False,
          output_dir = 'O', preview = False, quiet = False, report = 'R',
-         version = False, no_zip = False, debug = 'OUT'):
-    '''Archive micropublication.org publications for Portico.
+         version = False, no_check = False, no_zip = False, debug = 'OUT'):
+    '''Archive micropublication.org publications.
 
 By default, this program will contact micropublication.org to get a list of
 current articles. If given the argument -a (or /a on Windows) followed by a
 file name, the given file will be read instead instead of getting the list from
-the server. The contents of the file must be in the same XML format as the list
-obtain from micropublication.org; see option -g, described below, for a way to
-get the current article list from the server.
-
-The output will be written to the directory indicated by the value of the
-argument -o (or /o on Windows). If no -o is given, the output will be written
-to the current directory instead. The output will be put into a single-file
-archive in ZIP format unless the argument -Z (or /Z on Windows) is given to
-prevent creation of the compressed archive file.
+the server. The contents of the file can be either a list of DOIs, or article
+data in the same XML format as the list obtained from micropublication.org.
+(See option -g below for a way to get an article list in XML from the server.)
 
 If the option -d is given, microarchiver will download only articles whose
-publication dates are AFTER the given date.  Valid date descriptors are those
-accepted by the Python dateparser library.  Make sure to enclose descriptions
-within single or double quotes.  Examples:
+publication dates are AFTER the given date. Valid date descriptors are those
+accepted by the Python dateparser library. Make sure to enclose descriptions
+within single or double quotes. Examples:
 
   microarchiver -d "2014-08-29"   ....
   microarchiver -d "12 Dec 2014"  ....
@@ -119,22 +131,70 @@ within single or double quotes.  Examples:
 
 As it works, microarchiver writes information to the terminal about the archives
 it puts into the archive, including whether any problems are encountered. To
-save this info to a file, use the argument -r (or /r on Windows).
+save this info to a file, use the argument -r (or /r on Windows), which will
+make microarchiver write a report file in CSV format.
 
-Additional command-line arguments
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Previewing the list of articles
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If given the argument -p (or /p on Windows), microarchiver will ONLY display a
+list of articles it will archive and stop short of creating the archive. This
+is useful to see what would be produced without actually doing it. However,
+note that because it does not attempt to download the articles and associated
+files, it will not be able to report on errors that might occur when not
+operating in preview mode. Consequently, do not use the output of -p as a
+prediction of eventual success or failure.
 
 If given the argument -g (or /g on Windows), microarchiver will write to
 standard output the complete current article list from the micropublication.org
-server, in XML format, and exit without doing anything else.  This is useful
-as a starting point for creating the file used by option -a.  It's probably a
+server, in XML format, and exit without doing anything else. This is useful
+as a starting point for creating the file used by option -a. It's probably a
 good idea to redirect the output to a file; e.g.,
 
   microarchiver -g > article-list.xml
 
-If given the argument -p (or /p on Windows), microarchiver will ONLY display a
-list of articles it will archive and stop short of creating the archive. This
-is useful to see what would be produced without actually doing it.
+Output
+~~~~~~
+
+The output will be written to the directory indicated by the value of the
+argument -o (or /o on Windows). If no -o is given, the output will be written
+to the directory in which microarchiver was started. Each article will be
+written to a subsubdirecory named after the DOI of the article. The output for
+each article will consist of an XML metadata file describing the article, the
+article itself in PDF format, and a subdirectory named "jats" containing the
+article in JATS XML format along with any image that may appear in the article.
+The image is always converted to uncompressed TIFF format (because it is
+considered a good preservation format).
+
+The collected output of all articles will be put into a single-file archive
+in ZIP format unless the argument -Z (or /Z on Windows) is given to prevent
+creation of the compressed archive file.
+
+Return values
+~~~~~~~~~~~~~
+
+This program exits with a return code of 0 if no problems are encountered
+while fetching data from the server. It returns a nonzero value otherwise,
+following conventions used in shells such as bash which only understand return
+code values of 0 to 255. If it is interrupted (e.g., using control-c) it
+returns a value of 1; if it encounters a fatal error, it returns a value of 2.
+If it encounters any non-fatal problems (such as a missing PDF file or JATS
+validation error), it returns a nonzero value equal to 100 + the number of
+articles that had failures. Summarizing the possible return codes:
+
+        0 = no errors were encountered -- success
+        1 = no network detected -- cannot proceed
+        2 = the user interrupted program execution
+        3 = an exception or fatal error occurred
+  100 + n = encountered non-fatal problems on a total of n articles
+
+Additional command-line arguments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Microarchiver always downloads the JATS XML version of articles from
+micropublication.org (in addition to downloading the PDF version), and by
+default, microarchiver validates the XML content against the JATS DTD. To
+skip the XML validation step, use the option -X (/X on Windows).
 
 Microarchiver will print informational messages as it works. To reduce messages
 to only warnings and errors, use the argument -q (or /q on Windows). Also,
@@ -142,172 +202,197 @@ output is color-coded by default unless the -C argument (or /C on Windows) is
 given; this argument can be helpful if the color control signals create
 problems for your terminal emulator.
 
+If given the -@ argument (/@ on Windows), this program will output a detailed
+trace of what it is doing, and will also drop into a debugger upon the
+occurrence of any errors. The debug trace will be sent to the given
+destination, which can be '-' to indicate console output, or a file path to
+send the output to a file.
+
 If given the -V argument (/V on Windows), this program will print version
 information and exit without doing anything else.
-
-If given the -@ argument (/@ on Windows), this program will output a detailed
-trace of what it is doing to the terminal window, and will also drop into a
-debugger upon the occurrence of any errors.  The debug trace will be sent to
-the given destination, which can be '-' to indicate console output, or a file
-path to send the output to a file.
 
 Command-line arguments summary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-    # Initial setup -----------------------------------------------------------
+    # Process arguments and handle early exits --------------------------------
 
-    say    = MessageHandler(not no_color, quiet)
-    prefix = '/' if sys.platform.startswith('win') else '-'
-    hint   = '(Use {}h for help.)'.format(prefix)
-    do_zip = not no_zip
     debugging = debug != 'OUT'
-
-    # Process arguments -------------------------------------------------------
-
-    # We use default values that provide more intuitive help text printed by
-    # plac.  Rewrite the values to things we actually use.
-    source     = articles if articles != 'A' else None
-    after      = None if after_date == 'D' else after_date
-    output_dir = '.' if output_dir == 'O' else output_dir
-    report     = None if report == 'R' else report
-
     if debugging:
         set_debug(True, debug)
+        import faulthandler
+        faulthandler.enable()
+
+    if __debug__: log('='*8 + ' started {}' + '='*8, dt.now().strftime(_DATE_FORMAT))
+
     if version:
         print_version()
-        exit()
-    if preview and quiet:
-        text = 'Option {}q is incompatible with {}n. {}'.format(prefix, prefix, hint)
-        exit(say.error_text(text))
+        exit(0)
+
+    if not network_available():
+        alert('No network.')
+        exit(1)
+
+    if get_xml:
+        if __debug__: log('fetching articles from server')
+        print(articles_list())
+        exit(0)
 
     # Do the real work --------------------------------------------------------
 
     try:
-        MainBody(source, after, output_dir, do_zip, report, get_xml, preview, say).run()
-    except (KeyboardInterrupt, UserCancelled) as ex:
-        exit(say.error_text('Quitting'))
+        ui = UI('Microarchiver', use_color = not no_color, be_quiet = quiet)
+        body = MainBody(source      = articles if articles != 'A' else None,
+                        dest        = '.' if output_dir == 'O' else output_dir,
+                        after       = None if after_date == 'D' else after_date,
+                        report      = None if report == 'R' else report,
+                        do_validate = not no_check,
+                        do_zip      = not no_zip,
+                        preview     = preview,
+                        uip         = ui)
+        body.run()
+        if __debug__: log('finished with {} failures', body.failures)
+        exit(100 + body.failures if body.failures > 0 else 0)
+    except KeyboardInterrupt as ex:
+        warn('Quitting')
+        if __debug__: log('returning with exit code 2')
+        exit(2)
     except Exception as ex:
         if debugging:
             import traceback
-            say.error('{}\n{}', str(ex), traceback.format_exc())
+            alert('{}\n{}', str(ex), traceback.format_exc())
             import pdb; pdb.set_trace()
         else:
-            exit(say.error_text('{}'.format(str(ex))))
+            alert_fatal('{}'.format(str(ex)))
+            if __debug__: log('returning with exit code 3')
+            exit(3)
 
 
 class MainBody(object):
     '''Main body for Microarchiver.'''
 
-    def __init__(self, source, after_date, output_dir, do_zip, report, get_xml, preview, say):
+    def __init__(self, **kwargs):
         '''Initialize internal state and prepare for running services.'''
-
-        # Preliminary sanity checks.
-        if not network_available():
-            raise ServiceFailure('No network.')
-
-        if get_xml:
-            if __debug__: log('Fetching articles from server')
-            print(self.get_articles_list())
-            exit()
-
-        if source and not readable(source):
-            raise RuntimeError('File not readable: {}'.format(source))
-        if source and not source.endswith('.xml'):
-            raise RuntimeError('Does not appear to be an XML file: {}'.format(source))
-
-        if not path.isabs(output_dir):
-            output_dir = path.realpath(path.join(os.getcwd(), output_dir))
-        if path.isdir(output_dir):
-            if not writable(output_dir):
-                raise RuntimeError('Directory not writable: {}'.format(output_dir))
-        else:
-            if path.exists(output_dir):
-                raise ValueError('Not a directory: {}'.format(output_dir))
-        dest_dir = path.join(output_dir, _ARCHIVE_DIR_NAME)
-
-        if report and file_in_use(report):
-            raise RuntimeError("File is in use by another process: {}".format(report))
-
-        if after_date:
-            try:
-                after_date = parse_datetime(after_date)
-                if __debug__: log('Parsed after_date as {}', after_date)
-            except Exception as ex:
-                raise RuntimeError('Unable to parse date: {}'.format(str(ex)))
-
-        # Store the values we'll use.
-        self._source     = source
-        self._after_date = after_date
-        self._dest_dir   = dest_dir
-        self._do_zip     = do_zip
-        self._report     = report
-        self._preview    = preview
-        self._say        = say
+        # Assign parameters to self to make them available within this object.
+        self.__dict__ = kwargs
+        # Assign default return status.
+        self.failures = 0
 
 
     def run(self):
         '''Execute the control logic.'''
 
-        # Set shortcut variables for better code readability below.
-        source     = self._source
-        after_date = self._after_date
-        dest_dir   = self._dest_dir
-        report     = self._report
-        do_zip     = self._do_zip
-        preview = self._preview
-        say        = self._say
+        # Check and process argument values & fail early if there's a problem.
+        self._process_arguments()
 
-        # Read the article list, then do optional filtering for date.
-        if source:
-            say.info('Reading articles list from XML file {}', source)
-            articles = self.articles_from_xml(source)
-        else:
-            say.info('Fetching articles list from {}', _URL_ARTICLES_LIST)
-            articles = self.articles_from_xml(_URL_ARTICLES_LIST)
+        # Read the article list from a file or the server
+        inform('Reading article list from {}', self.source or _URL_ARTICLES_LIST)
+        articles = self._articles_from(self.source or _URL_ARTICLES_LIST)
 
-        if after_date:
-            after_date_str = after_date.strftime(_DATE_PRINT_FORMAT)
-            say.info('Will only keep articles published after {}', after_date_str)
-            articles = [x for x in articles if parse_datetime(x.date) > after_date]
+        # Do optional filtering based on the date.
+        if self.after:
+            date_str = self.after.strftime(_DATE_FORMAT)
+            inform('Will only keep articles published after {}', date_str)
+            articles = [x for x in articles if parse_datetime(x.date) > self.after]
 
         num_articles = len(articles)
-        say.info('Total articles: {}', humanize.intcomma(num_articles))
-        if preview:
-            self.print_articles(articles)
+        inform('Total articles: {}', humanize.intcomma(num_articles))
+        if self.preview:
+            self._print_articles(articles)
+            return
         else:
             if num_articles == 0:
-                say.info('No articles to archive')
+                inform('No articles to archive')
             else:
-                say.info('Output will be written to directory "{}"', dest_dir)
-                if not preview:
-                    make_dir(dest_dir)
-                self.write_articles(dest_dir, articles)
-                if do_zip:
-                    archive_file = dest_dir + '.zip'
-                    say.info('Creating ZIP archive file "{}"', archive_file)
-                    comments = file_comments(num_articles)
-                    create_archive(archive_file, '.zip', dest_dir, comments)
-                    say.info('Deleting directory "{}"', dest_dir)
-                    shutil.rmtree(dest_dir)
-        if report:
-            if path.exists(report):
-                rename_existing(report)
-            say.info('Writing report to ' + report)
-            self.write_report(report, articles)
+                inform('Output will be written to directory "{}"', self.dest)
+                make_dir(self.dest)
+                self._save_articles(self.dest, articles)
+                if self.do_zip:
+                    archive_file = self.dest + '.zip'
+                    inform('Creating ZIP archive file "{}"', archive_file)
+                    comments = zip_comments(num_articles)
+                    create_archive(archive_file, '.zip', self.dest, comments)
+                    inform('Deleting directory "{}"', self.dest)
+                    shutil.rmtree(self.dest)
+        if self.report:
+            if path.exists(self.report):
+                rename_existing(self.report)
+            inform('Writing report to ' + self.report)
+            self._write_report(self.report, articles)
+
+        # Count any failures by looking at the article statuses.
+        self.failures = sum(a.status.startswith('fail') for a in articles)
 
 
-    def get_articles_list(self):
-        '''Write to standard output the XML article list from the server.'''
-        (response, error) = net('get', _URL_ARTICLES_LIST)
-        if not error and response and response.text:
-            # The micropublication xml declaration explicit uses ascii encoding.
-            return response.text
+    def _process_arguments(self):
+        if self.source:
+            if not readable(self.source):
+                raise RuntimeError('File not readable: {}'.format(self.source))
+            if file_is_empty(self.source):
+                raise RuntimeError('File is empty: {}'.format(self.source))
+
+        if not path.isabs(self.dest):
+            self.dest = path.realpath(path.join(os.getcwd(), self.dest))
+        if path.isdir(self.dest):
+            if not writable(self.dest):
+                raise RuntimeError('Directory not writable: {}'.format(self.dest))
         else:
-            return ''
+            if path.exists(self.dest):
+                raise ValueError('Not a directory: {}'.format(self.dest))
+        self.dest = path.join(self.dest, _ARCHIVE_DIR_NAME)
+
+        if self.report and file_in_use(self.report):
+            raise RuntimeError("File is in use by another process: {}".format(self.report))
+
+        if self.after:
+            parsed_date = None
+            try:
+                parsed_date = parse_datetime(self.after)
+            except Exception as ex:
+                raise RuntimeError('Unable to parse date: {}'.format(str(ex)))
+            if parsed_date:
+                if __debug__: log('parsed after_date as {}', parsed_date)
+                self.after = parsed_date
+            else:
+                # parse_datetime(...) returned None, which means it failed.
+                raise RuntimeError('Invalid date: {}'.format(self.after))
+
+        if self.do_validate:
+            data_dir = path.join(module_path(), 'data')
+            dtd_dir = path.join(data_dir, _INTERNAL_DTD_DIR)
+            dtd_file = path.join(dtd_dir, _JATS_DTD_FILENAME)
+            if not path.exists(data_dir) or not path.isdir(data_dir):
+                raise RuntimeError('Data directory is missing: {}'.format(data_dir))
+            elif not path.exists(dtd_dir) or not path.isdir(dtd_dir):
+                warn('Cannot find internal DTD directory -- validation turned off')
+                self.do_validate = False
+            elif not path.exists(dtd_file) or not readable(dtd_file):
+                warn('Cannot find internal copy of JATS DTD -- validation turned off')
+                self.do_validate = False
+            else:
+                current_dir = os.getcwd()
+                try:
+                    os.chdir(dtd_dir)
+                    if __debug__: log('using JATS DTD at {}', dtd_file)
+                    self._dtd = etree.DTD(dtd_file)
+                finally:
+                    os.chdir(current_dir)
 
 
-    def articles_from_xml(self, file_or_url):
+    def _articles_from(self, file_or_url):
         '''Returns a list of `Article` tuples from the given URL or file.'''
+        if file_or_url.startswith('http'):
+            return self._articles_from_xml(file_or_url)
+        else:
+            with open(file_or_url, 'r') as f:
+                if f.readline().startswith('<?xml'):
+                    return self._articles_from_xml(file_or_url)
+                else:
+                    return self._articles_from_dois(file_or_url)
+
+
+    def _articles_from_xml(self, file_or_url):
+        '''Returns a list of `Article` tuples from the XML source, which can be
+        either a file or a network server responding to HTTP 'get'.'''
         # Read the XML.
         if file_or_url.startswith('http'):
             (response, error) = net('get', file_or_url)
@@ -316,7 +401,7 @@ class MainBody(object):
                 xml = response.text.encode('ascii')
             elif error and isinstance(error, NoContent):
                 if __debug__: log('request for article list was met with code 404 or 410')
-                self._say.fatal(str(error))
+                alert_fatal(str(error))
                 return []
             elif error:
                 if __debug__: log('error reading from micropublication.org server')
@@ -330,6 +415,20 @@ class MainBody(object):
         return self._article_tuples(xml)
 
 
+    def _articles_from_dois(self, input_file):
+        '''Read the given file (assumed to contain a list of DOIs) and return
+        a list of corresponding `Article` records.  A side-effect of doing this
+        is that this function has to contact the server to get a list of all
+        articles in XML format.'''
+        articles = self._articles_from_xml(_URL_ARTICLES_LIST)
+        dois = []
+        with open(input_file, 'r') as f:
+            dois = [line.strip() for line in f]
+        if not any(dois or articles):
+            return []
+        return [a for a in articles if a.doi in dois]
+
+
     def _article_tuples(self, xml):
         '''Parse the XML input, assumed to be from micropublication.org, and
         create a list of `Article` records.
@@ -338,8 +437,10 @@ class MainBody(object):
         articles = []
         try:
             for element in etree.fromstring(xml).findall('article'):
-                pdf   = (element.find('pdf-url').text or '').strip()
                 doi   = (element.find('doi').text or '').strip()
+                pdf   = (element.find('pdf-url').text or '').strip()
+                jats  = (element.find('jats-url').text or '').strip()
+                image = (element.find('image-url').text or '').strip()
                 title = (element.find('article-title').text or '').strip()
                 date  = element.find('date-published')
                 if date != None:
@@ -349,31 +450,31 @@ class MainBody(object):
                     date  = year + '-' + month + '-' + day
                 else:
                     date = ''
-                status = 'incomplete' if not(all([pdf, doi, title, date])) else 'complete'
-                articles.append(Article(doi, date, title, pdf, status))
+                status = 'incomplete' if not(all([pdf, jats, doi, title, date])) else 'complete'
+                articles.append(Article(doi, date, title, pdf, jats, image, status))
         except Exception as ex:
             if __debug__: log('could not parse XML from server')
-            self._say.error('Unexpected or badly formed XML returned by server')
+            alert('Unexpected or badly formed XML returned by server')
         return articles
 
 
-    def print_articles(self, articles_list):
-        self._say.info('-'*89)
-        self._say.info('{:3}  {:<32}  {:10}  {:20}'.format(
+    def _print_articles(self, articles_list):
+        inform('-'*89)
+        inform('{:3}  {:<32}  {:10}  {:20}'.format(
             '?', 'DOI', 'Date', 'URL (https://micropublication.org)'))
-        self._say.info('-'*89)
+        inform('-'*89)
         count = 0
         for article in articles_list:
             count += 1
-            self._say.info('{:3}  {:<32}  {:10}  {:20}'.format(
-                self._say.error_text('err') if article.status == 'incomplete' else 'OK',
-                article.doi if article.doi else self._say.error_text('missing DOI'),
-                article.date if article.date else self._say.error_text('missing date'),
-                short(article.pdf) if article.pdf else self._say.error_text('missing URL')))
-        self._say.info('-'*89)
+            inform('{:3}  {:<32}  {:10}  {:20}'.format(
+                self.ui.error_text('err') if article.status == 'incomplete' else 'OK',
+                article.doi if article.doi else self.ui.error_text('missing DOI'),
+                article.date if article.date else self.ui.error_text('missing date'),
+                short(article.pdf) if article.pdf else self.ui.error_text('missing URL')))
+        inform('-'*89)
 
 
-    def write_report(self, report_file, articles_list):
+    def _write_report(self, report_file, articles_list):
         if __debug__: log('writing report file {}', report_file)
         try:
             with open(report_file, 'w', newline='') as file:
@@ -387,37 +488,81 @@ class MainBody(object):
             raise
 
 
-    def write_articles(self, dest_dir, article_list):
+    def _save_articles(self, dest_dir, article_list):
+        # This overwrites the article.status field of each article with an
+        # error description if there is an error.
         for article in article_list:
             # Start by testing that we have all the data we will need.
             if not article.doi:
-                self._say.warn('Skipping article with missing DOI: ' + article.title)
+                warn('Skipping article with missing DOI: ' + article.title)
                 article.status = 'missing-doi'
                 continue
             if not article.pdf:
-                self._say.warn('Skipping article with missing PDF URL: ' + article.doi)
+                warn('Skipping article with missing PDF URL: ' + article.doi)
                 article.status = 'missing-pdf'
+                continue
+            if not article.jats:
+                warn('Skipping article with missing PDF URL: ' + article.doi)
+                article.status = 'missing-jats'
                 continue
             xml = self._metadata_xml(article)
             if not xml:
-                self._say.warn('Skipping article with no DataCite entry: ' + article.doi)
+                warn('Skipping article with no DataCite entry: ' + article.doi)
                 article.status = 'failed-datacite'
                 continue
 
             # Looks good. Carry on.
             article_dir = path.join(dest_dir, tail_of_doi(article))
+            jats_dir    = path.join(article_dir, 'jats')
             try:
                 os.makedirs(article_dir)
+                os.makedirs(jats_dir)
             except FileExistsError:
                 pass
-            xml_file = path.join(article_dir, xml_filename(article))
-            pdf_file = path.join(article_dir, pdf_filename(article))
-            self._say.info('Writing ' + article.doi)
+            inform('Writing ' + article.doi)
+            xml_file = xml_filename(article, article_dir)
             with open(xml_file, 'w', encoding = 'utf8') as f:
                 if __debug__: log('writing XML to {}', xml_file)
                 f.write(xmltodict.unparse(xml))
+
+            pdf_file = pdf_filename(article, article_dir)
             if __debug__: log('downloading PDF to {}', pdf_file)
-            download(article.pdf, pdf_file)
+            if not download_file(article.pdf, pdf_file):
+                warn('Could not download PDF file for {}', article.doi)
+                article.status = 'failed-pdf-download'
+
+            jats_file = jats_filename(article, jats_dir)
+            if __debug__: log('downloading JATS XML to {}', jats_file)
+            if not download_file(article.jats, jats_file):
+                warn('Could not download JATS file for {}', article.doi)
+                article.status = 'failed-jats-download'
+            if self.do_validate:
+                if not valid_xml(jats_file, self._dtd):
+                    warn('Failed to validate JATS for {}', article.doi)
+                    article.status = 'failed-jats-validation'
+            else:
+                if __debug__: log('skipping DTD validation of {}', jats_file)
+
+            # We need to store the image with the name that appears in the
+            # JATS file. That requires a little extra work to extract.
+            image_extension = filename_extension(article.image)
+            image_file = image_filename(article, jats_dir, ext = image_extension)
+            if article.image:
+                if __debug__: log('downloading image file to {}', image_file)
+                if download_file(article.image, image_file):
+                    with Image.open(image_file) as img:
+                        if __debug__: log('converting image to TIFF format')
+                        tiff_name = filename_basename(image_file) + '.tif'
+                        img.save(tiff_name, dpi = _TIFF_DPI, compression = None,
+                                 description = tiff_comments(article))
+                    # We keep only the uncompressed TIFF version.
+                    if __debug__: log('deleting original image file {}', image_file)
+                    delete_existing(image_file)
+                else:
+                    warn('Failed to download image for {}', article.doi)
+                    article.status = 'failed-image-download'
+            else:
+                if __debug__: log('skipping empty image file URL for {}', article.doi)
         return article_list
 
 
@@ -452,12 +597,14 @@ class MainBody(object):
 # Miscellaneous utilities.
 # .............................................................................
 
-def print_version():
-    this_module = sys.modules[__package__]
-    print('{} version {}'.format(this_module.__name__, this_module.__version__))
-    print('Authors: {}'.format(this_module.__author__))
-    print('URL: {}'.format(this_module.__url__))
-    print('License: {}'.format(this_module.__license__))
+def articles_list():
+    '''Write to standard output the XML article list from the server.'''
+    (response, error) = net('get', _URL_ARTICLES_LIST)
+    if not error and response and response.text:
+        # The micropublication xml declaration explicit uses ascii encoding.
+        return response.text
+    else:
+        return ''
 
 
 def short(url):
@@ -476,22 +623,65 @@ def tail_of_doi(article):
     return article.doi[slash + 1:]
 
 
-def pdf_filename(article):
-    return tail_of_doi(article) + '.pdf'
+def pdf_filename(article, article_dir = ''):
+    filename = tail_of_doi(article) + '.pdf'
+    return path.join(article_dir, filename)
 
 
-def xml_filename(article):
-    return tail_of_doi(article) + '.xml'
+def xml_filename(article, article_dir = ''):
+    filename = tail_of_doi(article) + '.xml'
+    return path.join(article_dir, filename)
 
 
-def file_comments(num_articles):
+def jats_filename(article, jats_dir = ''):
+    filename = tail_of_doi(article) + '.xml'
+    return path.join(jats_dir, filename)
+
+
+def image_filename(article, jats_dir = '', ext = '.png'):
+    '''Extract the image file from the <graphic> element of the JATS file.'''
+    jats_file = jats_filename(article, jats_dir)
+    with open(jats_file, 'r') as f:
+        try:
+            root = etree.parse(jats_file)
+        except Exception as ex:
+            raise CorruptedContent('Bad XML in JATS file {}'.format(jats_file))
+        # <graphic> is inside <body>, but to avoid hardcoding the xml element
+        # path, this uses an XPath expression to find it anywhere.
+        graphic = root.find('.//graphic')
+        if graphic is None:
+            return None
+        # The element looks like this:
+        #  <graphic xlink:href="25789430-2019-micropub.biology.000102"/>
+        name = graphic.get('{http://www.w3.org/1999/xlink}href')
+        if name is None:
+            return None
+        return path.join(jats_dir, name + ext)
+
+
+def tiff_comments(article):
+    text = 'Image converted from '
+    text += article.image
+    text += ' on '
+    text += str(date.today())
+    text += ' for article titled "'
+    text += article.title
+    text += '", DOI '
+    text += article.doi
+    text += ', originally published on '
+    text += article.date
+    text += ' in microPublication.org.'
+    return text
+
+
+def zip_comments(num_articles):
     text  = '~ '*35
     text += '\n'
     text += 'About this ZIP archive file:\n'
     text += '\n'
     text += 'This archive contains a directory of articles from microPublication.org\n'
     text += 'created on {}. There {} {} article{} in this archive.'.format(
-        str(datetime.date.today()), 'is' if num_articles == 1 else 'are',
+        str(date.today()), 'is' if num_articles == 1 else 'are',
         num_articles, '' if num_articles == 1 else 's')
     text += '\n'
     text += software_comments()

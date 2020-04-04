@@ -1,11 +1,26 @@
 Change log for microarchiver
 ============================
 
+Version 1.7.0
+-------------
+
+* Store JATS XML for each article, as well as any image referenced in the JATS data. Images are converted to uncompressed TIFF before being stored.
+* Perform JATS validation for each article by default.
+* Add `-X` option to disable automatic JATS DTD validation.
+* Change `-a` option to accept a file containing either a list of DOIs or the XML format sent by micropublication.org.
+* Change exit code numbering scheme.
+* Communicate number of failures in terms of exit codes; see [README](README.md) for more details.
+* Test if date given to `-d` is syntactically correct but not a valid date.
+* Refactor and change some internal code.
+* Fix miscellaneous bugs.
+
+
 Version 1.6.3
 -------------
 
 * Catch and handle no-content errors more gracefully.
 * Detect mangled XML returned by micropublication.org and handle it more gracefully.
+
 
 Version 1.6.2
 -------------

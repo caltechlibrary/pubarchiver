@@ -2,6 +2,7 @@ colorful>=0.5.1
 dateparser>=0.7.0
 humanize>=0.5.1
 lxml>=4.2.5
+Pillow>=5.2.0
 plac>=1.0.0
 recordclass>=0.11.1
 requests>=2.21.0

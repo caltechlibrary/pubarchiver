@@ -9,33 +9,25 @@ Michael Hucka <mhucka@caltech.edu> -- Caltech Library
 Copyright
 ---------
 
-Copyright (c) 2019 by the California Institute of Technology.  This code is
-open-source software released under a 3-clause BSD license.  Please see the
+Copyright (c) 2019-2020 by the California Institute of Technology.  This code
+is open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
+from   lxml import etree
 import os
 from   os import path
 import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import webbrowser
 import zipfile
 from   zipfile import ZipFile, ZIP_STORED, ZIP_DEFLATED
 
-import microarchiver
-from microarchiver.debug import log
-
-
-# Constants.
-# .............................................................................
-
-_APP_NAME = 'Microarchiver'
-'''The human name of this application for human consumption.'''
-
-_APP_REG_PATH = r'Software\Caltech Library\Microarchiver\Settings'
-'''The Windows registry path for this application.'''
+from .debug import log
+from .ui import warn, alert
 
 
 # Main functions.
@@ -48,48 +40,27 @@ def readable(dest):
 
 def writable(dest):
     '''Returns True if the destination is writable.'''
-    return os.access(dest, os.F_OK | os.W_OK)
 
-
-def module_path():
-    '''Returns the absolute path to our module installation directory.'''
-    # The path returned by module.__path__ is to the directory containing
-    # the __init__.py file.
-    return path.abspath(microarchiver.__path__[0])
-
-
-def installation_path():
-    '''Returns the path to where the application is installed.'''
-    # The path returned by module.__path__ is to the directory containing
-    # the __init__.py file.  What we want here is the path to the installation
-    # of the application binary.
-    if sys.platform.startswith('win'):
-        from winreg import OpenKey, CloseKey, QueryValueEx, HKEY_LOCAL_MACHINE, KEY_READ
+    # Helper function to test if a directory is writable.
+    def dir_writable(dir):
+        # This is based on the following Stack Overflow answer by user "zak":
+        # https://stackoverflow.com/a/25868839/743730
         try:
-            if __debug__: log('reading Windows registry entry')
-            key = OpenKey(HKEY_LOCAL_MACHINE, _APP_REG_PATH)
-            value, regtype = QueryValueEx(key, 'Path')
-            CloseKey(key)
-            if __debug__: log('path to windows installation: {}'.format(value))
-            return value
-        except WindowsError:
-            # Kind of a problem. Punt and return a default value.
-            return path.abspath('C:\Program Files\{}'.format(_APP_NAME))
+            testfile = tempfile.TemporaryFile(dir = dir)
+            testfile.close()
+        except (OSError, IOError) as e:
+            return False
+        return True
+
+    if path.exists(dest) and not path.isdir(dest):
+        # Path is an existing file.
+        return os.access(dest, os.F_OK | os.W_OK)
+    elif path.isdir(dest):
+        # Path itself is an existing directory.  Is it writable?
+        return dir_writable(dest)
     else:
-        return path.abspath(path.join(module_path(), '..'))
-
-
-def desktop_path():
-    '''Returns the path to the user's desktop directory.'''
-    if sys.platform.startswith('win'):
-        return path.join(path.join(os.environ['USERPROFILE']), 'Desktop')
-    else:
-        return path.join(path.join(path.expanduser('~')), 'Desktop')
-
-
-def datadir_path():
-    '''Returns the path to Lost It's internal data directory.'''
-    return path.join(module_path(), 'data')
+        # Path is a file but doesn't exist yet. Can we write to the parent dir?
+        return dir_writable(path.dirname(dest))
 
 
 def rename_existing(file):
@@ -136,7 +107,14 @@ def delete_existing(file):
         os.remove(file)
 
 
+def file_is_empty(file):
+    return os.stat(file).st_size == 0
+
+
 def file_in_use(file):
+    '''Returns True if the given 'file' appears to be in use.  Note: this only
+    works on Windows, currently.
+    '''
     if not path.exists(file):
         return False
     if sys.platform.startswith('win'):
@@ -149,32 +127,38 @@ def file_in_use(file):
     return False
 
 
-def open_file(file):
-    '''Open document with default application in Python.'''
-    # Code originally from https://stackoverflow.com/a/435669/743730
-    if __debug__: log('opening file {}', file)
-    if sys.platform.startswith('darwin'):
-        subprocess.call(('open', file))
-    elif os.name == 'nt':
-        os.startfile(file)
-    elif os.name == 'posix':
-        subprocess.call(('xdg-open', file))
+def filename_basename(file):
+    parts = file.rpartition('.')
+    if len(parts) > 1:
+        return ''.join(parts[:-1]).rstrip('.')
+    else:
+        return file
 
 
-def open_url(url):
-    '''Open the given 'url' in a web browser using the current platform's
-    default approach.'''
-    if __debug__: log('opening url {}', url)
-    webbrowser.open(url)
+def filename_extension(file):
+    parts = file.rpartition('.')
+    if len(parts) > 1:
+        return '.' + parts[-1].lower()
+    else:
+        return ''
+
+
+def module_path():
+    '''Returns the absolute path to our module installation directory.'''
+    # The path returned by module.__path__ is to the directory containing
+    # the __init__.py file.
+    this_module = sys.modules[__package__]
+    module_path = this_module.__path__[0]
+    return path.abspath(module_path)
 
 
 def make_dir(dir_path):
     '''Creates directory 'dir_path' (including intermediate directories).'''
     if path.isdir(dir_path):
-        if __debug__: log('Reusing existing directory {}', dir_path)
+        if __debug__: log('reusing existing directory {}', dir_path)
         return
     else:
-        if __debug__: log('Creating directory {}', dir_path)
+        if __debug__: log('creating directory {}', dir_path)
         # If this gets an exception, let it bubble up to caller.
         os.makedirs(dir_path)
 
@@ -223,3 +207,33 @@ def verify_archive(archive_file, type):
         finally:
             if tfile:
                 tfile.close()
+
+
+def valid_xml(xml_file, dtd):
+    if __debug__: log('parsing XML file {}', xml_file)
+    try:
+        root = etree.parse(xml_file)
+    except etree.XMLSyntaxError as ex:
+        alert('File contains XML syntax errors: {}', xml_file)
+        # The string form of XMLSyntaxError includes line/col & file name.
+        alert(str(ex))
+        return False
+    except Exception as ex:
+        alert('Failed to parse XML file: {}', xml_file)
+        alert(str(ex))
+        return False
+    if __debug__: log('validating {}', xml_file)
+    if dtd:
+        if dtd.validate(root):
+            if __debug__: log('validated without errors')
+            return True
+        else:
+            warn('Failed to validate {}', xml_file)
+            warn('{} validation error{} encountered:', len(dtd.error_log),
+                 's' if len(dtd.error_log) > 1 else '')
+            for item in dtd.error_log:
+                warn('Line {}, col {} ({}): {}', item.line, item.column,
+                     item.type_name, item.message)
+            return False
+    else:
+        return True
