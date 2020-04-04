@@ -12,6 +12,7 @@ Version 1.7.0
 * Communicate number of failures in terms of exit codes; see [README](README.md) for more details.
 * Test if date given to `-d` is syntactically correct but not a valid date.
 * Refactor and change some internal code.
+* Fix miscellaneous bugs.
 
 
 Version 1.6.3
