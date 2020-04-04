@@ -5,7 +5,6 @@
 # @author  Michael Hucka <mhucka@caltech.edu>
 # @license Please see the file named LICENSE in the project directory
 # @website https://github.com/caltechlibrary/microarchiver
-# =============================================================================
 #
 # Principles:
 #
@@ -18,18 +17,38 @@
 #     is run with that date stamp as the "after date" argument.
 #
 #  4. Archives are created in subdirectories of the output directory named
-#     after the date they were done.  E.g., "2019-08-29".
+#     after the date+time they were done.  E.g., "2019-08-29-1000".
 #
 #  5. A report file is written to the output directory and named "report.csv".
 #
 #  6. A log file is written to the output directory and named "run.log".
+#
+# =============================================================================
 
+# Destination where all files and subdirectories are stored:
 outputroot=/raid/micropublication/archives
-datestampfile=$outputroot/last-run-date
-today=$(date +%Y-%m-%d)
-now=$(date +%Y-%m-%d-%H%M)
 
-# Read the date stamp.
+# Comma-separated list of addresses that receive emailed reports
+emaildest=""
+
+# -----------------------------------------------------------------------------
+# The rest of this file should not need further configuration
+# -----------------------------------------------------------------------------
+
+today=$(date +%Y-%m-%d)
+datestampfile=$outputroot/last-run-date
+failurefile=$outputroot/last-failures
+
+# Create the output directory where we'll write this run's archive.
+# However, name the output directory with the current time rather than
+# merely today's date, because if we run multiple times per day, we
+# would otherwise overwrite the previous data.
+
+now=$(date +%Y-%m-%d-%H%M)
+outputdir=$outputroot/$now
+mkdir -p $outputdir
+
+# Read the date stamp from the previous run.
 
 if [[ -e $datestampfile ]]; then
     read lastrun < $datestampfile
@@ -39,42 +58,62 @@ else
     lastrun="1900-01-01"
 fi
 
-# Create the output directory where we'll write this run's archive.
-# However, tag the output directory with the current time rather than
-# merely today's date, because if we run multiple times per day, we
-# would otherwise overwrite the previous data.
+# Run microarchiver -----------------------------------------------------------
 
-outputdir=$outputroot/$now
-mkdir -p $outputdir
+log=$outputdir/run.log
+report=$outputdir/report.csv
+trace=$outputdir/debug.log
 
-# Run microarchiver.
+echo "Starting at $now" >> $log
+echo "" >> $log
+echo "=== Checking previous runs for possible failures ===" >> $log
 
-logfile=$outputdir/run.log
-debugfile=$outputdir/debug.log
-csvfile=$outputdir/report.csv
+if [[ -s $failurefile ]]; then
+    lines=$(wc -l $failurefile)
+    echo "Found $lines past failures." >> $log
+    echo "=== Running microarchiver on past failures ===" >> $log
+    # Note the use of -Z to prevent zip'ing the final results.
+    microarchiver -Z -C -a $failurefile -o $outputdir -r $report -@ $trace >> $log 2>&1
+else
+    echo "No past failures found. Proceeding normally." >> $log
+    echo "Total articles: 0" >> $log
+fi
 
-echo "Starting at $now" >> $logfile
-
-echo "" >> $logfile
-echo "=== Running microarchiver ===" >> $logfile
-microarchiver -C -d $lastrun -o $outputdir -r $csvfile -@ $debugfile >> $logfile 2>&1
-
-# Write out the date stamp, for next time.
-echo $today > $datestampfile
+echo "=== Running microarchiver for new articles ===" >> $log
+thisreport=$outputdir/latest-report.csv
+thistrace=$outputdir/latest-debug.log
+# This will add new articles to any existing ones from the past failures
+# code above, and this time will zip up the final result.
+microarchiver -C -d $lastrun -o $outputdir -r $thisreport -@ $thistrace >> $log 2>&1
 
 # If we have new articles, ftp them to Portico.
-if ! grep -Fxq "Total articles: 0" $logfile; then
+if ! grep -Fxq "Total articles: 0" $log; then
     archivefile=$outputdir/micropublication-org.zip
     if [[ ! -e $archivefile ]]; then
         echo "Microarchiver failed to create archive file"
         exit 1
     fi
 
-    echo "" >> $logfile
-    echo "=== FTP'ing file using curl ===" >> $logfile
-    curl -T $archivefile ftp://ftp.portico.org --user $FTP_USER:$FTP_PASS >> $logfile 2>&1
+    echo "" >> $log
+    echo "=== FTP'ing file using curl ===" >> $log
+    curl -T $archivefile ftp://ftp.portico.org --user $FTP_USER:$FTP_PASS >> $log 2>&1
 fi
 
-# Always send mail with the results.
-grep -F "Total articles" $logfile | \
-    mail -s"Portico archiving results for $today" -a $csvfile -a $logfile mhucka@caltech.edu,team@micropublication.org
+# Did we have any failures? If so, note them for next time.
+grep -i "missing," $outputdir/*report.csv | cut -f2 -d',' > $failurefile
+
+# Combine separate report files, leave that, & delete the intermediate files.
+tail -n +2 $thisreport >> $report
+tail $thistrace >> $trace
+rm -f $thistrace $thisreport
+
+# If we get this far, write out a date stamp file to indicate that things
+# ran successfully and to give the next run a starting point.
+echo $today > $datestampfile
+
+# Mail the report -------------------------------------------------------------
+
+echo "mail"
+grep -F "Total articles" $log | \
+    sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
+    mail -s"Portico archiving results for $today" -a $report -a $log $emaildest
