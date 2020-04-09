@@ -1,6 +1,12 @@
 Change log for microarchiver
 ============================
 
+Version 1.8.0
+-------------
+
+* Instead of quitting with an error if the file given to `-a` is empty, `microarchiver` will now just print a warning.
+
+
 Version 1.7.0
 -------------
 
