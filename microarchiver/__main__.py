@@ -328,7 +328,7 @@ class MainBody(object):
             if not readable(self.source):
                 raise RuntimeError('File not readable: {}'.format(self.source))
             if file_is_empty(self.source):
-                raise RuntimeError('File is empty: {}'.format(self.source))
+                warn('File is empty: {}'.format(self.source))
 
         if not path.isabs(self.dest):
             self.dest = path.realpath(path.join(os.getcwd(), self.dest))
