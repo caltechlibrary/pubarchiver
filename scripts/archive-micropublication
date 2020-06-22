@@ -66,17 +66,12 @@ trace=$outputdir/debug.log
 
 echo "Starting at $now" >> $log
 echo "" >> $log
-echo "=== Checking previous runs for possible failures ===" >> $log
 
-if [[ -s $failurefile ]]; then
-    lines=$(wc -l $failurefile)
-    echo "Found $lines past failures." >> $log
+if [[ -f $failurefile ]]; then
     echo "=== Running microarchiver on past failures ===" >> $log
     # Note the use of -Z to prevent zip'ing the final results.
     microarchiver -Z -C -a $failurefile -o $outputdir -r $report -@ $trace >> $log 2>&1
-else
-    echo "No past failures found. Proceeding normally." >> $log
-    echo "Total articles: 0" >> $log
+    echo "" >> $log
 fi
 
 echo "=== Running microarchiver for new articles ===" >> $log
@@ -86,8 +81,19 @@ thistrace=$outputdir/latest-debug.log
 # code above, and this time will zip up the final result.
 microarchiver -C -d $lastrun -o $outputdir -r $thisreport -@ $thistrace >> $log 2>&1
 
-# If we have new articles, ftp them to Portico.
-if ! grep -Fxq "Total articles: 0" $log; then
+# Combine separate report files, leave that, & delete the intermediate files.
+tail -n +2 $thisreport >> $report
+tail $thistrace >> $trace
+rm -f $thistrace $thisreport
+
+# Did we have any failures? If so, note them for next time.
+grep -i "missing," $outputdir/*report.csv | cut -f2 -d',' > $failurefile
+
+# If we downloaded new articles, ftp the archive to Portico.
+# Note #1: the file redirection is to avoid wc printing the file name.
+# Note #2: the -gt 1 is to skip the header line when counting the lines.
+lines=$(wc -l < $report)
+if [[ $lines -gt 1 ]]; then
     archivefile=$outputdir/micropublication-org.zip
     if [[ ! -e $archivefile ]]; then
         echo "Microarchiver failed to create archive file"
@@ -99,21 +105,12 @@ if ! grep -Fxq "Total articles: 0" $log; then
     curl -T $archivefile ftp://ftp.portico.org --user $FTP_USER:$FTP_PASS >> $log 2>&1
 fi
 
-# Did we have any failures? If so, note them for next time.
-grep -i "missing," $outputdir/*report.csv | cut -f2 -d',' > $failurefile
-
-# Combine separate report files, leave that, & delete the intermediate files.
-tail -n +2 $thisreport >> $report
-tail $thistrace >> $trace
-rm -f $thistrace $thisreport
-
 # If we get this far, write out a date stamp file to indicate that things
 # ran successfully and to give the next run a starting point.
 echo $today > $datestampfile
 
 # Mail the report -------------------------------------------------------------
 
-echo "mail"
 grep -F "Total articles" $log | \
     sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
     mail -s"Portico archiving results for $today" -a $report -a $log $emaildest
