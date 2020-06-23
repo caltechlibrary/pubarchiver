@@ -1,6 +1,13 @@
 Change log for microarchiver
 ============================
 
+Version 1.9.0
+-------------
+
+* Remove any alpha channels and convert images to RGB.
+* Rename the JATS XML file after the pattern _issn_-_volume_-_doi_.xml
+
+
 Version 1.8.0
 -------------
 
