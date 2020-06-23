@@ -551,10 +551,14 @@ class MainBody(object):
                 if __debug__: log('downloading image file to {}', image_file)
                 if download_file(article.image, image_file):
                     with Image.open(image_file) as img:
+                        converted = image_without_alpha(img)
+                        converted = converted.convert('RGB')
                         if __debug__: log('converting image to TIFF format')
                         tiff_name = filename_basename(image_file) + '.tif'
-                        img.save(tiff_name, dpi = _TIFF_DPI, compression = None,
-                                 description = tiff_comments(article))
+                        # Using save() means only the 1st frame of a multiframe
+                        # image will be saved.
+                        converted.save(tiff_name, dpi = _TIFF_DPI, compression = None,
+                                       description = tiff_comments(article))
                     # We keep only the uncompressed TIFF version.
                     if __debug__: log('deleting original image file {}', image_file)
                     delete_existing(image_file)
@@ -657,6 +661,18 @@ def image_filename(article, jats_dir = '', ext = '.png'):
         if name is None:
             return None
         return path.join(jats_dir, name + ext)
+
+
+def image_without_alpha(img):
+    # Algorithm from 2015-11-03 posting by user "shuuji3" to
+    # https://stackoverflow.com/a/33507138/743730
+    if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+        if __debug__: log('removing alpha channel in image')
+        alpha = img.convert('RGBA')
+        background = Image.new('RGBA', img.size, (255, 255, 255, 255))
+        return Image.alpha_composite(background, alpha)
+    else:
+        return img
 
 
 def tiff_comments(article):
