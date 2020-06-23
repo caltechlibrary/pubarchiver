@@ -638,7 +638,10 @@ def xml_filename(article, article_dir = ''):
 
 
 def jats_filename(article, jats_dir = ''):
-    filename = tail_of_doi(article) + '.xml'
+    issn_no_dash = _MICROPUBLICATION_ISSN.replace('-', '')
+    # microPublication's volume number = the year.
+    volume = str(date.today().year)
+    filename = issn_no_dash + '-' + volume + '-' + tail_of_doi(article) + '.xml'
     return path.join(jats_dir, filename)
 
 
