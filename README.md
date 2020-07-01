@@ -64,13 +64,13 @@ microarchiver -h
 
 ### _Basic usage_
 
-The simplest use of `microarchiver` involves running it without any arguments.  It will contact [microPublication.org](http://micropublication.org) to get a list of current articles, and create an archive of all the articles in a subdirectory of the current directory.
+The simplest use of `microarchiver` involves running it without any options.  It will contact [microPublication.org](http://micropublication.org) to get a list of current articles, and create an archive of all the articles in a subdirectory of the current directory.
 
 ```bash
 microarchiver
 ```
 
-If given the argument `-o` (or `/o` on Windows), the output will be written to the directory named after the `-o`.  (If no `-o` is given, the output will be written to the current directory instead.)  For example:
+If given the option `-o` (or `/o` on Windows), the output will be written to the directory named after the `-o`.  (If no `-o` is given, the output will be written to the current directory instead.)  For example:
 
 ```bash
 microarchiver -o /tmp/micropublication-archive
@@ -85,7 +85,7 @@ If the option `-d` is given, `microarchiver` will download only articles whose p
   microarchiver -d "2 weeks ago"  ....
 ```
 
-As it works, `microarchiver` writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the argument `-r` (or `/r` on Windows), which will make `microarchiver` write a report file in [CSV](https://en.wikipedia.org/wiki/Comma-separated_values) format.
+As it works, `microarchiver` writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the option `-r` (or `/r` on Windows), which will make `microarchiver` write a report file in [CSV](https://en.wikipedia.org/wiki/Comma-separated_values) format.
 
 The following is a screen recording of an actual run of `microarchiver`:
 
@@ -96,9 +96,9 @@ The following is a screen recording of an actual run of `microarchiver`:
 
 ### Previewing the list of articles
 
-If given the argument `-p` (or `/p` on Windows), `microarchiver` will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.  However, note that because it does not attempt to download the articles and associated files, it will not be able to report on errors that might occur when not operating in preview mode.  Consequently, do not use the output of `-p` as a prediction of eventual success or failure.
+If given the option `-p` (or `/p` on Windows), `microarchiver` will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.  However, note that because it does not attempt to download the articles and associated files, it will not be able to report on errors that might occur when not operating in preview mode.  Consequently, do not use the output of `-p` as a prediction of eventual success or failure.
 
-If given the argument `-g` (or `/g` on Windows), `microarchiver` will _only_ write a file named `article-list.xml` containing the complete current article list from the micropublication.org server, and exit without doing anything else.  This is useful as a starting point for creating the file used by option `-a`.  It's probably a good idea to redirect the output to a file; e.g.,
+If given the option `-g` (or `/g` on Windows), `microarchiver` will _only_ write a file named `article-list.xml` containing the complete current article list from the micropublication.org server, and exit without doing anything else.  This is useful as a starting point for creating the file used by option `-a`.  It's probably a good idea to redirect the output to a file; e.g.,
 
 ```
 microarchiver -g > article-list.xml
@@ -106,22 +106,22 @@ microarchiver -g > article-list.xml
 
 ### Output
 
-The output will be written to the directory indicated by the value of the argument `-o` (or `/o` on Windows).  If no `-o` is given, the output will be written to the directory in which `microarchiver` was started. Each article will be written to a subsubdirecory named after the DOI of the article. The output for each article will consist of an XML metadata file describing the article, the article itself in PDF format, and a subdirectory named `jats` containing the article in JATS XML format along with any image that may appear in the article.  The image is always converted to uncompressed TIFF format (because it is considered a good preservation format).
+The output will be written to the directory indicated by the value of the option `-o` (or `/o` on Windows).  If no `-o` is given, the output will be written to the directory in which `microarchiver` was started. Each article will be written to a subsubdirecory named after the DOI of the article. The output for each article will consist of an XML metadata file describing the article, the article itself in PDF format, and a subdirectory named `jats` containing the article in JATS XML format along with any image that may appear in the article.  The image is always converted to uncompressed TIFF format (because it is considered a good preservation format).
 
-The output will be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the argument `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
+The output will be put into a single-file archive in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format unless the option `-Z` (or `/Z` on Windows) is given to prevent creation of the compressed archive file.
 
 
-### _Additional command-line arguments_
+### _Additional command-line options_
 
-If given the argument `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file can be either a list of DOIs, or article data in the same XML format as the list obtained from micropublication.org.  (See option `-g` above for a way to get an article list in XML from the server.)
+If given the option `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file can be either a list of DOIs, or article data in the same XML format as the list obtained from micropublication.org.  (See option `-g` above for a way to get an article list in XML from the server.)
 
 Microarchiver always downloads the JATS XML version of articles from micropublication.org (in addition to downloading the PDF version), and by default, microarchiver validates the XML content against the JATS DTD.  To skip the XML validation step, use the option `-X` (`/X` on Windows).
 
-`microarchiver` will print informational messages as it works. To reduce messages to only warnings and errors, use the argument `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` argument (or `/C` on Windows) is given; this argument can be helpful if the color control sequences create problems for your terminal emulator.
+`microarchiver` will print informational messages as it works. To reduce messages to only warnings and errors, use the option `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` option (or `/C` on Windows) is given; this option can be helpful if the color control sequences create problems for your terminal emulator.
 
-If given the `-@` argument (`/@` on Windows), this program will output a detailed trace of what it is doing, and will also drop into a debugger upon the occurrence of any errors.  The debug trace will be written to the given destination, which can be a dash character (`-`) to indicate console output, or a file path.
+If given the `-@` option (`/@` on Windows), this program will output a detailed trace of what it is doing, and will also drop into a debugger upon the occurrence of any errors.  The debug trace will be written to the given destination, which can be a dash character (`-`) to indicate console output, or a file path.
 
-If given the -V argument (/V on Windows), this program will print version
+If given the -V option (/V on Windows), this program will print version
 information and exit without doing anything else.
 
 
@@ -164,7 +164,7 @@ The following table summarizes all the command line options available. (Note: on
 ⚑ Known issues and limitations
 -------------------------------
 
-Currently, the only way to indicate that a subset of articles should be obtained from microPublication.org is to use the argument `-a` in combination with a file that contains the list of desired articles, or the `-d` option to indicate a cut-off for the article publication date.
+Currently, the only way to indicate that a subset of articles should be obtained from microPublication.org is to use the option `-a` in combination with a file that contains the list of desired articles, or the `-d` option to indicate a cut-off for the article publication date.
 
 
 ⁇ Getting help and support
