@@ -163,27 +163,34 @@ def make_dir(dir_path):
         os.makedirs(dir_path)
 
 
-def create_archive(archive_file, type, source_dir, comment = None):
+def archive_directory(archive_file, source_dir, comment = None):
     root_dir = path.dirname(path.normpath(source_dir))
     base_dir = path.basename(source_dir)
-    if type.endswith('zip'):
-        format = ZIP_STORED if type.startswith('uncompress') else ZIP_DEFLATED
-        current_dir = os.getcwd()
-        try:
-            os.chdir(root_dir)
-            with zipfile.ZipFile(archive_file, 'w', format) as zf:
-                for root, dirs, files in os.walk(base_dir):
-                    for file in files:
-                        zf.write(os.path.join(root, file))
-                if comment:
-                    zf.comment = comment.encode()
-        finally:
-            os.chdir(current_dir)
-    else:
-        if type.startswith('uncompress'):
-            shutil.make_archive(source_dir, 'tar', root_dir, base_dir)
-        else:
-            shutil.make_archive(source_dir, 'gztar', root_dir, base_dir)
+    current_dir = os.getcwd()
+    try:
+        os.chdir(root_dir)
+        with zipfile.ZipFile(archive_file, 'w', ZIP_STORED) as zf:
+            for root, dirs, files in os.walk(base_dir):
+                for file in files:
+                    zf.write(os.path.join(root, file))
+            if comment:
+                zf.comment = comment.encode()
+    finally:
+        os.chdir(current_dir)
+
+
+def archive_files(archive_file, files, comment = None):
+    base_dir = path.dirname(path.normpath(files[0]))
+    current_dir = os.getcwd()
+    try:
+        os.chdir(base_dir)
+        with zipfile.ZipFile(archive_file, 'w', ZIP_STORED) as zf:
+            for f in files:
+                zf.write(path.basename(f))
+            if comment:
+                zf.comment = comment.encode()
+    finally:
+        os.chdir(current_dir)
 
 
 def verify_archive(archive_file, type):
