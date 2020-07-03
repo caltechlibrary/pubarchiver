@@ -4,8 +4,12 @@ Change log for microarchiver
 Version 1.9.0
 -------------
 
+* Support output for PMC using new command-line option `-s`.
+* Rename the JATS XML file after the pattern _issn_-_volume_-_doi_.xml, to make it more compatible with output generated for PMC.
 * Remove any alpha channels and convert images to RGB.
-* Rename the JATS XML file after the pattern _issn_-_volume_-_doi_.xml
+* Run ZIP files through a simple validation step after creating them.
+* Added missing dependencies to [`requirements.txt`](requirements.txt).
+* Some internal code changes.
 
 
 Version 1.8.0
