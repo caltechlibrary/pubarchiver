@@ -91,7 +91,7 @@ def timed_request(get_or_post, url, session = None, timeout = 20, **kwargs):
                 else:
                     method = requests.get if get_or_post == 'get' else requests.post
                 response = method(url, timeout = timeout, verify = False, **kwargs)
-                if __debug__: log('received {} bytes', len(response.content))
+                if __debug__: log('response received')
                 return response
         except Exception as ex:
             # Problem might be transient.  Don't quit right away.
