@@ -16,6 +16,7 @@ file "LICENSE" for more information.
 
 import http.client
 from   http.client import responses as http_responses
+from   os import stat
 import requests
 from   requests.packages.urllib3.exceptions import InsecureRequestWarning
 from   time import sleep
@@ -91,7 +92,7 @@ def timed_request(get_or_post, url, session = None, timeout = 20, **kwargs):
                 else:
                     method = requests.get if get_or_post == 'get' else requests.post
                 response = method(url, timeout = timeout, verify = False, **kwargs)
-                if __debug__: log('received {} bytes', len(response.content))
+                if __debug__: log('response received')
                 return response
         except Exception as ex:
             # Problem might be transient.  Don't quit right away.
@@ -298,6 +299,8 @@ def download(url, local_destination, recursing = 0):
             for chunk in req.iter_content(1024):
                 f.write(chunk)
         req.close()
+        size = stat(local_destination).st_size
+        if __debug__: log('wrote {} bytes to file {}', size, local_destination)
     elif code in [401, 402, 403, 407, 451, 511]:
         raise AuthenticationFailure(addurl('Access is forbidden'))
     elif code in [404, 410]:
