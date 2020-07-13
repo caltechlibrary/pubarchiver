@@ -29,7 +29,7 @@ Table of Contents
 ☀ Introduction
 -----------------------------
 
-The Caltech Library is the publisher of the online journal [microPublication](https://www.micropublication.org) and provides services to the journal that include archiving the journal in a dark archive (specifically, [Portico](https://www.portico.org)).  The archiving process involves pulling down articles from [microPublication](https://www.micropublication.org) and packaging them up in a format suitable for sending to Portico.  `Microarchiver` is a program to automate this process.
+The Caltech Library is the publisher of the online journal [microPublication](https://www.micropublication.org) and provides services to the journal that include archiving the journal in a dark archive (specifically, [Portico](https://www.portico.org)).  The archiving process involves pulling down articles from [microPublication](https://www.micropublication.org) and packaging them up in a format suitable for sending to Portico.  `microarchiver` is a program to automate this process.
 
 
 ✺ Installation
@@ -149,10 +149,10 @@ The following table summarizes all the command line options available. (Note: on
 | Short&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Long&nbsp;form&nbsp;opt&nbsp;&nbsp; | Meaning | Default | |
 |---------|-------------------|----------------------|---------|--|
 | `-a`_A_ | `--articles`_A_   | Get list of articles from file _A_ | Get list from server | |
-| `-C`    | `--no-color`      | Don't color-code the output | Use colors in the terminal output | |
+| `-C`    | `--no-color`      | Don't color-code the output | Color the terminal output | |
 | `-d`_D_ | `--after-date`_D_ | Only get articles published after date _D_ | Get all articles | ⬥ |
 | `-g`    | `--get-xml`       | Print the server's article list & exit | Do other actions instead | |
-| `-o`_O_ | `--output-dir`_O_ | Write output in directory _O_ | Write in current dir | |
+| `-o`_O_ | <nobr><code>--output-dir</code></nobr>_O_ | Write output in directory _O_ | Write in current dir | |
 | `-p`    | `--preview`       | Preview what would be obtained | Obtain the articles | |
 | `-q`    | `--quiet`         | Only print important messages | Be chatty while working | |
 | `-r`_R_ | `--report`_R_     | Write list of article & results in file _R_ | Don't write a report | |
