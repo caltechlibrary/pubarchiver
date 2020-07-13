@@ -167,7 +167,7 @@ altogether (because Portico is the default).
 The output will be written to the directory indicated by the value of the
 option -o (or /o on Windows). If no -o is given, the output will be written
 to the directory in which microarchiver was started. Each article will be
-written to a subsubdirecory named after the DOI of the article. The output for
+written to a subdirectory named after the DOI of the article. The output for
 each article will consist of an XML metadata file describing the article, the
 article itself in PDF format, and a subdirectory named "jats" containing the
 article in JATS XML format along with any image that may appear in the article.
