@@ -201,6 +201,8 @@ Copyright &copy; 2019-2020, Caltech.  This software is freely distributed under 
 
 The [vector artwork](https://thenounproject.com/search/?q=archive&i=158401) used as a starting point for the logo for this repository was created by [Thomas Helbig](https://thenounproject.com/dergraph/) for the [Noun Project](https://thenounproject.com).  It is licensed under the Creative Commons [Attribution 3.0 Unported](https://creativecommons.org/licenses/by/3.0/deed.en) license.  The vector graphics was modified by Mike Hucka to change the color.
 
+[Nick Stiffler](https://github.com/nickstiffler) from the [microPublication.org team](https://www.micropublication.org/contact-us/) helped figure out the requirements for PMC output (introduced in version 1.9), helped guide development of microarchiver, and engaged in many discussions about microPublication.org's needs.
+
 Microarchiver makes use of numerous open-source packages, without which it would have been effectively impossible to develop Microarchiver with the resources we had.  We want to acknowledge this debt.  In alphabetical order, the packages are:
 
 * [colorful](https://github.com/timofurrer/colorful) &ndash; terminal/text string styling
