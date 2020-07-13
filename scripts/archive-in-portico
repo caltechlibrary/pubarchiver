@@ -26,7 +26,7 @@
 # =============================================================================
 
 # Destination where all files and subdirectories are stored:
-outputroot=/raid/micropublication/archives
+outputroot=/raid/micropublication/portico
 
 # Comma-separated list of addresses that receive emailed reports
 emaildest=""
