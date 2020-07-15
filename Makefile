@@ -33,7 +33,7 @@ print-reminder:;
 	$(info ┃ 3. Update DOI in README.md file                                                               ┃)
 	$(info ┃ 4. Push to GitHub again                                                                       ┃)
 	$(info ┃ 5. Push to test.pypi.org as follows:                                                          ┃)
-	$(info ┃    a. /bin/rm -rf build dist                                                                  ┃)
+	$(info ┃    a. make clean                                                                              ┃)
 	$(info ┃    b. python3 setup.py sdist bdist_wheel                                                      ┃)
 	$(info ┃    c. python3 -m twine check dist/*                                                           ┃)
 	$(info ┃    d. python3 -m twine upload --verbose --repository-url https://test.pypi.org/legacy/ dist/* ┃)
@@ -42,5 +42,8 @@ print-reminder:;
 	$(info ┃ 8. Push to pypi for real:                                                                     ┃)
 	$(info ┃    a. python3 -m twine upload --verbose dist/*                                                ┃)
 	$(info ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛)
+
+clean:;
+	-rm -rf dist build
 
 .PHONY: release release-on-github print-reminder
