@@ -729,27 +729,24 @@ def xml_filename(article, article_dir = ''):
     return path.join(article_dir, filename)
 
 
-def jats_filename(article, jats_dir = ''):
+def pmc_basename(article):
     issn_no_dash = _MICROPUBLICATION_ISSN.replace('-', '')
-    # microPublication's volume number = the year.
-    volume = str(date.today().year)
-    filename = issn_no_dash + '-' + volume + '-' + tail_of_doi(article) + '.xml'
+    volume = str(parse_datetime(article.date).year)
+    return issn_no_dash + '-' + volume + '-' + tail_of_doi(article)
+
+
+def jats_filename(article, jats_dir = ''):
+    filename = pmc_basename(article) + '.xml'
     return path.join(jats_dir, filename)
 
 
 def pmc_pdf_filename(article, article_dir = ''):
-    issn_no_dash = _MICROPUBLICATION_ISSN.replace('-', '')
-    # microPublication's volume number = the year.
-    volume = str(date.today().year)
-    filename = issn_no_dash + '-' + volume + '-' + tail_of_doi(article) + '.pdf'
+    filename = pmc_basename(article) + '.pdf'
     return path.join(article_dir, filename)
 
 
 def pmc_zip_filename(article, article_dir = ''):
-    issn_no_dash = _MICROPUBLICATION_ISSN.replace('-', '')
-    # microPublication's volume number = the year.
-    volume = str(date.today().year)
-    filename = issn_no_dash + '-' + volume + '-' + tail_of_doi(article) + '.zip'
+    filename = pmc_basename(article) + '.zip'
     return path.join(article_dir, filename)
 
 
