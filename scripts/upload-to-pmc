@@ -1,0 +1,111 @@
+#!/bin/bash
+# =============================================================================
+# @file    upload-micropublication-to-pmc
+# @brief   Script meant to be run from cron
+# @author  Michael Hucka <mhucka@caltech.edu>
+# @license Please see the file named LICENSE in the project directory
+# @website https://github.com/caltechlibrary/microarchiver
+#
+# Principles:
+#
+#  1. The frequency of uploads is set by the cron schedule, not in here.
+#
+#  2. The FTP credentials for the PMC server are passed via environment
+#     variables PMC_FTP_USER and PMC_FTP_PASS.
+#
+#  3. A timestamp file is created in the output directory, and microarchiver
+#     is run with that date stamp as the "after date" argument.
+#
+#  4. Archives are created in subdirectories of the output directory named
+#     after the date+time they were done.  E.g., "2019-08-29-1000".
+#
+#  5. A report file is written to the output directory and named "report.csv".
+#
+#  6. A log file is written to the output directory and named "run.log".
+#
+# =============================================================================
+
+# Destination where all files and subdirectories are stored:
+outputroot=/raid/micropublication/pmc
+
+# Comma-separated list of addresses that receive emailed reports
+emaildest=""
+
+# -----------------------------------------------------------------------------
+# The rest of this file should not need further configuration
+# -----------------------------------------------------------------------------
+
+today=$(date +%Y-%m-%d)
+datestampfile=$outputroot/last-run-date
+failurefile=$outputroot/last-failures
+
+# Create the output directory where we'll write this run's archive.
+# However, name the output directory with the current time rather than
+# merely today's date, because if we run multiple times per day, we
+# would otherwise overwrite the previous data.
+
+now=$(date +%Y-%m-%d-%H%M)
+outputdir=$outputroot/$now
+mkdir -p $outputdir
+
+# Read the date stamp from the previous run.
+
+if [[ -e $datestampfile ]]; then
+    read lastrun < $datestampfile
+else
+    # We've never run, or someone reset the date stamp.
+    # Use a fake date that basically signifies "since forever".
+    lastrun="1900-01-01"
+fi
+
+# Run microarchiver -----------------------------------------------------------
+
+log=$outputdir/run.log
+report=$outputdir/report.csv
+trace=$outputdir/debug.log
+
+echo "Starting at $now" >> $log
+echo "" >> $log
+
+if [[ -f $failurefile ]]; then
+    echo "=== Running microarchiver on past failures ===" >> $log
+    microarchiver -s pmc -C -a $failurefile -o $outputdir -r $report -@ $trace >> $log 2>&1
+    echo "" >> $log
+fi
+
+echo "=== Running microarchiver for new articles ===" >> $log
+thisreport=$outputdir/latest-report.csv
+thistrace=$outputdir/latest-debug.log
+# This will add new articles to any existing ones from the past failures:
+microarchiver -s pmc -C -d $lastrun -o $outputdir -r $thisreport -@ $thistrace >> $log 2>&1
+
+# Combine separate report files, leave that, & delete the intermediate files.
+tail -n +2 $thisreport >> $report
+tail $thistrace >> $trace
+rm -f $thistrace $thisreport
+
+# Did we have any failures? If so, note them for next time.
+grep -i "missing," $outputdir/*report.csv | cut -f2 -d',' > $failurefile
+
+# If we downloaded new articles, ftp the archive to PMC.
+# Note #1: the file redirection is to avoid wc printing the file name.
+# Note #2: the -gt 1 is to skip the header line when counting the lines.
+# Note #3: curl has weird syntax for sending multiple files at once
+lines=$(wc -l < $report)
+if [[ $lines -gt 1 ]]; then
+    echo "" >> $log
+    echo "=== FTP'ing file using curl ===" >> $log
+    curl -T "{$(echo $outputdir/micropublication-org/*.zip | tr ' ' ',')}" \
+        ftp://ftp-private.ncbi.nlm.nih.gov/ \
+        --user $PMC_FTP_USER:$PMC_FTP_PASS >> $log 2>&1
+fi
+
+# If we get this far, write out a date stamp file to indicate that things
+# ran successfully and to give the next run a starting point.
+echo $today > $datestampfile
+
+# Mail the report -------------------------------------------------------------
+
+grep -F "Total articles" $log | \
+    sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
+    mail -s"PMC upload results for $today" -a $report -a $log $emaildest
