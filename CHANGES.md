@@ -1,6 +1,12 @@
 Change log for microarchiver
 ============================
 
+Version 1.9.1
+-------------
+
+* Fix [issue #2](https://github.com/caltechlibrary/microarchiver/issues/2): volume number in file names is incorrectly determined
+
+
 Version 1.9.0
 -------------
 
