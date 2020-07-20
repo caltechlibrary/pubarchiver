@@ -85,19 +85,17 @@ tail $thistrace >> $trace
 rm -f $thistrace $thisreport
 
 # Did we have any failures? If so, note them for next time.
-grep -i "missing," $outputdir/*report.csv | cut -f2 -d',' > $failurefile
+egrep -i "missing|failed" $outputdir/*report.csv | cut -f2 -d',' > $failurefile
 
-# If we downloaded new articles, ftp the archive to PMC.
-# Note #1: the file redirection is to avoid wc printing the file name.
-# Note #2: the -gt 1 is to skip the header line when counting the lines.
-# Note #3: curl has weird syntax for sending multiple files at once
-lines=$(wc -l < $report)
-if [[ $lines -gt 1 ]]; then
+# If we successfully archived new articles, ftp the archives to PMC.
+# Note: curl has weird syntax for sending multiple files at once.
+lines=$(grep complete $report | wc -l)
+if [[ $lines -gt 0 ]]; then
     echo "" >> $log
     echo "=== FTP'ing file using curl ===" >> $log
-    curl -T "{$(echo $outputdir/micropublication-org/*.zip | tr ' ' ',')}" \
-        ftp://ftp-private.ncbi.nlm.nih.gov/ \
-        --user $PMC_FTP_USER:$PMC_FTP_PASS >> $log 2>&1
+    curl --user $PMC_FTP_USER:$PMC_FTP_PASS \
+        -T "{$(echo $outputdir/micropublication-org/*.zip | tr ' ' ',')}" \
+        ftp://ftp-private.ncbi.nlm.nih.gov/ >> $log 2>&1
 fi
 
 # If we get this far, write out a date stamp file to indicate that things
