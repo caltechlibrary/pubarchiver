@@ -29,7 +29,8 @@
 outputroot=/raid/micropublication/pmc
 
 # Comma-separated list of addresses that receive emailed reports
-emaildest=""
+logmaildest="mhucka@caltech.edu,team@micropublication.org"
+errormaildest="mhucka@caltech.edu,nick.stiffler@micropublication.org"
 
 # -----------------------------------------------------------------------------
 # The rest of this file should not need further configuration
@@ -84,26 +85,32 @@ tail -n +2 $thisreport >> $report
 tail $thistrace >> $trace
 rm -f $thistrace $thisreport
 
-# Did we have any failures? If so, note them for next time.
+# Note any failures for next time, so they will be tried again.
 egrep -i "missing|failed" $outputdir/*report.csv | cut -f2 -d',' > $failurefile
 
-# If we successfully archived new articles, ftp the archives to PMC.
-# Note: curl has weird syntax for sending multiple files at once.
-lines=$(grep complete $report | wc -l)
+# Did we have validation failures?  Notify someone specifically about that.
+lines=$(grep validation $report | wc -l)
 if [[ $lines -gt 0 ]]; then
-    echo "" >> $log
-    echo "=== FTP'ing file using curl ===" >> $log
-    curl --user $PMC_FTP_USER:$PMC_FTP_PASS \
-        -T "{$(echo $outputdir/micropublication-org/*.zip | tr ' ' ',')}" \
-        ftp://ftp-private.ncbi.nlm.nih.gov/ >> $log 2>&1
+    mail -s"PMC upload $today stopped due to validation errors" -a $log $errormaildest
+else
+    # If we didn't have validation errors, ftp any new archives to PMC.
+    # Note: curl has weird syntax for sending multiple files at once.
+    lines=$(grep complete $report | wc -l)
+    if [[ $lines -gt 0 ]]; then
+        echo "" >> $log
+        echo "=== FTP'ing file using curl ===" >> $log
+        curl --user $PMC_FTP_USER:$PMC_FTP_PASS \
+            -T "{$(echo $outputdir/micropublication-org/*.zip | tr ' ' ',')}" \
+            ftp://ftp-private.ncbi.nlm.nih.gov/ >> $log 2>&1
+    fi
+
+    # If we get this far, write out a date stamp file to indicate that things
+    # ran successfully and to give the next run a starting point.
+    echo $today > $datestampfile
 fi
 
-# If we get this far, write out a date stamp file to indicate that things
-# ran successfully and to give the next run a starting point.
-echo $today > $datestampfile
-
-# Mail the report -------------------------------------------------------------
+# Send email about the results ------------------------------------------------
 
 grep -F "Total articles" $log | \
     sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
-    mail -s"PMC upload results for $today" -a $report -a $log $emaildest
+    mail -s"PMC upload results for $today" -a $report -a $log $logmaildest
