@@ -1,6 +1,15 @@
 Change log for microarchiver
 ============================
 
+Version 1.9.2
+--------------
+
+* Fix broken logos and images in README.md.
+* Replace local version of `debug.py` with the use of [Sidetrack](https://github.com/caltechlibrary/sidetrack).
+* Use newer approach to recording version and other metadata in `__init__.py` and the release procedure codified in `Makefile`.
+* Minor internal changes.
+
+
 Version 1.9.1
 -------------
 

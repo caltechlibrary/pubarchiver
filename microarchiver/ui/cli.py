@@ -15,9 +15,8 @@ file "LICENSE" for more information.
 '''
 
 import getpass
+from   sidetrack import log
 import sys
-
-from ..debug import log
 
 from .base import UIBase
 from .styled import Styled

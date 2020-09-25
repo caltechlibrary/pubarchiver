@@ -14,11 +14,10 @@ is open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
-
 import colorful
 colorful.use_256_ansi_colors()
 
-from ..debug import log
+from   sidetrack import log
 
 
 # Exported classes.
