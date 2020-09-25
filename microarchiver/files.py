@@ -18,6 +18,7 @@ from   lxml import etree
 import os
 from   os import path
 import shutil
+from   sidetrack import log
 import subprocess
 import sys
 import tarfile
@@ -26,7 +27,6 @@ import webbrowser
 import zipfile
 from   zipfile import ZipFile, ZIP_STORED, ZIP_DEFLATED
 
-from .debug import log
 from .ui import warn, alert
 
 

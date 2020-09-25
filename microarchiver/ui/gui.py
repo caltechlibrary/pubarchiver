@@ -16,13 +16,12 @@ file "LICENSE" for more information.
 
 from   pubsub import pub
 from   queue import Queue
+from   sidetrack import log
 import wx
 import wx.adv
 import wx.lib
 from   wx.lib.dialogs import ScrolledMessageDialog
 import wx.richtext
-
-from ..debug import log
 
 from .base import UIBase
 

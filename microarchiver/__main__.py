@@ -29,6 +29,7 @@ from   PIL import Image, ImageFile
 import plac
 from   recordclass import recordclass
 import shutil
+from   sidetrack import set_debug, log
 import sys
 import xmltodict
 
@@ -38,7 +39,6 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 import microarchiver
 from microarchiver import print_version
-from .debug import set_debug, log
 from .exceptions import *
 from .files import readable, writable, file_in_use, file_is_empty
 from .files import filename_extension, filename_basename, module_path
@@ -233,7 +233,7 @@ Command-line options summary
 
     debugging = debug != 'OUT'
     if debugging:
-        set_debug(True, debug)
+        if __debug__: set_debug(True, debug)
         import faulthandler
         faulthandler.enable()
 
