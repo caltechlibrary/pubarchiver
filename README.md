@@ -1,4 +1,4 @@
-Microarchiver<img width="12%" align="right" src="https://raw.githubusercontent.com/caltechlibrary/microarchiver/master/.graphics/microarchiver-logo.svg">
+Microarchiver<img width="12%" align="right" src="https://github.com/caltechlibrary/microarchiver/blob/main/.graphics/microarchiver-logo.png?raw=true">
 =======
 
 A program to create archives of articles from [microPublication.org](https://www.micropublication.org) for sending to [Portico](https://www.portico.org).
@@ -90,7 +90,7 @@ As it works, `microarchiver` writes information to the terminal about the archiv
 The following is a screen recording of an actual run of `microarchiver`:
 
 <p align="center">
-  <a href="https://asciinema.org/a/260298"><img src="https://raw.githubusercontent.com/caltechlibrary/microarchiver/master/.graphics/microarchiver-asciinema.png" alt="Screencast of simple microarchiver demo"></a>
+  <a href="https://asciinema.org/a/260298"><img src="https://github.com/caltechlibrary/microarchiver/blob/main/.graphics/microarchiver-asciinema.png?raw=true" alt="Screencast of simple microarchiver demo"></a>
 </p>
 
 
@@ -224,11 +224,11 @@ Finally, we are grateful for computing &amp; institutional resources made availa
     
 <div align="center">
   <a href="https://micropublication.org">
-    <img height="100" src="https://raw.githubusercontent.com/caltechlibrary/microarchiver/master/.graphics/micropublication-logo-main.png">
+    <img height="100" src="https://github.com/caltechlibrary/microarchiver/blob/main/.graphics/micropublication-logo-main.png?raw=true">
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://www.caltech.edu">
-    <img width="100" height="100" src="https://raw.githubusercontent.com/caltechlibrary/microarchiver/master/.graphics/caltech-round.png">
+    <img width="100" height="100" src="https://github.com/caltechlibrary/microarchiver/blob/main/.graphics/caltech-round.png?raw=true">
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </div>
