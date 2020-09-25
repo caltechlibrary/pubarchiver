@@ -20,6 +20,7 @@ import csv
 import dateparser
 from   datetime import date
 from   datetime import datetime as dt
+from   dateutil import tz
 import humanize
 import json as jsonlib
 from   lxml import etree
@@ -237,7 +238,7 @@ Command-line options summary
         import faulthandler
         faulthandler.enable()
 
-    if __debug__: log('='*8 + ' started {}' + '='*8, dt.now().strftime(_DATE_FORMAT))
+    if __debug__: log('='*8 + ' started {}' + '='*8, timestamp())
 
     if version:
         print_version()
@@ -826,6 +827,11 @@ def parse_datetime(string):
     '''Parse a human-written time/date string using dateparser's parse()
 function with predefined settings.'''
     return dateparser.parse(string, settings = {'RETURN_AS_TIMEZONE_AWARE': True})
+
+
+def timestamp():
+    '''Return a string describing the date and time right now.'''
+    return dt.now(tz = tz.tzlocal()).strftime(_DATE_FORMAT)
 
 
 # Main entry point.
