@@ -38,7 +38,6 @@ errormaildest="mhucka@caltech.edu,nick.stiffler@micropublication.org"
 
 today=$(date +%Y-%m-%d)
 datestampfile=$outputroot/last-run-date
-failurefile=$outputroot/last-failures
 
 # Create the output directory where we'll write this run's archive.
 # However, name the output directory with the current time rather than
@@ -68,30 +67,17 @@ trace=$outputdir/debug.log
 echo "Starting at $now" >> $log
 echo "" >> $log
 
-if [[ -f $failurefile ]]; then
-    echo "=== Running microarchiver on past failures ===" >> $log
-    microarchiver -s pmc -C -a $failurefile -o $outputdir -r $report -@ $trace >> $log 2>&1
-    echo "" >> $log
-fi
-
-echo "=== Running microarchiver for new articles ===" >> $log
-thisreport=$outputdir/latest-report.csv
-thistrace=$outputdir/latest-debug.log
-# This will add new articles to any existing ones from the past failures:
-microarchiver -s pmc -C -d $lastrun -o $outputdir -r $thisreport -@ $thistrace >> $log 2>&1
-
-# Combine separate report files, leave that, & delete the intermediate files.
-tail -n +2 $thisreport >> $report
-tail $thistrace >> $trace
-rm -f $thistrace $thisreport
-
-# Note any failures for next time, so they will be tried again.
-egrep -i "missing|failed" $outputdir/*report.csv | cut -f2 -d',' > $failurefile
+echo "=== Running microarchiver for articles since $lastrun ===" >> $log
+# This will get all articles since the last successful run.  If there were
+# any failures, they will be tried again as a result of this, because we
+# don't upload and don't update the last-run date if there are any failures.
+microarchiver -s pmc -C -d $lastrun -o $outputdir -r $report -@ $trace >> $log 2>&1
 
 # Did we have validation failures?  Notify someone specifically about that.
 lines=$(grep validation $report | wc -l)
 if [[ $lines -gt 0 ]]; then
-    mail -s"PMC upload $today stopped due to validation errors" -a $log $errormaildest
+    mail -s"PMC upload stopped $today due to errors in $lines articles" \
+         -a $report -a $log $errormaildest
 else
     # If we didn't have validation errors, ftp any new archives to PMC.
     # Note: curl has weird syntax for sending multiple files at once.
@@ -107,10 +93,9 @@ else
     # If we get this far, write out a date stamp file to indicate that things
     # ran successfully and to give the next run a starting point.
     echo $today > $datestampfile
+
+    # Send email about the results.
+    grep -F "Total articles" $log | \
+        sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
+        mail -s"PMC upload results for $today" -a $report -a $log $logmaildest
 fi
-
-# Send email about the results ------------------------------------------------
-
-grep -F "Total articles" $log | \
-    sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
-    mail -s"PMC upload results for $today" -a $report -a $log $logmaildest
