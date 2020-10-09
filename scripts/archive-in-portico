@@ -31,6 +31,9 @@ outputroot=/raid/micropublication/portico
 # Comma-separated list of addresses that receive emailed reports
 emaildest=""
 
+# Channel where to post Slack message.
+slackdest=""
+
 # -----------------------------------------------------------------------------
 # The rest of this file should not need further configuration
 # -----------------------------------------------------------------------------
@@ -97,6 +100,12 @@ if [[ $lines -gt 1 ]]; then
     archivefile=$outputdir/micropublication-org.zip
     if [[ ! -e $archivefile ]]; then
         echo "Microarchiver failed to create archive file"
+
+        slack chat send --channel $slackdest --color "#ff0000" \
+              --title "Microarchiver failed to create archive file for Portico"
+        slack file upload --channels $slackdest --file "$log" \
+              --comment "Here is the microarchiver run log"
+
         exit 1
     fi
 
@@ -114,3 +123,8 @@ echo $today > $datestampfile
 grep -F "Total articles" $log | \
     sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
     mail -s"Portico archiving results for $today" -a $report -a $log $emaildest
+
+# Post the report to Slack ----------------------------------------------------
+
+slack file upload --channels $slackdest --file $log \
+      --comment "microarchiver successfully completed Portico upload"

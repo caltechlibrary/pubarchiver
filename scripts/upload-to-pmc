@@ -29,8 +29,11 @@
 outputroot=/raid/micropublication/pmc
 
 # Comma-separated list of addresses that receive emailed reports
-logmaildest="mhucka@caltech.edu,team@micropublication.org"
-errormaildest="mhucka@caltech.edu,nick.stiffler@micropublication.org"
+logmaildest=""
+errormaildest=""
+
+# Channel where to post Slack message.
+slackdest=""
 
 # -----------------------------------------------------------------------------
 # The rest of this file should not need further configuration
@@ -78,6 +81,11 @@ lines=$(grep validation $report | wc -l)
 if [[ $lines -gt 0 ]]; then
     mail -s"PMC upload stopped $today due to errors in $lines articles" \
          -a $report -a $log $errormaildest
+
+    slack chat send --channel $slackdest --color "#ff0000" \
+          --title "Microarchiver stopped PMC upload due to errors in $lines articles"
+    slack file upload --channels $slackdest --file "$log" \
+          --comment "Here is the microarchiver run log"
 else
     # If we didn't have validation errors, ftp any new archives to PMC.
     # Note: curl has weird syntax for sending multiple files at once.
@@ -98,4 +106,8 @@ else
     grep -F "Total articles" $log | \
         sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
         mail -s"PMC upload results for $today" -a $report -a $log $logmaildest
+
+    # Post the report to Slack.
+    slack file upload --channels $slackdest --file $log \
+      --comment "microarchiver successfully completed PMC upload"
 fi
