@@ -1,6 +1,12 @@
 Change log for microarchiver
 ============================
 
+Version 1.9.3
+--------------
+
+* Add missing Python package requirement to requirements.txt.
+* Simplify PMC upload script.
+
 Version 1.9.2
 --------------
 
