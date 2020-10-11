@@ -1,5 +1,5 @@
 '''
-gui.py: GUI class
+cli.py: CLI class
 
 Authors
 -------
