@@ -1,11 +1,18 @@
 Change log for microarchiver
 ============================
 
+Version 1.9.4
+--------------
+
+This version removes an unnecessary dependency on wxPython.  A GUI interface was never completed for Microarchiver, and while the starting code is still in the code base in case we try to build a GUI, it doesn't have to be hooked in at this point.  Removing the internal references to the GUI code allows the wxPython requirement to be removed, which in turn simplifies and speeds up installation.
+
+
 Version 1.9.3
 --------------
 
 * Add missing Python package requirement to requirements.txt.
 * Simplify PMC upload script.
+
 
 Version 1.9.2
 --------------
