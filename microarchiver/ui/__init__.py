@@ -99,7 +99,7 @@ def confirm(question):
 
 from .base import UIBase
 from .cli import CLI
-from .gui import GUI
+#from .gui import GUI
 
 class UI(UIBase):
     '''Wrapper class for the user interface.'''
@@ -111,7 +111,8 @@ class UI(UIBase):
         '''Return an instance of the appropriate user interface handler.'''
         if cls.__instance is None:
             if __debug__: log('creating UI instance with name "{}"', name)
-            obj = GUI if use_gui else CLI
+            #obj = GUI if use_gui else CLI
+            obj = CLI
             cls.__instance = obj(name, subtitle, use_gui, use_color, be_quiet)
         return cls.__instance
 
