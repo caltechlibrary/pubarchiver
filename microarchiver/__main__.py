@@ -186,11 +186,12 @@ Return values
 
 This program will exit with a return code of 0 if no problems are encountered
 during execution. If a problem is encountered, it will return a nonzero value.
-If the program is interrupted (e.g., using control-c) it returns a value of 1;
-if it encounters a fatal error, it returns a value of 2. If it encounters any
-non-fatal problems (such as a missing PDF file or JATS validation error), it
-returns a nonzero value equal to 100 + the number of articles that had
-failures. Summarizing the possible return codes:
+If no network is detected, it returns a value of 1; if the program is
+interrupted (e.g., using control-c) it returns a value of 2; if it encounters
+a fatal error, it returns a value of 3. If it encounters any non-fatal
+problems (such as a missing PDF file or JATS validation error), it returns a
+nonzero value equal to 100 + the number of articles that had failures.
+Summarizing the possible return codes:
 
         0 = no errors were encountered -- success
         1 = no network detected -- cannot proceed
