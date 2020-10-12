@@ -10,7 +10,7 @@ A program to create archives of articles from [microPublication.org](https://www
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-yellow.svg?style=flat-square)](https://choosealicense.com/licenses/bsd-3-clause)
 [![Python](https://img.shields.io/badge/Python-3.5+-brightgreen.svg?style=flat-square)](https://www.python.org/downloads/release/python-350/)
 [![Latest release](https://img.shields.io/github/v/release/caltechlibrary/microarchiver.svg?style=flat-square&color=b44e88)](https://github.com/caltechlibrary/microarchiver/releases)
-[![DOI](http://img.shields.io/badge/DOI-10.22002/D1.1636-blue.svg?style=flat-square)](https://data.caltech.edu/records/1636)
+[![DOI](http://img.shields.io/badge/DOI-10.22002/D1.1642-blue.svg?style=flat-square)](https://data.caltech.edu/records/1642)
 [![PyPI](https://img.shields.io/pypi/v/microarchiver.svg?style=flat-square&color=red)](https://pypi.org/project/microarchiver/)
 
 
@@ -65,7 +65,7 @@ microarchiver -h
 
 ### _Basic usage_
 
-The simplest use of `microarchiver` involves running it without any options.  It will contact [microPublication.org](http://micropublication.org) to get a list of current articles, and create an archive of all the articles in a subdirectory of the current directory.
+The simplest use of `microarchiver` involves running it without any options.  By default, it will contact [microPublication.org](http://micropublication.org) to get a list of current articles, and create an archive of all the articles in a subdirectory of the current directory.
 
 ```bash
 microarchiver
@@ -124,9 +124,9 @@ Microarchiver always downloads the JATS XML version of articles from micropublic
 
 `microarchiver` will print informational messages as it works. To reduce messages to only warnings and errors, use the option `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` option (or `/C` on Windows) is given; this option can be helpful if the color control sequences create problems for your terminal emulator.
 
-If given the `-@` option (`/@` on Windows), this program will output a detailed trace of what it is doing, and will also drop into a debugger upon the occurrence of any errors.  The debug trace will be written to the given destination, which can be a dash character (`-`) to indicate console output, or a file path.
+If given the `-@` option (`/@` on Windows), this program will output a detailed real-time trace of what it is doing.  The output will be written to the given destination, which can be a dash character (`-`) to indicate console output, or a file path.
 
-If given the -V option (/V on Windows), this program will print version
+If given the `-V` option (`/V` on Windows), this program will print version
 information and exit without doing anything else.
 
 
@@ -209,7 +209,6 @@ Microarchiver makes use of numerous open-source packages, without which it would
 * [colorful](https://github.com/timofurrer/colorful) &ndash; terminal/text string styling
 * [dateparser](https://github.com/scrapinghub/dateparser) &ndash; parser for human-readable dates
 * [humanize](https://github.com/jmoiron/humanize) &ndash; make numbers more easily readable by humans
-* [ipdb](https://github.com/gotcha/ipdb) &ndash; the IPython debugger
 * [lxml](https://lxml.de) &ndash; an XML parsing library for Python
 * [Pillow](https://github.com/python-pillow/Pillow) &ndash; a fork of the Python Imaging Library
 * [plac](http://micheles.github.io/plac/) &ndash; a command line argument parser

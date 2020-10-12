@@ -1,6 +1,12 @@
 Change log for microarchiver
 ============================
 
+Version 1.10.0
+--------------
+
+This version changes the behavior of the `-@` command-line option, such that exceptions encountered when running with the `-@` option do _not_ cause `microarchiver` to drop into an interactive debugger.  The old behavior turned out to be unhelpful in practice, and moreover, it mixed two behaviors into one command-line flag.  The latter was problematic when running `microarchiver` from scripts.
+
+
 Version 1.9.4
 --------------
 
