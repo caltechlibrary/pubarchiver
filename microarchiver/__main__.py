@@ -94,19 +94,19 @@ _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
 # .............................................................................
 
 @plac.annotations(
-    articles   = ('read article list from file A (default: from network)',  'option', 'a'),
-    no_color   = ('do not color-code terminal output',                      'flag',   'C'),
-    after_date = ('only get articles published after date "D"',             'option', 'd'),
-    get_xml    = ('print the current archive list from the server & exit',  'flag',   'g'),
-    output_dir = ('write archive in directory O (default: current dir)',    'option', 'o'),
-    preview    = ('preview the list of articles that would be downloaded',  'flag',   'p'),
-    quiet      = ('only print important diagnostic messages while working', 'flag',   'q'),
-    report     = ('write report to file R (default: print to terminal)',    'option', 'r'),
-    structure  = ('output structure: Portico or PMC (default: portico)',    'option', 's'),
-    version    = ('print version information and exit',                     'flag',   'V'),
-    no_check   = ('do not validate JATS XML files against the DTD',         'flag'  , 'X'),
-    no_zip     = ('do not zip up the output (default: do)',                 'flag',   'Z'),
-    debug      = ('write detailed trace to "OUT" (use "-" for console)',    'option', '@'),
+    articles   = ('read article list from file A (default: from network)',   'option', 'a'),
+    no_color   = ('do not color-code terminal output',                       'flag',   'C'),
+    after_date = ('only get articles published after date "D"',              'option', 'd'),
+    get_xml    = ('print the current archive list from the server & exit',   'flag',   'g'),
+    output_dir = ('write archive in directory O (default: current dir)',     'option', 'o'),
+    preview    = ('preview the list of articles that would be downloaded',   'flag',   'p'),
+    quiet      = ('only print important diagnostic messages while working',  'flag',   'q'),
+    report     = ('write report to file R (default: print to terminal)',     'option', 'r'),
+    structure  = ('output structure: Portico or PMC (default: portico)',     'option', 's'),
+    version    = ('print version information and exit',                      'flag',   'V'),
+    no_check   = ('do not validate JATS XML files against the DTD',          'flag'  , 'X'),
+    no_zip     = ('do not zip up the output (default: do)',                  'flag',   'Z'),
+    debug      = ('write detailed log to "OUT" (use "-" for console)',       'option', '@'),
 )
 
 def main(articles = 'A', no_color = False, after_date = 'D', get_xml = False,
@@ -184,14 +184,13 @@ articles into a single ZIP archive file.
 Return values
 ~~~~~~~~~~~~~
 
-This program exits with a return code of 0 if no problems are encountered
-while fetching data from the server. It returns a nonzero value otherwise,
-following conventions used in shells such as bash which only understand return
-code values of 0 to 255. If it is interrupted (e.g., using control-c) it
-returns a value of 1; if it encounters a fatal error, it returns a value of 2.
-If it encounters any non-fatal problems (such as a missing PDF file or JATS
-validation error), it returns a nonzero value equal to 100 + the number of
-articles that had failures. Summarizing the possible return codes:
+This program will exit with a return code of 0 if no problems are encountered
+during execution. If a problem is encountered, it will return a nonzero value.
+If the program is interrupted (e.g., using control-c) it returns a value of 1;
+if it encounters a fatal error, it returns a value of 2. If it encounters any
+non-fatal problems (such as a missing PDF file or JATS validation error), it
+returns a nonzero value equal to 100 + the number of articles that had
+failures. Summarizing the possible return codes:
 
         0 = no errors were encountered -- success
         1 = no network detected -- cannot proceed
@@ -207,22 +206,21 @@ it puts into the archive, including whether any problems are encountered. To
 save this info to a file, use the option -r (or /r on Windows), which will
 make microarchiver write a report file in CSV format.
 
+Microarchiver will also print general informational messages as it works. To
+reduce messages to only warnings and errors, use the option -q (or /q on
+Windows). Output is color-coded by default unless the -C option (or /C on
+Windows) is given; this option can be helpful if the color control signals
+create problems for your terminal emulator.
+
+If given the -@ option (/@ on Windows), this program will print a detailed
+real-time log of what it is doing.  The output will be sent to the given
+destination, which can be '-' to indicate console output, or a file path to
+send the output to a file.  The output is mainly intended for debugging.
+
 Microarchiver always downloads the JATS XML version of articles from
 micropublication.org (in addition to downloading the PDF version), and by
 default, microarchiver validates the XML content against the JATS DTD. To
 skip the XML validation step, use the option -X (/X on Windows).
-
-Microarchiver will print informational messages as it works. To reduce messages
-to only warnings and errors, use the option -q (or /q on Windows). Also,
-output is color-coded by default unless the -C option (or /C on Windows) is
-given; this option can be helpful if the color control signals create
-problems for your terminal emulator.
-
-If given the -@ option (/@ on Windows), this program will output a detailed
-trace of what it is doing, and will also drop into a debugger upon the
-occurrence of any errors. The debug trace will be sent to the given
-destination, which can be '-' to indicate console output, or a file path to
-send the output to a file.
 
 If given the -V option (/V on Windows), this program will print version
 information and exit without doing anything else.
@@ -232,8 +230,7 @@ Command-line options summary
 '''
     # Process arguments and handle early exits --------------------------------
 
-    debugging = debug != 'OUT'
-    if debugging:
+    if debug != 'OUT':
         if __debug__: set_debug(True, debug)
         import faulthandler
         faulthandler.enable()
@@ -274,14 +271,11 @@ Command-line options summary
         if __debug__: log('returning with exit code 2')
         exit(2)
     except Exception as ex:
-        if debugging:
-            import traceback
-            alert('{}\n{}', str(ex), traceback.format_exc())
-            import pdb; pdb.set_trace()
-        else:
-            alert_fatal('{}'.format(str(ex)))
-            if __debug__: log('returning with exit code 3')
-            exit(3)
+        import traceback
+        if __debug__: log('{}\n{}', str(ex), traceback.format_exc())
+        alert_fatal('{}'.format(str(ex)))
+        if __debug__: log('returning with exit code 3')
+        exit(3)
 
 
 class MainBody(object):
