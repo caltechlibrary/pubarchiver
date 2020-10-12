@@ -511,8 +511,8 @@ class MainBody(object):
                 continue
             xml = self._metadata_xml(article)
             if not xml:
-                warn('Skipping article with no DataCite entry: ' + article.doi)
-                article.status = 'failed-datacite'
+                warn('Skipping article with missing DataCite entry: ' + article.doi)
+                article.status = 'missing-datacite'
                 continue
 
             # Looks good. Carry on.
@@ -660,11 +660,11 @@ class MainBody(object):
     def _metadata_xml(self, article):
         (response, error) = net('get', _DATACITE_API_URL + article.doi)
         if error:
-            if __debug__: log('error reading from datacite for {}', article.doi)
-            raise error
+            if __debug__: log('error from datacite for {}: {}', article.doi, str(error))
+            return None
         elif not response:
             if __debug__: log('empty response from datacite for {}', article.doi)
-            raise InternalError('Unexpected response from datacite server')
+            return None
 
         json = response.json()
         xml = xmltodict.parse(base64.b64decode(json['data']['attributes']['xml']))
