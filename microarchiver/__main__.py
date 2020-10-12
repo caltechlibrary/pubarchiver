@@ -186,11 +186,12 @@ Return values
 
 This program will exit with a return code of 0 if no problems are encountered
 during execution. If a problem is encountered, it will return a nonzero value.
-If the program is interrupted (e.g., using control-c) it returns a value of 1;
-if it encounters a fatal error, it returns a value of 2. If it encounters any
-non-fatal problems (such as a missing PDF file or JATS validation error), it
-returns a nonzero value equal to 100 + the number of articles that had
-failures. Summarizing the possible return codes:
+If no network is detected, it returns a value of 1; if the program is
+interrupted (e.g., using control-c) it returns a value of 2; if it encounters
+a fatal error, it returns a value of 3. If it encounters any non-fatal
+problems (such as a missing PDF file or JATS validation error), it returns a
+nonzero value equal to 100 + the number of articles that had failures.
+Summarizing the possible return codes:
 
         0 = no errors were encountered -- success
         1 = no network detected -- cannot proceed
@@ -511,8 +512,8 @@ class MainBody(object):
                 continue
             xml = self._metadata_xml(article)
             if not xml:
-                warn('Skipping article with no DataCite entry: ' + article.doi)
-                article.status = 'failed-datacite'
+                warn('Skipping article with missing DataCite entry: ' + article.doi)
+                article.status = 'missing-datacite'
                 continue
 
             # Looks good. Carry on.
@@ -561,7 +562,7 @@ class MainBody(object):
             article.status = 'failed-jats-download'
         if self.do_validate:
             if not valid_xml(jats_file, self._dtd):
-                warn('Failed to validate JATS for {}', article.doi)
+                warn('Failed to validate JATS for article {}', article.doi)
                 article.status = 'failed-jats-validation'
         else:
             if __debug__: log('skipping DTD validation of {}', jats_file)
@@ -610,7 +611,7 @@ class MainBody(object):
             article.status = 'failed-jats-download'
         if self.do_validate:
             if not valid_xml(jats_file, self._dtd):
-                warn('Failed to validate JATS for {}', article.doi)
+                warn('Failed to validate JATS for article {}', article.doi)
                 article.status = 'failed-jats-validation'
         else:
             if __debug__: log('skipping DTD validation of {}', jats_file)
@@ -624,14 +625,14 @@ class MainBody(object):
             if __debug__: log('downloading image file to {}', image_file)
             if download_file(article.image, image_file):
                 with Image.open(image_file) as img:
-                    converted = image_without_alpha(img)
-                    converted = converted.convert('RGB')
+                    converted_img = image_without_alpha(img)
+                    converted_img = converted_img.convert('RGB')
                     if __debug__: log('converting image to TIFF format')
                     tiff_file = filename_basename(image_file) + '.tif'
-                    # Using save() means only the 1st frame of a multiframe
-                    # image will be saved.
-                    converted.save(tiff_file, dpi = _TIFF_DPI, compression = None,
-                                   description = tiff_comments(article))
+                    # Using save() means that only the 1st frame of a
+                    # multiframe image will be saved.
+                    converted_img.save(tiff_file, dpi = _TIFF_DPI, compression = None,
+                                       description = tiff_comments(article))
                     to_archive.append(tiff_file)
                 # We keep only the uncompressed TIFF version.
                 if __debug__: log('deleting original image file {}', image_file)
@@ -654,17 +655,17 @@ class MainBody(object):
                     if __debug__: log('deleting file {}', file)
                     delete_existing(file)
             else:
-                warn('ZIP archive for {} not created due to errors', article)
+                warn('ZIP archive for {} not created due to errors', article.doi)
 
 
     def _metadata_xml(self, article):
         (response, error) = net('get', _DATACITE_API_URL + article.doi)
         if error:
-            if __debug__: log('error reading from datacite for {}', article.doi)
-            raise error
+            if __debug__: log('error from datacite for {}: {}', article.doi, str(error))
+            return None
         elif not response:
             if __debug__: log('empty response from datacite for {}', article.doi)
-            raise InternalError('Unexpected response from datacite server')
+            return None
 
         json = response.json()
         xml = xmltodict.parse(base64.b64decode(json['data']['attributes']['xml']))
