@@ -625,14 +625,14 @@ class MainBody(object):
             if __debug__: log('downloading image file to {}', image_file)
             if download_file(article.image, image_file):
                 with Image.open(image_file) as img:
-                    converted = image_without_alpha(img)
-                    converted = converted.convert('RGB')
+                    converted_img = image_without_alpha(img)
+                    converted_img = converted_img.convert('RGB')
                     if __debug__: log('converting image to TIFF format')
                     tiff_file = filename_basename(image_file) + '.tif'
-                    # Using save() means only the 1st frame of a multiframe
-                    # image will be saved.
-                    converted.save(tiff_file, dpi = _TIFF_DPI, compression = None,
-                                   description = tiff_comments(article))
+                    # Using save() means that only the 1st frame of a
+                    # multiframe image will be saved.
+                    converted_img.save(tiff_file, dpi = _TIFF_DPI, compression = None,
+                                       description = tiff_comments(article))
                     to_archive.append(tiff_file)
                 # We keep only the uncompressed TIFF version.
                 if __debug__: log('deleting original image file {}', image_file)
