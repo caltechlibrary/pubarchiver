@@ -1,0 +1,39 @@
+# -*- mode: sh -*-
+# =============================================================================
+# @file    crontab
+# @brief   Crontab file for running microarchiver for micropublication.org
+# @author  Michael Hucka <mhucka@library.caltech.edu>
+# @website https://github.com/caltechlibrary/microarchiver
+# =============================================================================
+
+# Environment variables used by cron.  (See man page for crontab(5).)
+# .............................................................................
+
+MAILTO=CHANGEME
+
+# Environment variables used by the microarchiver scripts.
+# .............................................................................
+
+EMAIL_SUCCESS="CHANGEME"
+EMAIL_FAILURE="CHANGEME"
+
+# The next two should be paths to directories where output is written. Each
+# time the scripts run, they will write a subdirectory in these locations.
+PORTICO_OUTPUT=CHANGEME
+PMC_OUTPUT=CHANGEME
+
+PORTICO_USER=CHANGEME
+PORTICO_PASS=CHANGEME
+
+PMC_USER=CHANGEME
+PMC_PASS=CHANGEME
+
+SLACK_CHANNEL=CHANGEME
+SLACK_CLI_TOKEN=CHANGEME
+
+# Schedule for microarchiver runs.  (Sourcing the user's .profile via the
+# ". $HOME/.profile" at the beginning is to get the user's $PATH.)
+# .............................................................................
+
+0 10 * * 6  . $HOME/.profile; /CHANGEME/archive-in-portico
+0 10 * * 7  . $HOME/.profile; /CHANGEME/upload-to-pmc
