@@ -655,7 +655,7 @@ class MainBody(object):
                     if __debug__: log('deleting file {}', file)
                     delete_existing(file)
             else:
-                warn('ZIP archive for {} not created due to errors', article)
+                warn('ZIP archive for {} not created due to errors', article.doi)
 
 
     def _metadata_xml(self, article):
