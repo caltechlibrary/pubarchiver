@@ -24,7 +24,7 @@ file "LICENSE" for more information.
 #  ╰────────────────────── Notice ── Notice ── Notice ─────────────────────╯
 
 __version__     = '1.10.0'
-__description__ = 'Create archives of articles from microPublication.org.'
+__description__ = 'Create archives of articles from microPublication.org'
 __url__         = 'https://github.com/caltechlibrary/microarchiver'
 __author__      = 'Michael Hucka, Tom Morrell'
 __email__       = 'mhucka@caltech.edu, tmorrell@library.caltech.edu'
@@ -35,9 +35,7 @@ __license__     = 'BSD 3-clause'
 # .............................................................................
 
 def print_version():
-    import sys
-    this_module = sys.modules[__package__]
-    print('{} version {}'.format(this_module.__name__, this_module.__version__))
-    print('Authors: {}'.format(this_module.__author__))
-    print('URL: {}'.format(this_module.__url__))
-    print('License: {}'.format(this_module.__license__))
+    print(f'{__name__} version {__version__}')
+    print(f'Authors: {__author__}')
+    print(f'URL: {__url__}')
+    print(f'License: {__license__}')
