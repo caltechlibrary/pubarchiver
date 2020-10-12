@@ -235,7 +235,7 @@ def valid_xml(xml_file, dtd):
             if __debug__: log('validated without errors')
             return True
         else:
-            warn('Failed to validate {}', xml_file)
+            warn('Failed to validate file {}', xml_file)
             warn('{} validation error{} encountered:', len(dtd.error_log),
                  's' if len(dtd.error_log) > 1 else '')
             for item in dtd.error_log:

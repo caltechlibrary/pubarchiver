@@ -562,7 +562,7 @@ class MainBody(object):
             article.status = 'failed-jats-download'
         if self.do_validate:
             if not valid_xml(jats_file, self._dtd):
-                warn('Failed to validate JATS for {}', article.doi)
+                warn('Failed to validate JATS for article {}', article.doi)
                 article.status = 'failed-jats-validation'
         else:
             if __debug__: log('skipping DTD validation of {}', jats_file)
@@ -611,7 +611,7 @@ class MainBody(object):
             article.status = 'failed-jats-download'
         if self.do_validate:
             if not valid_xml(jats_file, self._dtd):
-                warn('Failed to validate JATS for {}', article.doi)
+                warn('Failed to validate JATS for article {}', article.doi)
                 article.status = 'failed-jats-validation'
         else:
             if __debug__: log('skipping DTD validation of {}', jats_file)
