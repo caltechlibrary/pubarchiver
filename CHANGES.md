@@ -6,6 +6,7 @@ Version 1.10.1
 
 * Fix behavior when DataCite has no data for an article: `microarchiver` was _meant_ to flag the article and keep going, but instead it treated it as a fatal error.
 * Fix some documentation errors about the numeric codes returned by `microarchiver`.
+* Minor other improvements.
 
 
 Version 1.10.0
