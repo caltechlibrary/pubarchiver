@@ -132,7 +132,7 @@ information and exit without doing anything else.
 
 ### Return values
 
-This program exits with a return code of `0` if no problems are encountered while fetching data from the server.  It returns a nonzero value otherwise, following conventions for use in shells such as bash which only understand return code values of `0` to `255`.  If it is interrupted (e.g., using `ctrl-c`) it returns a value of `1`; if it encounters a fatal error, it returns a value of `2`.  If it encounters any non-fatal problems (such as a missing PDF file or JATS validation error), it returns a nonzero value equal to 100 + the number of articles that had failures.   Summarizing the possible return codes:
+This program exits with a return code of `0` if no problems are encountered while fetching data from the server.  It returns a nonzero value otherwise, following conventions for use in shells such as bash which only understand return code values of `0` to `255`.  If no network is detected, it returns a value of 1; if it is interrupted (e.g., using `ctrl-c`) it returns a value of `2`; if it encounters a fatal error, it returns a value of `3`.  If it encounters any non-fatal problems (such as a missing PDF file or JATS validation error), it returns a nonzero value equal to 100 + the number of articles that had failures.   Summarizing the possible return codes:
 
 | Return value | Meaning |
 |:------------:|---------|
