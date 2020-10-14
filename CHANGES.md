@@ -1,6 +1,12 @@
 Change log for microarchiver
 ============================
 
+Version 1.10.2
+--------------
+
+* Update the workflow scripts and associated crontab template.
+
+
 Version 1.10.1
 --------------
 
