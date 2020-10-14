@@ -216,6 +216,7 @@ Microarchiver makes use of numerous open-source packages, without which it would
 * [recordclass](https://github.com/intellimath/recordclass) &ndash; a mutable version of Python named tuples
 * [requests](http://docs.python-requests.org) &ndash; an HTTP library for Python
 * [setuptools](https://github.com/pypa/setuptools) &ndash; library for `setup.py`
+* [slack-cli](https://github.com/rockymadden/slack-cli) &ndash; a command-line interface to Slack written in [Bash](https://www.gnu.org/software/bash/)
 * [urllib3](https://urllib3.readthedocs.io/en/latest/) &ndash; a powerful HTTP library for Python
 * [xmltodict](https://github.com/martinblech/xmltodict) &ndash; a module to make working with XML feel like working with JSON
 * [wxPython](https://wxpython.org) &ndash; a cross-platform GUI toolkit for the Python language

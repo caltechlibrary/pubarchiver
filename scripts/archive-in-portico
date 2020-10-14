@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# @file    archive-micropublication
+# @file    archive-in-portico
 # @brief   Script meant to be run from cron
 # @author  Michael Hucka <mhucka@caltech.edu>
 # @license Please see the file named LICENSE in the project directory
@@ -10,8 +10,8 @@
 #
 #  1. The frequency of archives is set by the cron schedule, not in here.
 #
-#  2. The FTP credentials for the Portico server are passed via environment
-#     variables FTP_USER and FTP_PASS.
+#  2. The local output directory where files are saved is set by environment
+#     variable PORTICO_OUTPUT.
 #
 #  3. A timestamp file is created in the output directory, and microarchiver
 #     is run with that date stamp as the "after date" argument.
@@ -23,36 +23,56 @@
 #
 #  6. A log file is written to the output directory and named "run.log".
 #
+#  7. Successful results are uploaded to ftp.portico.org using ftp credentials
+#     that are passed via environment variables PORTICO_USER and PORTICO_PASS.
+#
+#  8. Outcomes are emailed to the comma-separated addresses in environment
+#     variable $EMAIL_SUCCESS or $EMAIL_FAILURE, depending on whether
+#     execution succeed or failed, respectively.  They are also posted to the
+#     Slack channel set by environment vaiable SLACK_CHANNEL using API token
+#     SLACK_CLI_TOKEN.  (Note: SLACK_CLI_TOKEN is read by the command
+#     `slack`, which is why it does not appear used below.)
+#
 # =============================================================================
 
-# Destination where all files and subdirectories are stored:
-outputroot=/raid/micropublication/portico
+# Store the path to this script so we can report it in error messages.
+mainscript=${BASH_SOURCE[0]}
 
-# Comma-separated list of addresses that receive emailed reports
-emaildest=""
-
-# Channel where to post Slack message.
-slackdest=""
-
-# -----------------------------------------------------------------------------
-# The rest of this file should not need further configuration
-# -----------------------------------------------------------------------------
-
+# Files recording the results of the most recent run are stored at the level
+# of the directory indicatd by $PORTICO_OUTPUT, because this information is
+# carried across runs.
 today=$(date +%Y-%m-%d)
-datestampfile=$outputroot/last-run-date
-failurefile=$outputroot/last-failures
+datestampfile=$PORTICO_OUTPUT/last-run-date
+failurefile=$PORTICO_OUTPUT/last-failures
 
-# Create the output directory where we'll write this run's archive.
-# However, name the output directory with the current time rather than
-# merely today's date, because if we run multiple times per day, we
-# would otherwise overwrite the previous data.
-
+# Today's run will be written in a subdirctory.  Note the subdirectory name
+# includes the current time, not just today's date, because otherwise we
+# would overwrite the previous data if we ran run multiple times per day.
 now=$(date +%Y-%m-%d-%H%M)
-outputdir=$outputroot/$now
+outputdir=$PORTICO_OUTPUT/$now
+
+# Each run produces several log and record files in $outputdir.
+log=$outputdir/run.log
+report=$outputdir/report.csv
+debuglog=$outputdir/debug.log
+
+
+# Read helper functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CWD="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+source $CWD/helpers.sh
+
+
+# Do the real work ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Before doing anything else, create the output directory.
 mkdir -p $outputdir
 
-# Read the date stamp from the previous run.
+# Start by recording the current time.
+echo "Starting at $now" >> $log
+echo "" >> $log
 
+# Read the date stamp from the previous run.
 if [[ -e $datestampfile ]]; then
     read lastrun < $datestampfile
 else
@@ -61,33 +81,26 @@ else
     lastrun="1900-01-01"
 fi
 
-# Run microarchiver -----------------------------------------------------------
-
-log=$outputdir/run.log
-report=$outputdir/report.csv
-trace=$outputdir/debug.log
-
-echo "Starting at $now" >> $log
-echo "" >> $log
-
+# Run microarchiver separately on past failures, leaving the results unpackaged
+# so that we can add to them the results of today's run.
 if [[ -f $failurefile ]]; then
     echo "=== Running microarchiver on past failures ===" >> $log
     # Note the use of -Z to prevent zip'ing the final results.
-    microarchiver -Z -C -a $failurefile -o $outputdir -r $report -@ $trace >> $log 2>&1
+    run_microarchiver -s portico -Z -C -a $failurefile -o $outputdir -r $report -@ $debuglog
     echo "" >> $log
 fi
 
 echo "=== Running microarchiver for new articles ===" >> $log
 thisreport=$outputdir/latest-report.csv
-thistrace=$outputdir/latest-debug.log
+thisdebuglog=$outputdir/latest-debug.log
 # This will add new articles to any existing ones from the past failures
 # code above, and this time will zip up the final result.
-microarchiver -C -d $lastrun -o $outputdir -r $thisreport -@ $thistrace >> $log 2>&1
+run_microarchiver -s portico -C -d $lastrun -o $outputdir -r $thisreport -@ $thisdebuglog
 
 # Combine separate report files, leave that, & delete the intermediate files.
 tail -n +2 $thisreport >> $report
-tail $thistrace >> $trace
-rm -f $thistrace $thisreport
+tail $thisdebuglog >> $debuglog
+rm -f $thisdebuglog $thisreport
 
 # Did we have any failures? If so, note them for next time.
 grep -i "missing," $outputdir/*report.csv | cut -f2 -d',' > $failurefile
@@ -98,33 +111,28 @@ grep -i "missing," $outputdir/*report.csv | cut -f2 -d',' > $failurefile
 lines=$(wc -l < $report)
 if [[ $lines -gt 1 ]]; then
     archivefile=$outputdir/micropublication-org.zip
-    if [[ ! -e $archivefile ]]; then
-        echo "Microarchiver failed to create archive file"
-
-        slack chat send --channel $slackdest --color "#ff0000" \
-              --title "Microarchiver failed to create archive file for Portico"
-        slack file upload --channels $slackdest --file "$log" \
-              --comment "Here is the microarchiver run log"
-
-        exit 1
-    fi
-
     echo "" >> $log
     echo "=== FTP'ing file using curl ===" >> $log
-    curl -T $archivefile ftp://ftp.portico.org --user $FTP_USER:$FTP_PASS >> $log 2>&1
+    curl -T $archivefile ftp://ftp.portico.org \
+        --user $PORTICO_USER:$PORTICO_PASS >> $log 2>&1
 fi
 
 # If we get this far, write out a date stamp file to indicate that things
 # ran successfully and to give the next run a starting point.
 echo $today > $datestampfile
 
-# Mail the report -------------------------------------------------------------
+
+# Mail the report ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 grep -F "Total articles" $log | \
     sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
-    mail -s"Portico archiving results for $today" -a $report -a $log $emaildest
+    mail -s"Portico archiving results for $today" -a $report -a $log $EMAIL_SUCCESS
 
-# Post the report to Slack ----------------------------------------------------
 
-slack file upload --channels $slackdest --file $log \
-      --comment "microarchiver successfully completed Portico upload"
+# Post the report to Slack ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+run_slack chat send --channel $SLACK_CHANNEL --color "#00ff00" \
+    --title "microarchiver successfully completed Portico upload" \
+    --text "There were $(wc -l < $failurefile) articles skipped."
+run_slack file upload --channels $SLACK_CHANNEL --file $report \
+    --comment "Here is the record of what was uploaded:"
