@@ -1,6 +1,12 @@
 Change log for microarchiver
 ============================
 
+Version 1.10.3
+--------------
+
+* Fix bug in date handling in workflow scripts.  The value of the `--after-date` argument to `microarchiver` was set to the date it ran, which caused it to miss articles published on the date that it ran.  The value of the date should have been modified to include the day it last ran so that the date comparison was correct.  (Thanks to Nick Stiffler for catching and reporting the problem.)
+
+
 Version 1.10.2
 --------------
 
