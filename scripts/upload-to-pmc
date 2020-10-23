@@ -73,18 +73,21 @@ echo "" >> $log
 
 # Read the date stamp from the previous run.
 if [[ -e $datestampfile ]]; then
-    read lastrun < $datestampfile
+    read afterdate < $datestampfile
+    # Go back one day to include the run date in the argument given to
+    # microarchiver's --after-date (or else we miss the day of the run itself).
+    afterdate=$(date -d "$afterdate -1 days" +"%Y-%m-%d")
 else
     # We've never run, or someone reset the date stamp.
     # Use a fake date that basically signifies "since forever".
-    lastrun="1900-01-01"
+    afterdate="1900-01-01"
 fi
 
-echo "=== Running microarchiver for articles since $lastrun ===" >> $log
+echo "=== Running microarchiver for articles since $afterdate ===" >> $log
 # This will get all articles since the last successful run.  If there were
 # any failures, they will be tried again as a result of this, because we
 # don't upload and don't update the last-run date if there are any failures.
-run_microarchiver -s pmc -C -d $lastrun -o $outputdir -r $report -@ $debuglog
+run_microarchiver -s pmc -C -d $afterdate -o $outputdir -r $report -@ $debuglog
 
 # Did we have validation failures?  Notify someone specifically about that.
 lines=$(grep validation $report | wc -l)
