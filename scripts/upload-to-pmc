@@ -118,14 +118,12 @@ else
 
     # Send email about the results.
     grep -F "Total articles" $log | \
-        sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
         mail -s"PMC upload results for $today" -a $report -a $log $EMAIL_SUCCESS
 
     # Post the report to Slack.
 
     run_slack chat send --channel $SLACK_CHANNEL --color "#00ff00" \
-        --title "microarchiver successfully completed PMC upload" \
-        --text "There were $(wc -l < $failurefile) articles skipped."
+        --title "microarchiver successfully completed PMC upload"
     run_slack file upload --channels $SLACK_CHANNEL --file $report \
         --comment "Here is the record of what was uploaded:"
 fi
