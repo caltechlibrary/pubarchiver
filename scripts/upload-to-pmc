@@ -107,9 +107,9 @@ else
     if [[ $lines -gt 0 ]]; then
         echo "" >> $log
         echo "=== FTP'ing file using curl ===" >> $log
-        curl --user $PMC_FTP_USER:$PMC_FTP_PASS \
+        run_curl --retry 5 --user $PMC_USER:$PMC_PASS \
             -T "{$(echo $outputdir/micropublication-org/*.zip | tr ' ' ',')}" \
-            ftp://ftp-private.ncbi.nlm.nih.gov/ >> $log 2>&1
+            ftp://ftp-private.ncbi.nlm.nih.gov/
     fi
 
     # If we get this far, write out a date stamp file to indicate that things
