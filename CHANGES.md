@@ -1,6 +1,13 @@
 Change log for microarchiver
 ============================
 
+Version 1.10.5
+--------------
+
+* Add new helper function to run `curl` in the upload script for PMC.
+* Fix inconsistency in the PMC upload script, wherein the user and password variables were not the same name as the cron variables actually used.
+
+
 Version 1.10.4
 --------------
 
