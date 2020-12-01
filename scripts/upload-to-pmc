@@ -73,18 +73,21 @@ echo "" >> $log
 
 # Read the date stamp from the previous run.
 if [[ -e $datestampfile ]]; then
-    read lastrun < $datestampfile
+    read afterdate < $datestampfile
+    # Go back one day to include the run date in the argument given to
+    # microarchiver's --after-date (or else we miss the day of the run itself).
+    afterdate=$(date -d "$afterdate -1 days" +"%Y-%m-%d")
 else
     # We've never run, or someone reset the date stamp.
     # Use a fake date that basically signifies "since forever".
-    lastrun="1900-01-01"
+    afterdate="1900-01-01"
 fi
 
-echo "=== Running microarchiver for articles since $lastrun ===" >> $log
+echo "=== Running microarchiver for articles since $afterdate ===" >> $log
 # This will get all articles since the last successful run.  If there were
 # any failures, they will be tried again as a result of this, because we
 # don't upload and don't update the last-run date if there are any failures.
-run_microarchiver -s pmc -C -d $lastrun -o $outputdir -r $report -@ $debuglog
+run_microarchiver -s pmc -C -d $afterdate -o $outputdir -r $report -@ $debuglog
 
 # Did we have validation failures?  Notify someone specifically about that.
 lines=$(grep validation $report | wc -l)
@@ -115,14 +118,12 @@ else
 
     # Send email about the results.
     grep -F "Total articles" $log | \
-        sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
         mail -s"PMC upload results for $today" -a $report -a $log $EMAIL_SUCCESS
 
     # Post the report to Slack.
 
     run_slack chat send --channel $SLACK_CHANNEL --color "#00ff00" \
-        --title "microarchiver successfully completed PMC upload" \
-        --text "There were $(wc -l < $failurefile) articles skipped."
+        --title "microarchiver successfully completed PMC upload"
     run_slack file upload --channels $SLACK_CHANNEL --file $report \
         --comment "Here is the record of what was uploaded:"
 fi

@@ -74,11 +74,14 @@ echo "" >> $log
 
 # Read the date stamp from the previous run.
 if [[ -e $datestampfile ]]; then
-    read lastrun < $datestampfile
+    read afterdate < $datestampfile
+    # Go back one day to include the run date in the argument given to
+    # microarchiver's --after-date (or else we miss the day of the run itself).
+    afterdate=$(date -d "$afterdate -1 days" +"%Y-%m-%d")
 else
     # We've never run, or someone reset the date stamp.
     # Use a fake date that basically signifies "since forever".
-    lastrun="1900-01-01"
+    afterdate="1900-01-01"
 fi
 
 # Run microarchiver separately on past failures, leaving the results unpackaged
@@ -95,7 +98,7 @@ thisreport=$outputdir/latest-report.csv
 thisdebuglog=$outputdir/latest-debug.log
 # This will add new articles to any existing ones from the past failures
 # code above, and this time will zip up the final result.
-run_microarchiver -s portico -C -d $lastrun -o $outputdir -r $thisreport -@ $thisdebuglog
+run_microarchiver -s portico -C -d $afterdate -o $outputdir -r $thisreport -@ $thisdebuglog
 
 # Combine separate report files, leave that, & delete the intermediate files.
 tail -n +2 $thisreport >> $report
