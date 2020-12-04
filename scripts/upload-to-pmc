@@ -23,8 +23,9 @@
 #
 #  6. A log file is written to the output directory and named "run.log".
 #
-#  7. Successful results are uploaded to ftp.portico.org using ftp credentials
-#     that are passed via environment variables PMC_USER and PMC_PASS.
+#  7. Archived articles are uploaded to ftp://ftp-private.ncbi.nlm.nih.gov/
+#     using ftp credentials that are passed via environment variables
+#     PMC_USER and PMC_PASS.
 #
 #  8. Outcomes are emailed to the comma-separated addresses in environment
 #     variable $EMAIL_SUCCESS or $EMAIL_FAILURE, depending on whether
@@ -39,7 +40,7 @@
 mainscript=${BASH_SOURCE[0]}
 
 # The file recording the results of the most recent run is stored at the
-# level of the directory indicatd by $PORTICO_OUTPUT, because this
+# level of the directory indicatd by $PMC_OUTPUT, because this
 # information is carried across runs.
 today=$(date +%Y-%m-%d)
 datestampfile=$PMC_OUTPUT/last-run-date
@@ -56,9 +57,14 @@ report=$outputdir/report.csv
 debuglog=$outputdir/debug.log
 
 
+# Set up Python environment ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CWD="$(cd -P -- "$(dirname -- "$mainscript")" && pwd -P)"
+source $CWD/env/bin/activate
+
+
 # Read helper functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-CWD="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source $CWD/helpers.sh
 
 
@@ -92,7 +98,7 @@ run_microarchiver -s pmc -C -d $afterdate -o $outputdir -r $report -@ $debuglog
 # Did we have validation failures?  Notify someone specifically about that.
 lines=$(grep validation $report | wc -l)
 if [[ $lines -gt 0 ]]; then
-    mail -s"PMC upload stopped $today due to errors in $lines articles" \
+    mail -s "PMC upload stopped $today due to errors in $lines articles" \
          -a $report -a $log $EMAIL_FAILURE
 
     run_slack chat send --channel $SLACK_CHANNEL --color "#ff0000" \
@@ -118,7 +124,7 @@ else
 
     # Send email about the results.
     grep -F "Total articles" $log | \
-        mail -s"PMC upload results for $today" -a $report -a $log $EMAIL_SUCCESS
+        mail -s "PMC upload results for $today" -a $report -a $log $EMAIL_SUCCESS
 
     # Post the report to Slack.
 

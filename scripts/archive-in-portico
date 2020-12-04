@@ -57,9 +57,14 @@ report=$outputdir/report.csv
 debuglog=$outputdir/debug.log
 
 
+# Set up Python environment ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CWD="$(cd -P -- "$(dirname -- "$mainscript")" && pwd -P)"
+source $CWD/env/bin/activate
+
+
 # Read helper functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-CWD="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source $CWD/helpers.sh
 
 
@@ -129,7 +134,7 @@ echo $today > $datestampfile
 
 grep -F "Total articles" $log | \
     sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
-    mail -s"Portico archiving results for $today" -a $report -a $log $EMAIL_SUCCESS
+    mail -s "Portico archiving results for $today" -a $report -a $log $EMAIL_SUCCESS
 
 
 # Post the report to Slack ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
