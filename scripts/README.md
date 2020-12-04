@@ -15,3 +15,12 @@ The scripts assume that certain things are installed on the computer and are in 
 * Common Linux/Unix programs such as `sed`, `grep`, `mail`, etc.
 
 Note that some of these programs themselves have additional dependencies of their own.
+
+The scripts also depend on a Python `virtualenv` environment to be set up in the directory where the scripts are located.  The virtual environment is assumed to be located in a subdirectory named `env`.  The scripts [`archive-in-portico`](archive-in-portico) and [`upload-to-pmc`](upload-to-pmc) contain instructions to activate the virtual Python environment.  The installation of the environment is fairly conventional:
+
+```bash
+python3 -m pip install virtualenv --user
+virtualenv env
+source env/bin/activate
+python3 -m pip install microarchiver
+```
