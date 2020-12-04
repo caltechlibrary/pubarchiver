@@ -98,6 +98,7 @@ run_microarchiver -s pmc -C -d $afterdate -o $outputdir -r $report -@ $debuglog
 # Did we have validation failures?  Notify someone specifically about that.
 lines=$(grep validation $report | wc -l)
 if [[ $lines -gt 0 ]]; then
+    echo "The attached run log may provide clues about the errors." | \
     mail -s "PMC upload stopped $today due to errors in $lines articles" \
          -a $report -a $log $EMAIL_FAILURE
 
