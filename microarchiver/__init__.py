@@ -23,7 +23,7 @@ file "LICENSE" for more information.
 #  |    by the Makefile. Manual changes to these values will be lost.      |
 #  ╰────────────────────── Notice ── Notice ── Notice ─────────────────────╯
 
-__version__     = '1.10.5'
+__version__     = '1.10.6'
 __description__ = 'Create archives of articles from microPublication.org.'
 __url__         = 'https://github.com/caltechlibrary/microarchiver'
 __author__      = 'Michael Hucka, Tom Morrell'
