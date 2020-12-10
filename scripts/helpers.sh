@@ -11,6 +11,7 @@
 # * $log -- the file where a run-time log of actions is written
 # * $today -- a string giving today's date
 # * $mainscript -- the path to the main workflow script calling these helpers
+# * $outputdir -- directory where files from the day's run are written
 #
 # The code below assumes the existence of the following environment variables:
 #
