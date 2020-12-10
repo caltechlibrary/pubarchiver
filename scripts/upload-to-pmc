@@ -90,13 +90,14 @@ else
 fi
 
 echo "=== Running microarchiver for articles since $afterdate ===" >> $log
+echo "" >> $log
 # This will get all articles since the last successful run.  If there were
 # any failures, they will be tried again as a result of this, because we
 # don't upload and don't update the last-run date if there are any failures.
 run_microarchiver -s pmc -C -d $afterdate -o $outputdir -r $report -@ $debuglog
 
 # Did we have validation failures?  Notify someone specifically about that.
-lines=$(grep validation $report | wc -l)
+lines=$(egrep 'validation|missing|failed' $report | wc -l)
 if [[ $lines -gt 0 ]]; then
     echo "The attached run log may provide clues about the errors." | \
     mail -s "PMC upload stopped $today due to errors in $lines articles" \
