@@ -63,7 +63,7 @@ edited := codemeta.json $(init_file)
 
 check-in-updated-files:;
 	git add $(edited)
-	git diff-index --quiet HEAD $(edited) || git commit -m"Update version" $(edited)
+	git diff-index --quiet HEAD $(edited) || git commit -m"Update stored version number" $(edited)
 
 release-on-github: | update-init-file update-codemeta-file check-in-updated-files
 	git push -v --all
@@ -91,7 +91,7 @@ print-instructions:;
 	@echo ""
 
 update-doi: 
-	sed -i .bak -e 's|DOI-.*-blue|DOI-$(doi)-blue|' README.md
+	sed -i .bak -e 's|/api/record/[0-9]\{1,\}|/api/record/$(doi_tail)|' README.md
 	sed -i .bak -e 's|caltech.edu/records/[0-9]\{1,\}|caltech.edu/records/$(doi_tail)|' README.md
 	git add README.md
 	git diff-index --quiet HEAD README.md || git commit -m"Update DOI" README.md && git push -v --all
@@ -107,7 +107,8 @@ pypi: create-dist
 	python3 -m twine upload --verbose dist/*
 
 clean:;
-	-rm -rf dist build $(name).egg-info *.bak
+	-rm -rf dist build $(name).egg-info codemeta.json.bak $(init_file).bak \
+	README.md.bak
 
 .PHONY: release release-on-github update-init-file update-codemeta-file \
 	print-instructions create-dist clean test-pypi pypi

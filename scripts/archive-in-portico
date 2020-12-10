@@ -93,12 +93,14 @@ fi
 # so that we can add to them the results of today's run.
 if [[ -f $failurefile ]]; then
     echo "=== Running microarchiver on past failures ===" >> $log
+    echo "" >> $log
     # Note the use of -Z to prevent zip'ing the final results.
     run_microarchiver -s portico -Z -C -a $failurefile -o $outputdir -r $report -@ $debuglog
     echo "" >> $log
 fi
 
 echo "=== Running microarchiver for new articles ===" >> $log
+echo "" >> $log
 thisreport=$outputdir/latest-report.csv
 thisdebuglog=$outputdir/latest-debug.log
 # This will add new articles to any existing ones from the past failures
