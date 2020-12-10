@@ -1,6 +1,13 @@
 Change log for microarchiver
 ============================
 
+Version 1.10.6
+--------------
+
+* Assume the use of Python `virtualenv` to lock in a specific Python environment.
+* Fix a bug in one of the workflow scripts in which the lack of a mail message body caused the mail command to hang indefinitely.
+
+
 Version 1.10.5
 --------------
 

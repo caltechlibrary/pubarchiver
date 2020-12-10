@@ -10,7 +10,7 @@ A program to create archives of articles from [microPublication.org](https://www
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-yellow.svg?style=flat-square)](https://choosealicense.com/licenses/bsd-3-clause)
 [![Python](https://img.shields.io/badge/Python-3.5+-brightgreen.svg?style=flat-square)](https://www.python.org/downloads/release/python-350/)
 [![Latest release](https://img.shields.io/github/v/release/caltechlibrary/microarchiver.svg?style=flat-square&color=b44e88)](https://github.com/caltechlibrary/microarchiver/releases)
-[![DOI](http://img.shields.io/badge/DOI-10.22002/D1.1654-blue.svg?style=flat-square)](https://data.caltech.edu/records/1654)
+[![DOI](http://img.shields.io/badge/DOI-10.22002/D1.1691-blue.svg?style=flat-square)](https://data.caltech.edu/records/1691)
 [![PyPI](https://img.shields.io/pypi/v/microarchiver.svg?style=flat-square&color=red)](https://pypi.org/project/microarchiver/)
 
 
