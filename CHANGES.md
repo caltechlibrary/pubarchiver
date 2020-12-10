@@ -1,6 +1,13 @@
 Change log for microarchiver
 ============================
 
+Version 1.10.7
+--------------
+
+* Test for more signs of failure in `upload-to-pmc.sh`.
+* Make some very tiny tweaks to the format of logs.
+
+
 Version 1.10.6
 --------------
 
