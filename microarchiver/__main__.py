@@ -99,7 +99,7 @@ _HTML_REPORT_TOP = '''<html>
       td    {{ padding: 6px 10px                        }}
     </style>
   <body>
-    <h1>Report for {}</h1>
+    <h1>{}</h1>
     <table>
       <thead>
         <tr>
@@ -127,23 +127,24 @@ _HTML_REPORT_BOTTOM = '''
     articles   = ('read article list from file A (default: from network)',   'option', 'a'),
     no_color   = ('do not color-code terminal output',                       'flag',   'C'),
     after_date = ('only get articles published after date "D"',              'option', 'd'),
-    report_fmt = ('format of report: "csv" or "html" (default: "csv")',      'option', 'f'),
+    rep_format = ('format of report: "csv" or "html" (default: "csv")',      'option', 'f'),
     get_xml    = ('print the current archive list from the server & exit',   'flag',   'g'),
     output_dir = ('write archive in directory O (default: current dir)',     'option', 'o'),
     preview    = ('preview the list of articles that would be downloaded',   'flag',   'p'),
     quiet      = ('only print important diagnostic messages while working',  'flag',   'q'),
-    report     = ('write report to file R (default: print to terminal)',     'option', 'r'),
+    rep_file   = ('write report to file R (default: print to terminal)',     'option', 'r'),
     structure  = ('output structure: Portico or PMC (default: portico)',     'option', 's'),
+    rep_title  = ('title to put into the report',                            'option', 't'),
     version    = ('print version information and exit',                      'flag',   'V'),
     no_check   = ('do not validate JATS XML files against the DTD',          'flag'  , 'X'),
     no_zip     = ('do not zip up the output (default: do)',                  'flag',   'Z'),
     debug      = ('write detailed log to "OUT" (use "-" for console)',       'option', '@'),
 )
 
-def main(articles = 'A', no_color = False, after_date = 'D', report_fmt = 'F',
+def main(articles = 'A', no_color = False, after_date = 'D', rep_format = 'F',
          get_xml = False, output_dir = 'O', preview = False, quiet = False,
-         report = 'R', structure = 'S', version = False, no_check = False,
-         no_zip = False, debug = 'OUT'):
+         rep_file = 'R', structure = 'S', rep_title = 'T', version = False,
+         no_check = False, no_zip = False, debug = 'OUT'):
     '''Archive micropublication.org publications.
 
 By default, this program will contact micropublication.org to get a list of
@@ -236,9 +237,11 @@ Additional command-line options
 As it works, microarchiver writes information to the terminal about the archives
 it puts into the archive, including whether any problems are encountered. To
 save this info to a file, use the option -r (or /r on Windows), which will
-make microarchiver write a report file. The default format for the report file
-is CSV; the option -f (/f on Windows) can be used to select between "csv"
-and "html" as the format.
+make microarchiver write a report file. By default, the format for the report
+file is CSV; the option -f (/f on Windows) can be used to select between "csv"
+and "html" as the format. The title of the report will be based on the
+current date, unless the option `-t` (or `/t` on Windows) is used to supply a
+different title.
 
 Microarchiver will also print general informational messages as it works. To
 reduce messages to only warnings and errors, use the option -q (or /q on
@@ -288,16 +291,17 @@ Command-line options summary
 
     try:
         ui = UI('Microarchiver', use_color = not no_color, be_quiet = quiet)
-        body = MainBody(source      = articles if articles != 'A' else None,
-                        dest        = '.' if output_dir == 'O' else output_dir,
-                        structure   = 'pmc' if structure.lower() == 'pmc' else 'portico',
-                        after       = None if after_date == 'D' else after_date,
-                        report      = None if report == 'R' else report,
-                        report_fmt  = 'csv' if report_fmt == 'F' else report_fmt,
-                        do_validate = not no_check,
-                        do_zip      = not no_zip,
-                        preview     = preview,
-                        uip         = ui)
+        body = MainBody(source        = articles if articles != 'A' else None,
+                        dest          = '.' if output_dir == 'O' else output_dir,
+                        structure     = 'pmc' if structure.lower() == 'pmc' else 'portico',
+                        after         = None  if after_date == 'D' else after_date,
+                        report_file   = None  if rep_file == 'R' else rep_file,
+                        report_format = 'csv' if rep_format == 'F' else rep_format,
+                        report_title  = None  if rep_title == 'T' else rep_title,
+                        do_validate   = not no_check,
+                        do_zip        = not no_zip,
+                        preview       = preview,
+                        uip           = ui)
         body.run()
         if __debug__: log('finished with {} failures', body.failures)
         exit(100 + body.failures if body.failures > 0 else 0)
@@ -350,11 +354,12 @@ class MainBody(object):
             make_dir(self.dest)
             self._save_articles(self.dest, articles, self.structure, self.do_zip)
 
-        if self.report:
-            if path.exists(self.report):
-                rename_existing(self.report)
-            inform('Writing report to ' + self.report)
-            self._write_report(self.report, self.report_fmt, articles)
+        if self.report_file:
+            if path.exists(self.report_file):
+                rename_existing(self.report_file)
+            inform('Writing report to ' + self.report_file)
+            self._write_report(self.report_file, self.report_format,
+                               self.report_title, articles)
 
         # Count any failures by looking at the article statuses.
         inform('Done.')
@@ -378,8 +383,8 @@ class MainBody(object):
                 raise ValueError('Not a directory: {}'.format(self.dest))
         self.dest = path.join(self.dest, _ARCHIVE_DIR_NAME)
 
-        if self.report and file_in_use(self.report):
-            raise RuntimeError("File is in use by another process: {}".format(self.report))
+        if self.report_file and file_in_use(self.report_file):
+            raise RuntimeError("File is in use: {}".format(self.report_file))
 
         if self.after:
             parsed_date = None
@@ -512,7 +517,7 @@ class MainBody(object):
         inform('-'*89)
 
 
-    def _write_report(self, report_file, format, articles_list):
+    def _write_report(self, report_file, format, title, articles_list):
         if __debug__: log('writing {} report file {}', format, report_file)
         try:
             with open(report_file, 'w', newline='') as file:
@@ -523,7 +528,7 @@ class MainBody(object):
                         row = [article.status, article.doi, article.date, article.pdf]
                         csvwriter.writerow(row)
                 elif format == "html":
-                    file.write(_HTML_REPORT_TOP.format(timestamp()))
+                    file.write(_HTML_REPORT_TOP.format(title or 'Report for ' + timestamp()))
                     for article in articles_list:
                         file.write('<tr>')
                         file.write('<td>' + article.status + '</td>')
