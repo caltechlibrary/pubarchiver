@@ -89,6 +89,36 @@ _INTERNAL_DTD_DIR = 'JATS-Archiving-1-2-MathML3-DTD'
 _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
 '''Name of the root DTD file for JATS.'''
 
+_HTML_REPORT_TOP = '''<html>
+    <style>
+      html  {{ font-family: "Helvetica", sans-serif     }}
+      h1    {{ font-size: 14pt; text-align: center      }}
+      table {{ width: 100%                              }}
+      thead {{ background-color: #eee                   }}
+      th    {{ text-align: left; padding: 6px 6px 0 6px }}
+      td    {{ padding: 6px 10px                        }}
+    </style>
+  <body>
+    <h1>{}</h1>
+    <table>
+      <thead>
+        <tr>
+          <th width="10%">Status</th>
+          <th width="30%">DOI</th>
+          <th width="10%">Date</th>
+          <th>URL</th>
+        </tr>
+      </thead>
+      <tbody>
+'''
+
+_HTML_REPORT_BOTTOM = '''
+      </tbody>
+    </table>
+  </body>
+</html>
+'''
+
 
 # Main program.
 # .............................................................................
@@ -97,22 +127,24 @@ _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
     articles   = ('read article list from file A (default: from network)',   'option', 'a'),
     no_color   = ('do not color-code terminal output',                       'flag',   'C'),
     after_date = ('only get articles published after date "D"',              'option', 'd'),
+    rep_format = ('format of report: "csv" or "html" (default: "csv")',      'option', 'f'),
     get_xml    = ('print the current archive list from the server & exit',   'flag',   'g'),
     output_dir = ('write archive in directory O (default: current dir)',     'option', 'o'),
     preview    = ('preview the list of articles that would be downloaded',   'flag',   'p'),
     quiet      = ('only print important diagnostic messages while working',  'flag',   'q'),
-    report     = ('write report to file R (default: print to terminal)',     'option', 'r'),
+    rep_file   = ('write report to file R (default: print to terminal)',     'option', 'r'),
     structure  = ('output structure: Portico or PMC (default: portico)',     'option', 's'),
+    rep_title  = ('title to put into the report',                            'option', 't'),
     version    = ('print version information and exit',                      'flag',   'V'),
     no_check   = ('do not validate JATS XML files against the DTD',          'flag'  , 'X'),
     no_zip     = ('do not zip up the output (default: do)',                  'flag',   'Z'),
     debug      = ('write detailed log to "OUT" (use "-" for console)',       'option', '@'),
 )
 
-def main(articles = 'A', no_color = False, after_date = 'D', get_xml = False,
-         output_dir = 'O', preview = False, quiet = False, report = 'R',
-         structure = 'S', version = False, no_check = False, no_zip = False,
-         debug = 'OUT'):
+def main(articles = 'A', no_color = False, after_date = 'D', rep_format = 'F',
+         get_xml = False, output_dir = 'O', preview = False, quiet = False,
+         rep_file = 'R', structure = 'S', rep_title = 'T', version = False,
+         no_check = False, no_zip = False, debug = 'OUT'):
     '''Archive micropublication.org publications.
 
 By default, this program will contact micropublication.org to get a list of
@@ -205,7 +237,11 @@ Additional command-line options
 As it works, microarchiver writes information to the terminal about the archives
 it puts into the archive, including whether any problems are encountered. To
 save this info to a file, use the option -r (or /r on Windows), which will
-make microarchiver write a report file in CSV format.
+make microarchiver write a report file. By default, the format for the report
+file is CSV; the option -f (/f on Windows) can be used to select between "csv"
+and "html" as the format. The title of the report will be based on the
+current date, unless the option `-t` (or `/t` on Windows) is used to supply a
+different title.
 
 Microarchiver will also print general informational messages as it works. To
 reduce messages to only warnings and errors, use the option -q (or /q on
@@ -255,15 +291,17 @@ Command-line options summary
 
     try:
         ui = UI('Microarchiver', use_color = not no_color, be_quiet = quiet)
-        body = MainBody(source      = articles if articles != 'A' else None,
-                        dest        = '.' if output_dir == 'O' else output_dir,
-                        structure   = 'pmc' if structure.lower() == 'pmc' else 'portico',
-                        after       = None if after_date == 'D' else after_date,
-                        report      = None if report == 'R' else report,
-                        do_validate = not no_check,
-                        do_zip      = not no_zip,
-                        preview     = preview,
-                        uip         = ui)
+        body = MainBody(source        = articles if articles != 'A' else None,
+                        dest          = '.' if output_dir == 'O' else output_dir,
+                        structure     = 'pmc' if structure.lower() == 'pmc' else 'portico',
+                        after         = None  if after_date == 'D' else after_date,
+                        report_file   = None  if rep_file == 'R' else rep_file,
+                        report_format = 'csv' if rep_format == 'F' else rep_format,
+                        report_title  = None  if rep_title == 'T' else rep_title,
+                        do_validate   = not no_check,
+                        do_zip        = not no_zip,
+                        preview       = preview,
+                        uip           = ui)
         body.run()
         if __debug__: log('finished with {} failures', body.failures)
         exit(100 + body.failures if body.failures > 0 else 0)
@@ -316,11 +354,12 @@ class MainBody(object):
             make_dir(self.dest)
             self._save_articles(self.dest, articles, self.structure, self.do_zip)
 
-        if self.report:
-            if path.exists(self.report):
-                rename_existing(self.report)
-            inform('Writing report to ' + self.report)
-            self._write_report(self.report, articles)
+        if self.report_file:
+            if path.exists(self.report_file):
+                rename_existing(self.report_file)
+            inform('Writing report to ' + self.report_file)
+            self._write_report(self.report_file, self.report_format,
+                               self.report_title, articles)
 
         # Count any failures by looking at the article statuses.
         inform('Done.')
@@ -344,8 +383,8 @@ class MainBody(object):
                 raise ValueError('Not a directory: {}'.format(self.dest))
         self.dest = path.join(self.dest, _ARCHIVE_DIR_NAME)
 
-        if self.report and file_in_use(self.report):
-            raise RuntimeError("File is in use by another process: {}".format(self.report))
+        if self.report_file and file_in_use(self.report_file):
+            raise RuntimeError("File is in use: {}".format(self.report_file))
 
         if self.after:
             parsed_date = None
@@ -478,17 +517,30 @@ class MainBody(object):
         inform('-'*89)
 
 
-    def _write_report(self, report_file, articles_list):
-        if __debug__: log('writing report file {}', report_file)
+    def _write_report(self, report_file, format, title, articles_list):
+        if __debug__: log('writing {} report file {}', format, report_file)
         try:
             with open(report_file, 'w', newline='') as file:
-                file.write('Status,DOI,Date,URL\n')
-                csvwriter = csv.writer(file, delimiter=',')
-                for article in articles_list:
-                    row = [article.status, article.doi, article.date, article.pdf]
-                    csvwriter.writerow(row)
+                if format == "csv":
+                    file.write('Status,DOI,Date,URL\n')
+                    csvwriter = csv.writer(file, delimiter=',')
+                    for article in articles_list:
+                        row = [article.status, article.doi, article.date, article.pdf]
+                        csvwriter.writerow(row)
+                elif format == "html":
+                    file.write(_HTML_REPORT_TOP.format(title or 'Report for ' + timestamp()))
+                    for article in articles_list:
+                        file.write('<tr>')
+                        file.write('<td>' + article.status + '</td>')
+                        file.write('<td>' + article.doi + '</td>')
+                        file.write('<td>' + article.date + '</td>')
+                        file.write('<td><a href="{0}">{0}</a></td>'.format(article.pdf))
+                        file.write('</tr>')
+                    file.write(_HTML_REPORT_BOTTOM)
+                else:
+                    raise ValueError('Unsupported report format "' + format + '"')
         except Exception as ex:
-            if __debug__: log('error writing csv file: {}', str(ex))
+            if __debug__: log('error writing {} file: {}', format, str(ex))
             raise
 
 
@@ -527,7 +579,7 @@ class MainBody(object):
         if zip_articles and structure != 'pmc':
             final_file = self.dest + '.zip'
             inform('Creating ZIP archive file "{}"', final_file)
-            comments = zip_comments(len(saved_files))
+            comments = zip_comments(len(article_list))
             archive_directory(final_file, self.dest, comments)
             if __debug__: log('verifying ZIP file {}', final_file)
             verify_archive(final_file, 'zip')

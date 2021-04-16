@@ -43,14 +43,14 @@ sudo python3 -m ensurepip
 
 Then, install this software by running the following command on your computer:
 ```sh
-python3 -m pip install git+https://github.com/caltechlibrary/microarchiver.git --user --upgrade 
+python3 -m pip install git+https://github.com/caltechlibrary/microarchiver.git 
 ```
 
 Alternatively, you can clone this GitHub repository and then run `setup.py`:
 ```sh
 git clone https://github.com/caltechlibrary/microarchiver.git
 cd microarchiver
-python3 -m pip install . --user --upgrade
+python3 -m pip install .
 ```
 
 
@@ -86,7 +86,7 @@ If the option `-d` is given, `microarchiver` will download only articles whose p
   microarchiver -d "2 weeks ago"  ....
 ```
 
-As it works, `microarchiver` writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the option `-r` (or `/r` on Windows), which will make `microarchiver` write a report file in [CSV](https://en.wikipedia.org/wiki/Comma-separated_values) format.
+As it works, `microarchiver` writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the option `-r` (or `/r` on Windows), which will make `microarchiver` write a report file.  By default, the format is [CSV](https://en.wikipedia.org/wiki/Comma-separated_values); to change the format of the report to HTML, use the option `-f html` (or `/f html` on Windows).  The title of the report will be named after the current date, unless the option `-t` (or `/t` on Windows) is used to supply a different title.
 
 The following is a screen recording of an actual run of `microarchiver`:
 
@@ -152,12 +152,14 @@ The following table summarizes all the command line options available. (Note: on
 | `-a`_A_ | `--articles`_A_   | Get list of articles from file _A_ | Get list from server | |
 | `-C`    | `--no-color`      | Don't color-code the output | Color the terminal output | |
 | `-d`_D_ | `--after-date`_D_ | Only get articles published after date _D_ | Get all articles | ⬥ |
+| `-f`_F_ | `--rep-format`_F_ | Report format, either `html` or `csv` | `csv` | |
 | `-g`    | `--get-xml`       | Print the server's article list & exit | Do other actions instead | |
 | `-o`_O_ | <nobr><code>--output-dir</code></nobr>_O_ | Write output in directory _O_ | Write in current dir | |
 | `-p`    | `--preview`       | Preview what would be obtained | Obtain the articles | |
 | `-q`    | `--quiet`         | Only print important messages | Be chatty while working | |
-| `-r`_R_ | `--report`_R_     | Write list of article & results in file _R_ | Don't write a report | |
+| `-r`_R_ | `--rep-file`_R_   | Write list of article & results in file _R_ | Don't write a report | |
 | `-s`_S_ | `--structure`_S_  | Structure output for Portico or PMC | Portico | |
+| `-t`_T_ | `--rep-title`_T_  | Use _T_ as the report title | Use the current date | |
 | `-V`    | `--version`       | Print program version info and exit | Do other actions instead | |
 | `-X`    | `--no-check`      | Don't validate JATS XML files | Validate JATS XML | |
 | `-Z`    | `--no-zip`        | Don't put output into one ZIP archive | ZIP up the output | |
@@ -194,7 +196,7 @@ Copyright &copy; 2019-2020, Caltech.  This software is freely distributed under 
 ❡ Authors and history
 --------------------
 
-[Tom Morrell](https://github.com/tmorrell) developed the original algorithm for extracting metadata from DataCite and creating XML files for use with Portico submissions of microPublication.org articles.  [Mike Hucka](https://github.com/mhucka) created the much-expanded second version now known as Microarchiver.
+[Tom Morrell](https://github.com/tmorrell) developed the original algorithm for extracting metadata from DataCite and creating XML files for use with Portico submissions of microPublication.org articles.  [Mike Hucka](https://github.com/mhucka) created the much-expanded second version of the software, now known as Microarchiver.
 
 
 ♥︎ Acknowledgments
@@ -208,6 +210,7 @@ Microarchiver makes use of numerous open-source packages, without which it would
 
 * [colorful](https://github.com/timofurrer/colorful) &ndash; terminal/text string styling
 * [dateparser](https://github.com/scrapinghub/dateparser) &ndash; parser for human-readable dates
+* [dateutil](https://dateutil.readthedocs.io/en/stable/) &ndash; extensions to the Python `datetime` module
 * [humanize](https://github.com/jmoiron/humanize) &ndash; make numbers more easily readable by humans
 * [lxml](https://lxml.de) &ndash; an XML parsing library for Python
 * [Pillow](https://github.com/python-pillow/Pillow) &ndash; a fork of the Python Imaging Library
