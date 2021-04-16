@@ -1,6 +1,12 @@
 Change log for microarchiver
 ============================
 
+Version 1.11.0
+--------------
+
+* Add support for producing reports in HTML format.
+
+
 Version 1.10.7
 --------------
 

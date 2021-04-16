@@ -89,6 +89,36 @@ _INTERNAL_DTD_DIR = 'JATS-Archiving-1-2-MathML3-DTD'
 _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
 '''Name of the root DTD file for JATS.'''
 
+_HTML_REPORT_TOP = '''<html>
+    <style>
+      html  {{ font-family: "Helvetica", sans-serif     }}
+      h1    {{ font-size: 14pt; text-align: center      }}
+      table {{ width: 100%                              }}
+      thead {{ background-color: #eee                   }}
+      th    {{ text-align: left; padding: 6px 6px 0 6px }}
+      td    {{ padding: 6px 10px                        }}
+    </style>
+  <body>
+    <h1>Report for {}</h1>
+    <table>
+      <thead>
+        <tr>
+          <th width="10%">Status</th>
+          <th width="30%">DOI</th>
+          <th width="10%">Date</th>
+          <th>URL</th>
+        </tr>
+      </thead>
+      <tbody>
+'''
+
+_HTML_REPORT_BOTTOM = '''
+      </tbody>
+    </table>
+  </body>
+</html>
+'''
+
 
 # Main program.
 # .............................................................................
@@ -97,6 +127,7 @@ _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
     articles   = ('read article list from file A (default: from network)',   'option', 'a'),
     no_color   = ('do not color-code terminal output',                       'flag',   'C'),
     after_date = ('only get articles published after date "D"',              'option', 'd'),
+    report_fmt = ('format of report: "csv" or "html" (default: "csv")',      'option', 'f'),
     get_xml    = ('print the current archive list from the server & exit',   'flag',   'g'),
     output_dir = ('write archive in directory O (default: current dir)',     'option', 'o'),
     preview    = ('preview the list of articles that would be downloaded',   'flag',   'p'),
@@ -109,10 +140,10 @@ _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
     debug      = ('write detailed log to "OUT" (use "-" for console)',       'option', '@'),
 )
 
-def main(articles = 'A', no_color = False, after_date = 'D', get_xml = False,
-         output_dir = 'O', preview = False, quiet = False, report = 'R',
-         structure = 'S', version = False, no_check = False, no_zip = False,
-         debug = 'OUT'):
+def main(articles = 'A', no_color = False, after_date = 'D', report_fmt = 'F',
+         get_xml = False, output_dir = 'O', preview = False, quiet = False,
+         report = 'R', structure = 'S', version = False, no_check = False,
+         no_zip = False, debug = 'OUT'):
     '''Archive micropublication.org publications.
 
 By default, this program will contact micropublication.org to get a list of
@@ -205,7 +236,9 @@ Additional command-line options
 As it works, microarchiver writes information to the terminal about the archives
 it puts into the archive, including whether any problems are encountered. To
 save this info to a file, use the option -r (or /r on Windows), which will
-make microarchiver write a report file in CSV format.
+make microarchiver write a report file. The default format for the report file
+is CSV; the option -f (/f on Windows) can be used to select between "csv"
+and "html" as the format.
 
 Microarchiver will also print general informational messages as it works. To
 reduce messages to only warnings and errors, use the option -q (or /q on
@@ -260,6 +293,7 @@ Command-line options summary
                         structure   = 'pmc' if structure.lower() == 'pmc' else 'portico',
                         after       = None if after_date == 'D' else after_date,
                         report      = None if report == 'R' else report,
+                        report_fmt  = 'csv' if report_fmt == 'F' else report_fmt,
                         do_validate = not no_check,
                         do_zip      = not no_zip,
                         preview     = preview,
@@ -320,7 +354,7 @@ class MainBody(object):
             if path.exists(self.report):
                 rename_existing(self.report)
             inform('Writing report to ' + self.report)
-            self._write_report(self.report, articles)
+            self._write_report(self.report, self.report_fmt, articles)
 
         # Count any failures by looking at the article statuses.
         inform('Done.')
@@ -478,17 +512,30 @@ class MainBody(object):
         inform('-'*89)
 
 
-    def _write_report(self, report_file, articles_list):
-        if __debug__: log('writing report file {}', report_file)
+    def _write_report(self, report_file, format, articles_list):
+        if __debug__: log('writing {} report file {}', format, report_file)
         try:
             with open(report_file, 'w', newline='') as file:
-                file.write('Status,DOI,Date,URL\n')
-                csvwriter = csv.writer(file, delimiter=',')
-                for article in articles_list:
-                    row = [article.status, article.doi, article.date, article.pdf]
-                    csvwriter.writerow(row)
+                if format == "csv":
+                    file.write('Status,DOI,Date,URL\n')
+                    csvwriter = csv.writer(file, delimiter=',')
+                    for article in articles_list:
+                        row = [article.status, article.doi, article.date, article.pdf]
+                        csvwriter.writerow(row)
+                elif format == "html":
+                    file.write(_HTML_REPORT_TOP.format(timestamp()))
+                    for article in articles_list:
+                        file.write('<tr>')
+                        file.write('<td>' + article.status + '</td>')
+                        file.write('<td>' + article.doi + '</td>')
+                        file.write('<td>' + article.date + '</td>')
+                        file.write('<td><a href="{0}">{0}</a></td>'.format(article.pdf))
+                        file.write('</tr>')
+                    file.write(_HTML_REPORT_BOTTOM)
+                else:
+                    raise ValueError('Unsupported report format "' + format + '"')
         except Exception as ex:
-            if __debug__: log('error writing csv file: {}', str(ex))
+            if __debug__: log('error writing {} file: {}', format, str(ex))
             raise
 
 
