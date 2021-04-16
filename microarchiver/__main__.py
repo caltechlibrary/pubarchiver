@@ -574,7 +574,7 @@ class MainBody(object):
         if zip_articles and structure != 'pmc':
             final_file = self.dest + '.zip'
             inform('Creating ZIP archive file "{}"', final_file)
-            comments = zip_comments(len(saved_files))
+            comments = zip_comments(len(article_list))
             archive_directory(final_file, self.dest, comments)
             if __debug__: log('verifying ZIP file {}', final_file)
             verify_archive(final_file, 'zip')

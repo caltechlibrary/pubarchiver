@@ -5,6 +5,7 @@ Version 1.11.0
 --------------
 
 * Add support for producing reports in HTML format.
+* Fix incorrect count of articles in ZIP file comments.
 
 
 Version 1.10.7
