@@ -1,6 +1,14 @@
 Change log for microarchiver
 ============================
 
+Version 1.11.0
+--------------
+
+* Add support for producing reports in HTML format.
+* Add support for specifying the title of the report.
+* Fix incorrect count of articles in ZIP file comments.
+
+
 Version 1.10.7
 --------------
 
