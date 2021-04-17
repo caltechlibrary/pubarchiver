@@ -1,6 +1,12 @@
 Change log for microarchiver
 ============================
 
+Version 1.12.0
+--------------
+
+Reports can now be written in _both_ CSV and HTML formats.
+
+
 Version 1.11.0
 --------------
 

@@ -17,6 +17,7 @@ file "LICENSE" for more information.
 
 import base64
 import csv
+from   commonpy.file_utils import filename_basename
 import dateparser
 from   datetime import date
 from   datetime import datetime as dt
@@ -238,8 +239,8 @@ As it works, microarchiver writes information to the terminal about the archives
 it puts into the archive, including whether any problems are encountered. To
 save this info to a file, use the option -r (or /r on Windows), which will
 make microarchiver write a report file. By default, the format for the report
-file is CSV; the option -f (/f on Windows) can be used to select between "csv"
-and "html" as the format. The title of the report will be based on the
+file is CSV; the option -f (/f on Windows) can be used to select "csv" or
+"html" (or both) as the format. The title of the report will be based on the
 current date, unless the option `-t` (or `/t` on Windows) is used to supply a
 different title.
 
@@ -355,9 +356,7 @@ class MainBody(object):
             self._save_articles(self.dest, articles, self.structure, self.do_zip)
 
         if self.report_file:
-            if path.exists(self.report_file):
-                rename_existing(self.report_file)
-            inform('Writing report to ' + self.report_file)
+            inform('Writing report')
             self._write_report(self.report_file, self.report_format,
                                self.report_title, articles)
 
@@ -382,9 +381,6 @@ class MainBody(object):
             if path.exists(self.dest):
                 raise ValueError('Not a directory: {}'.format(self.dest))
         self.dest = path.join(self.dest, _ARCHIVE_DIR_NAME)
-
-        if self.report_file and file_in_use(self.report_file):
-            raise RuntimeError("File is in use: {}".format(self.report_file))
 
         if self.after:
             parsed_date = None
@@ -517,17 +513,18 @@ class MainBody(object):
         inform('-'*89)
 
 
-    def _write_report(self, report_file, format, title, articles_list):
-        if __debug__: log('writing {} report file {}', format, report_file)
-        try:
-            with open(report_file, 'w', newline='') as file:
-                if format == "csv":
+    def _write_report(self, report_file, report_format, title, articles_list):
+        for fmt in report_format.split(','):
+            dest_file = filename_basename(report_file) + '.' + fmt
+            if fmt == "csv":
+                with open(dest_file, 'w', newline='') as file:
                     file.write('Status,DOI,Date,URL\n')
                     csvwriter = csv.writer(file, delimiter=',')
                     for article in articles_list:
                         row = [article.status, article.doi, article.date, article.pdf]
                         csvwriter.writerow(row)
-                elif format == "html":
+            elif fmt == "html":
+                with open(dest_file, 'w', newline='') as file:
                     file.write(_HTML_REPORT_TOP.format(title or 'Report for ' + timestamp()))
                     for article in articles_list:
                         file.write('<tr>')
@@ -537,11 +534,8 @@ class MainBody(object):
                         file.write('<td><a href="{0}">{0}</a></td>'.format(article.pdf))
                         file.write('</tr>')
                     file.write(_HTML_REPORT_BOTTOM)
-                else:
-                    raise ValueError('Unsupported report format "' + format + '"')
-        except Exception as ex:
-            if __debug__: log('error writing {} file: {}', format, str(ex))
-            raise
+            else:
+                raise ValueError('Unsupported report format "' + fmt + '"')
 
 
     def _save_articles(self, dest_dir, article_list, structure, zip_articles):
