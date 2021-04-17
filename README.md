@@ -209,6 +209,7 @@ The [vector artwork](https://thenounproject.com/search/?q=archive&i=158401) used
 Microarchiver makes use of numerous open-source packages, without which it would have been effectively impossible to develop Microarchiver with the resources we had.  We want to acknowledge this debt.  In alphabetical order, the packages are:
 
 * [colorful](https://github.com/timofurrer/colorful) &ndash; terminal/text string styling
+* [commonpy](https://github.com/caltechlibrary/commonpy) &ndash; a collection of commonly-useful Python functions
 * [dateparser](https://github.com/scrapinghub/dateparser) &ndash; parser for human-readable dates
 * [dateutil](https://dateutil.readthedocs.io/en/stable/) &ndash; extensions to the Python `datetime` module
 * [humanize](https://github.com/jmoiron/humanize) &ndash; make numbers more easily readable by humans
