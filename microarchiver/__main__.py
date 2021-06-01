@@ -39,6 +39,10 @@ import xmltodict
 # "OSError: image file is truncated (10 bytes not processed)"
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+# This is to prevent Pillow from warning "DecompressionBombWarning: Image size
+# (100153418 pixels) exceeds limit of 89478485 pixels ..."
+Image.MAX_IMAGE_PIXELS = None
+
 import microarchiver
 from microarchiver import print_version
 from .exceptions import *
