@@ -251,7 +251,7 @@ def download(url, local_destination, recursing = 0):
         return (text + ' for {}').format(url)
 
     try:
-        req = timed_request('get', url, stream = True)
+        req = timed_request('get', url, stream = True, timeout = 60)
     except requests.exceptions.ConnectionError as ex:
         if recursing >= _MAX_RECURSIVE_CALLS:
             raise NetworkFailure(addurl('Too many connection errors'))

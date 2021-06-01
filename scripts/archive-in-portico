@@ -45,7 +45,7 @@ today=$(date +%Y-%m-%d)
 datestampfile=$PORTICO_OUTPUT/last-run-date
 failurefile=$PORTICO_OUTPUT/last-failures
 
-# Today's run will be written in a subdirctory.  Note the subdirectory name
+# Today's run will be written in a subdirectory.  Note the subdirectory name
 # includes the current time, not just today's date, because otherwise we
 # would overwrite the previous data if we ran run multiple times per day.
 now=$(date +%Y-%m-%d-%H%M)
@@ -91,26 +91,30 @@ fi
 
 # Run microarchiver separately on past failures, leaving the results unpackaged
 # so that we can add to them the results of today's run.
+rerun_count=0
 if [[ -f $failurefile ]]; then
     echo "=== Running microarchiver on past failures ===" >> $log
     echo "" >> $log
     # Note the use of -Z to prevent zip'ing the final results.
-    run_microarchiver -s portico -Z -C -a $failurefile -o $outputdir -r $report -@ $debuglog
+    run_microarchiver -s portico -Z -C -a $failurefile -o $outputdir -r $report \
+                      -f csv,html -t Past_failures_retried -@ $debuglog
     echo "" >> $log
 fi
+mv $outputdir/report.html $outputdir/rerun-report.html
 
 echo "=== Running microarchiver for new articles ===" >> $log
 echo "" >> $log
-thisreport=$outputdir/latest-report.csv
-thisdebuglog=$outputdir/latest-debug.log
+this_report=$outputdir/latest-report.csv
+this_debuglog=$outputdir/latest-debug.log
 # This will add new articles to any existing ones from the past failures
 # code above, and this time will zip up the final result.
-run_microarchiver -s portico -C -d $afterdate -o $outputdir -r $thisreport -@ $thisdebuglog
+run_microarchiver -s portico -C -d $afterdate -o $outputdir -r $this_report \
+                  -f csv,html -t $today -@ $this_debuglog
 
 # Combine separate report files, leave that, & delete the intermediate files.
-tail -n +2 $thisreport >> $report
-tail $thisdebuglog >> $debuglog
-rm -f $thisdebuglog $thisreport
+tail -n +2 $this_report >> $report
+tail $this_debuglog >> $debuglog
+rm -f $this_debuglog $this_report
 
 # Did we have any failures? If so, note them for next time.
 grep -i "missing," $outputdir/*report.csv | cut -f2 -d',' > $failurefile
@@ -136,13 +140,13 @@ echo $today > $datestampfile
 
 grep -F "Total articles" $log | \
     sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
-    mail -s "Portico archiving results for $today" -a $report -a $log $EMAIL_SUCCESS
+    mail -s "Portico archiving results for $today" \
+         -a $outputdir/latest-report.html -a $outputdir/rerun-report.html \
+         -a $log $EMAIL_SUCCESS
 
 
 # Post the report to Slack ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 run_slack chat send --channel $SLACK_CHANNEL --color "#00ff00" \
-    --title "microarchiver successfully completed Portico upload" \
+    --title "Portico run for micropublications.org completed." \
     --text "There were $(wc -l < $failurefile) articles skipped."
-run_slack file upload --channels $SLACK_CHANNEL --file $report \
-    --comment "Here is the record of what was uploaded:"

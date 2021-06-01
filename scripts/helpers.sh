@@ -60,11 +60,13 @@ EOF
     fi
 
     # Run microarchiver with arguments and save output in $log
-    microarchiver $@ >> $log 2>&1
+    count=$(microarchiver $@ 2>&1 | tee -a $log | grep "Total articles" | cut -d ' ' -f3)
 
-    # Was it a successful run? If not, send mail & quit.
+    # If successful, return the num. of articles written, else send mail & quit
     status=$?
-    if (($status > 0 && $status < 100)); then
+    if (($status == 0)); then
+        echo $count
+    else
         case "$status" in
             1) cause="No network detected" ;;
             2) cause="The user interrupted program execution" ;;
