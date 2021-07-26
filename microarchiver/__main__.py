@@ -16,8 +16,15 @@ file "LICENSE" for more information.
 '''
 
 import base64
+from   bun import UI, inform, warn, alert, alert_fatal
 import csv
-from   commonpy.file_utils import filename_basename
+from   commonpy.data_utils import pluralized
+from   commonpy.exceptions import NoContent
+from   commonpy.file_utils import filename_basename, filename_extension
+from   commonpy.file_utils import readable, writable, nonempty, file_in_use
+from   commonpy.file_utils import rename_existing, delete_existing
+from   commonpy.module_utils import module_path
+from   commonpy.network_utils import net, network_available, download_file
 import dateparser
 from   datetime import date
 from   datetime import datetime as dt
@@ -31,9 +38,11 @@ from   PIL import Image, ImageFile
 import plac
 from   recordclass import recordclass
 import shutil
-from   sidetrack import set_debug, log
+from   sidetrack import set_debug, log, logf
 import sys
 import xmltodict
+import zipfile
+from   zipfile import ZipFile, ZIP_STORED, ZIP_DEFLATED
 
 # Set this to prevent some image files from causing errors such as
 # "OSError: image file is truncated (10 bytes not processed)"
@@ -46,12 +55,6 @@ Image.MAX_IMAGE_PIXELS = None
 import microarchiver
 from microarchiver import print_version
 from .exceptions import *
-from .files import readable, writable, file_in_use, file_is_empty
-from .files import filename_extension, filename_basename, module_path
-from .files import rename_existing, delete_existing, make_dir
-from .files import archive_directory, archive_files, verify_archive, valid_xml
-from .network import net, network_available, download_file
-from .ui import UI, inform, warn, alert, alert_fatal
 
 
 # Simple data type definitions.
@@ -277,8 +280,6 @@ Command-line options summary
         import faulthandler
         faulthandler.enable()
 
-    if __debug__: log('='*8 + ' started {}' + '='*8, timestamp())
-
     if version:
         print_version()
         exit(0)
@@ -288,14 +289,16 @@ Command-line options summary
         exit(1)
 
     if get_xml:
-        if __debug__: log('fetching articles from server')
+        if __debug__: log(f'fetching articles from server')
         print(articles_list())
         exit(0)
 
     # Do the real work --------------------------------------------------------
 
     try:
+        if __debug__: log('='*8 + f' started {timestamp()}' + '='*8)
         ui = UI('Microarchiver', use_color = not no_color, be_quiet = quiet)
+        ui.start()
         body = MainBody(source        = articles if articles != 'A' else None,
                         dest          = '.' if output_dir == 'O' else output_dir,
                         structure     = 'pmc' if structure.lower() == 'pmc' else 'portico',
@@ -306,19 +309,20 @@ Command-line options summary
                         do_validate   = not no_check,
                         do_zip        = not no_zip,
                         preview       = preview,
-                        uip           = ui)
+                        ui            = ui)
         body.run()
-        if __debug__: log('finished with {} failures', body.failures)
+        if __debug__: logf(f'finished with {body.failures} failures')
+        if __debug__: log('_'*8 + f' stopped {timestamp()} ' + '_'*8)
         exit(100 + body.failures if body.failures > 0 else 0)
     except KeyboardInterrupt as ex:
         warn('Quitting')
-        if __debug__: log('returning with exit code 2')
+        if __debug__: log(f'returning with exit code 2')
         exit(2)
     except Exception as ex:
         import traceback
-        if __debug__: log('{}\n{}', str(ex), traceback.format_exc())
-        alert_fatal('{}'.format(str(ex)))
-        if __debug__: log('returning with exit code 3')
+        if __debug__: log(f'{str(ex)}\n{traceback.format_exc()}')
+        alert_fatal(f'{str(ex)}')
+        if __debug__: log(f'returning with exit code 3')
         exit(3)
 
 
@@ -340,23 +344,23 @@ class MainBody(object):
         self._process_arguments()
 
         # Read the article list from a file or the server
-        inform('Reading article list from {}', self.source or _URL_ARTICLES_LIST)
+        inform(f'Reading article list from {self.source or _URL_ARTICLES_LIST}')
         articles = self._articles_from(self.source or _URL_ARTICLES_LIST)
 
         # Do optional filtering based on the date.
         if self.after:
             date_str = self.after.strftime(_DATE_FORMAT)
-            inform('Will only keep articles published after {}', date_str)
+            inform(f'Will only keep articles published after {date_str}')
             articles = [x for x in articles if parse_datetime(x.date) > self.after]
 
-        inform('Total articles: {}', humanize.intcomma(len(articles)))
+        inform(f'Total articles: {humanize.intcomma(len(articles))}')
 
         if self.preview:
             self._print_articles(articles)
             return
         elif len(articles) > 0:
-            inform('Output will be written to directory "{}"', self.dest)
-            make_dir(self.dest)
+            inform(f'Output will be written to directory "{self.dest}"')
+            os.makedirs(self.dest, exist_ok = True)
             self._save_articles(self.dest, articles, self.structure, self.do_zip)
 
         if self.report_file:
@@ -372,18 +376,18 @@ class MainBody(object):
     def _process_arguments(self):
         if self.source:
             if not readable(self.source):
-                raise RuntimeError('File not readable: {}'.format(self.source))
-            if file_is_empty(self.source):
-                warn('File is empty: {}'.format(self.source))
+                raise RuntimeError(f'File not readable: {self.source}')
+            if not nonempty(self.source):
+                warn(f'File is empty: {self.source}')
 
         if not path.isabs(self.dest):
             self.dest = path.realpath(path.join(os.getcwd(), self.dest))
         if path.isdir(self.dest):
             if not writable(self.dest):
-                raise RuntimeError('Directory not writable: {}'.format(self.dest))
+                raise RuntimeError(f'Directory not writable: {self.dest}')
         else:
             if path.exists(self.dest):
-                raise ValueError('Not a directory: {}'.format(self.dest))
+                raise ValueError(f'Not a directory: {self.dest}')
         self.dest = path.join(self.dest, _ARCHIVE_DIR_NAME)
 
         if self.after:
@@ -391,20 +395,20 @@ class MainBody(object):
             try:
                 parsed_date = parse_datetime(self.after)
             except Exception as ex:
-                raise RuntimeError('Unable to parse date: {}'.format(str(ex)))
+                raise RuntimeError(f'Unable to parse date: {str(ex)}')
             if parsed_date:
-                if __debug__: log('parsed after_date as {}', parsed_date)
+                if __debug__: log(f'parsed after_date as {parsed_date}')
                 self.after = parsed_date
             else:
                 # parse_datetime(...) returned None, which means it failed.
-                raise RuntimeError('Invalid date: {}'.format(self.after))
+                raise RuntimeError(f'Invalid date: {self.after}')
 
         if self.do_validate:
-            data_dir = path.join(module_path(), 'data')
+            data_dir = path.join(module_path('microarchiver'), 'data')
             dtd_dir = path.join(data_dir, _INTERNAL_DTD_DIR)
             dtd_file = path.join(dtd_dir, _JATS_DTD_FILENAME)
             if not path.exists(data_dir) or not path.isdir(data_dir):
-                raise RuntimeError('Data directory is missing: {}'.format(data_dir))
+                raise RuntimeError(f'Data directory is missing: {data_dir}')
             elif not path.exists(dtd_dir) or not path.isdir(dtd_dir):
                 warn('Cannot find internal DTD directory -- validation turned off')
                 self.do_validate = False
@@ -415,7 +419,7 @@ class MainBody(object):
                 current_dir = os.getcwd()
                 try:
                     os.chdir(dtd_dir)
-                    if __debug__: log('using JATS DTD at {}', dtd_file)
+                    if __debug__: log(f'using JATS DTD at {dtd_file}')
                     self._dtd = etree.DTD(dtd_file)
                 finally:
                     os.chdir(current_dir)
@@ -443,16 +447,16 @@ class MainBody(object):
                 # The micropublication xml declaration explicit uses ascii encoding.
                 xml = response.text.encode('ascii')
             elif error and isinstance(error, NoContent):
-                if __debug__: log('request for article list was met with code 404 or 410')
+                if __debug__: log(f'request for article list was met with code 404 or 410')
                 alert_fatal(str(error))
                 return []
             elif error:
-                if __debug__: log('error reading from micropublication.org server')
+                if __debug__: log(f'error reading from micropublication.org server')
                 raise error
             else:
                 raise InternalError('Unexpected response from server')
         else: # Assume it's a file.
-            if __debug__: log('reading {}', file_or_url)
+            if __debug__: log(f'reading {file_or_url}')
             with open(file_or_url, 'rb') as xml_file:
                 xml = xml_file.readlines()
         return self._article_tuples(xml)
@@ -476,7 +480,7 @@ class MainBody(object):
         '''Parse the XML input, assumed to be from micropublication.org, and
         create a list of `Article` records.
         '''
-        if __debug__: log('parsing XML data')
+        if __debug__: log(f'parsing XML data')
         articles = []
         try:
             for element in etree.fromstring(xml).findall('article'):
@@ -496,7 +500,7 @@ class MainBody(object):
                 status = 'incomplete' if not(all([pdf, jats, doi, title, date])) else 'complete'
                 articles.append(Article(doi, date, title, pdf, jats, image, status))
         except Exception as ex:
-            if __debug__: log('could not parse XML from server')
+            if __debug__: log(f'could not parse XML from server')
             alert('Unexpected or badly formed XML returned by server')
         return articles
 
@@ -576,12 +580,12 @@ class MainBody(object):
         # After we've downloaded everything, maybe zip it all up together.
         if zip_articles and structure != 'pmc':
             final_file = self.dest + '.zip'
-            inform('Creating ZIP archive file "{}"', final_file)
+            inform(f'Creating ZIP archive file "{final_file}"')
             comments = zip_comments(len(article_list))
             archive_directory(final_file, self.dest, comments)
-            if __debug__: log('verifying ZIP file {}', final_file)
+            if __debug__: log(f'verifying ZIP file {final_file}')
             verify_archive(final_file, 'zip')
-            if __debug__: log('deleting directory {}', self.dest)
+            if __debug__: log(f'deleting directory {self.dest}')
             shutil.rmtree(self.dest)
 
 
@@ -596,51 +600,51 @@ class MainBody(object):
         inform('Writing ' + article.doi)
         xml_file = xml_filename(article, article_dir)
         with open(xml_file, 'w', encoding = 'utf8') as f:
-            if __debug__: log('writing XML to {}', xml_file)
+            if __debug__: log(f'writing XML to {xml_file}')
             f.write(xmltodict.unparse(xml))
 
         pdf_file = pdf_filename(article, article_dir)
-        if __debug__: log('downloading PDF to {}', pdf_file)
+        if __debug__: log(f'downloading PDF to {pdf_file}')
         if not download_file(article.pdf, pdf_file):
-            warn('Could not download PDF file for {}', article.doi)
+            warn(f'Could not download PDF file for {article.doi}')
             article.status = 'failed-pdf-download'
 
         jats_file = jats_filename(article, jats_dir)
-        if __debug__: log('downloading JATS XML to {}', jats_file)
+        if __debug__: log(f'downloading JATS XML to {jats_file}')
         if not download_file(article.jats, jats_file):
-            warn('Could not download JATS file for {}', article.doi)
+            warn(f'Could not download JATS file for {article.doi}')
             article.status = 'failed-jats-download'
         if self.do_validate:
             if not valid_xml(jats_file, self._dtd):
-                warn('Failed to validate JATS for article {}', article.doi)
+                warn(f'Failed to validate JATS for article {article.doi}')
                 article.status = 'failed-jats-validation'
         else:
-            if __debug__: log('skipping DTD validation of {}', jats_file)
+            if __debug__: log(f'skipping DTD validation of {jats_file}')
 
         # We need to store the image with the name that appears in the
         # JATS file. That requires a little extra work to extract.
         image_extension = filename_extension(article.image)
         image_file = image_filename(article, jats_dir, ext = image_extension)
         if article.image:
-            if __debug__: log('downloading image file to {}', image_file)
+            if __debug__: log(f'downloading image file to {image_file}')
             if download_file(article.image, image_file):
                 with Image.open(image_file) as img:
                     converted = image_without_alpha(img)
                     converted = converted.convert('RGB')
-                    if __debug__: log('converting image to TIFF format')
+                    if __debug__: log(f'converting image to TIFF format')
                     tiff_name = filename_basename(image_file) + '.tif'
                     # Using save() means only the 1st frame of a multiframe
                     # image will be saved.
                     converted.save(tiff_name, dpi = _TIFF_DPI, compression = None,
                                    description = tiff_comments(article))
                 # We keep only the uncompressed TIFF version.
-                if __debug__: log('deleting original image file {}', image_file)
+                if __debug__: log(f'deleting original image file {image_file}')
                 delete_existing(image_file)
             else:
-                warn('Failed to download image for {}', article.doi)
+                warn(f'Failed to download image for {article.doi}')
                 article.status = 'failed-image-download'
         else:
-            if __debug__: log('skipping empty image file URL for {}', article.doi)
+            if __debug__: log(f'skipping empty image file URL for {article.doi}')
 
 
     def _save_article_pmc(self, dest_dir, article, xml, zip_articles):
@@ -648,23 +652,23 @@ class MainBody(object):
         to_archive = []
 
         pdf_file = pmc_pdf_filename(article, dest_dir)
-        if __debug__: log('downloading PDF to {}', pdf_file)
+        if __debug__: log(f'downloading PDF to {pdf_file}')
         if not download_file(article.pdf, pdf_file):
-            warn('Could not download PDF file for {}', article.doi)
+            warn(f'Could not download PDF file for {article.doi}')
             article.status = 'failed-pdf-download'
         to_archive.append(pdf_file)
 
         jats_file = jats_filename(article, dest_dir)
-        if __debug__: log('downloading JATS XML to {}', jats_file)
+        if __debug__: log(f'downloading JATS XML to {jats_file}')
         if not download_file(article.jats, jats_file):
-            warn('Could not download JATS file for {}', article.doi)
+            warn(f'Could not download JATS file for {article.doi}')
             article.status = 'failed-jats-download'
         if self.do_validate:
             if not valid_xml(jats_file, self._dtd):
-                warn('Failed to validate JATS for article {}', article.doi)
+                warn(f'Failed to validate JATS for article {article.doi}')
                 article.status = 'failed-jats-validation'
         else:
-            if __debug__: log('skipping DTD validation of {}', jats_file)
+            if __debug__: log(f'skipping DTD validation of {jats_file}')
         to_archive.append(jats_file)
 
         # We need to store the image with the name that appears in the
@@ -672,12 +676,12 @@ class MainBody(object):
         image_extension = filename_extension(article.image)
         image_file = image_filename(article, dest_dir, ext = image_extension)
         if article.image:
-            if __debug__: log('downloading image file to {}', image_file)
+            if __debug__: log(f'downloading image file to {image_file}')
             if download_file(article.image, image_file):
                 with Image.open(image_file) as img:
                     converted_img = image_without_alpha(img)
                     converted_img = converted_img.convert('RGB')
-                    if __debug__: log('converting image to TIFF format')
+                    if __debug__: log(f'converting image to TIFF format')
                     tiff_file = filename_basename(image_file) + '.tif'
                     # Using save() means that only the 1st frame of a
                     # multiframe image will be saved.
@@ -685,36 +689,36 @@ class MainBody(object):
                                        description = tiff_comments(article))
                     to_archive.append(tiff_file)
                 # We keep only the uncompressed TIFF version.
-                if __debug__: log('deleting original image file {}', image_file)
+                if __debug__: log(f'deleting original image file {image_file}')
                 delete_existing(image_file)
             else:
-                warn('Failed to download image for {}', article.doi)
+                warn(f'Failed to download image for {article.doi}')
                 article.status = 'failed-image-download'
         else:
-            if __debug__: log('skipping empty image file URL for {}', article.doi)
+            if __debug__: log(f'skipping empty image file URL for {article.doi}')
 
         # Finally, put the files into their own zip archive.
         if zip_articles:
             if not article.status.startswith('failed'):
                 zip_file = pmc_zip_filename(article, dest_dir)
-                inform('Creating ZIP archive file "{}"', zip_file)
+                inform(f'Creating ZIP archive file "{zip_file}"')
                 archive_files(zip_file, to_archive)
-                if __debug__: log('verifying ZIP file {}', zip_file)
+                if __debug__: log(f'verifying ZIP file {zip_file}')
                 verify_archive(zip_file, 'zip')
                 for file in to_archive:
-                    if __debug__: log('deleting file {}', file)
+                    if __debug__: log(f'deleting file {file}')
                     delete_existing(file)
             else:
-                warn('ZIP archive for {} not created due to errors', article.doi)
+                warn(f'ZIP archive for {article.doi} not created due to errors')
 
 
     def _metadata_xml(self, article):
         (response, error) = net('get', _DATACITE_API_URL + article.doi)
         if error:
-            if __debug__: log('error from datacite for {}: {}', article.doi, str(error))
+            if __debug__: log(f'error from datacite for {article.doi}: {str(error)}')
             return None
         elif not response:
-            if __debug__: log('empty response from datacite for {}', article.doi)
+            if __debug__: log(f'empty response from datacite for {article.doi}')
             return None
 
         json = response.json()
@@ -803,7 +807,7 @@ def image_filename(article, jats_dir = '', ext = '.png'):
         try:
             root = etree.parse(jats_file)
         except Exception as ex:
-            raise CorruptedContent('Bad XML in JATS file {}'.format(jats_file))
+            raise CorruptedContent(f'Bad XML in JATS file {jats_file}')
         # <graphic> is inside <body>, but to avoid hardcoding the xml element
         # path, this uses an XPath expression to find it anywhere.
         graphic = root.find('.//graphic')
@@ -821,7 +825,7 @@ def image_without_alpha(img):
     # Algorithm from 2015-11-03 posting by user "shuuji3" to
     # https://stackoverflow.com/a/33507138/743730
     if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
-        if __debug__: log('removing alpha channel in image')
+        if __debug__: log(f'removing alpha channel in image')
         alpha = img.convert('RGBA')
         background = Image.new('RGBA', img.size, (255, 255, 255, 255))
         return Image.alpha_composite(background, alpha)
@@ -877,6 +881,88 @@ function with predefined settings.'''
 def timestamp():
     '''Return a string describing the date and time right now.'''
     return dt.now(tz = tz.tzlocal()).strftime(_DATE_FORMAT)
+
+
+def archive_directory(archive_file, source_dir, comment = None):
+    root_dir = path.dirname(path.normpath(source_dir))
+    base_dir = path.basename(source_dir)
+    current_dir = os.getcwd()
+    try:
+        os.chdir(root_dir)
+        with zipfile.ZipFile(archive_file, 'w', ZIP_STORED) as zf:
+            for root, dirs, files in os.walk(base_dir):
+                for file in files:
+                    zf.write(os.path.join(root, file))
+            if comment:
+                zf.comment = comment.encode()
+    finally:
+        os.chdir(current_dir)
+
+
+def archive_files(archive_file, files, comment = None):
+    base_dir = path.dirname(path.normpath(files[0]))
+    current_dir = os.getcwd()
+    try:
+        os.chdir(base_dir)
+        with zipfile.ZipFile(archive_file, 'w', ZIP_STORED) as zf:
+            for f in files:
+                zf.write(path.basename(f))
+            if comment:
+                zf.comment = comment.encode()
+    finally:
+        os.chdir(current_dir)
+
+
+def verify_archive(archive_file, type):
+    '''Check the integrity of an archive and raise an exception if needed.'''
+    if type.endswith('zip'):
+        error = ZipFile(archive_file).testzip()
+        if error:
+            raise CorruptedContent(f'Failed to verify file "{archive_file}"')
+    else:
+        # Algorithm originally from https://stackoverflow.com/a/32312857/743730
+        tfile = None
+        try:
+            tfile = tarfile.open(archive_file)
+            for member in tfile.getmembers():
+                content = tfile.extractfile(member.name)
+                if content:
+                    for chunk in iter(lambda: content.read(1024), b''):
+                        pass
+        except Exception as ex:
+            raise CorruptedContent(f'Failed to verify file "{archive_file}"')
+        finally:
+            if tfile:
+                tfile.close()
+
+
+def valid_xml(xml_file, dtd):
+    if __debug__: log(f'parsing XML file {xml_file}')
+    try:
+        root = etree.parse(xml_file)
+    except etree.XMLSyntaxError as ex:
+        alert(f'File contains XML syntax errors: {xml_file}')
+        # The string form of XMLSyntaxError includes line/col & file name.
+        alert(str(ex))
+        return False
+    except Exception as ex:
+        alert(f'Failed to parse XML file: {xml_file}')
+        alert(str(ex))
+        return False
+    if __debug__: log(f'validating {xml_file}')
+    if dtd:
+        if dtd.validate(root):
+            if __debug__: log(f'validated without errors')
+            return True
+        else:
+            warn(f'Failed to validate file {xml_file}')
+            warn(f'{pluralized("validation error", dtd.error_log, True)} encountered:')
+            for item in dtd.error_log:
+                warn('Line {}, col {} ({}): {}', item.line, item.column,
+                     item.type_name, item.message)
+            return False
+    else:
+        return True
 
 
 # Main entry point.
