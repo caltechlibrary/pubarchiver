@@ -69,3 +69,4 @@ build
 dist
 *.bak
 microarchiver.egg-info
+pubarchiver.egg-info

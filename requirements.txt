@@ -1,8 +1,8 @@
 # =============================================================================
 # @file    requirements.txt
-# @brief   Python dependencies for microarchiver
+# @brief   Python dependencies for pubarchiver
 # @license Please see the file named LICENSE in the project directory
-# @website https://github.com/caltechlibrary/microarchiver
+# @website https://github.com/caltechlibrary/pubarchiver
 # =============================================================================
 
 bun             >= 0.0.8

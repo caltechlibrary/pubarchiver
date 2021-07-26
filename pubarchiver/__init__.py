@@ -1,5 +1,5 @@
 '''
-Microarchiver -- Package up microPublications for archiving in Portico
+PubArchiver -- Package up publications for archiving in Portico
 
 Authors
 -------
@@ -24,8 +24,8 @@ file "LICENSE" for more information.
 #  ╰────────────────────── Notice ── Notice ── Notice ─────────────────────╯
 
 __version__     = '1.12.1'
-__description__ = 'Create archives of articles from microPublication.org.'
-__url__         = 'https://github.com/caltechlibrary/microarchiver'
+__description__ = 'Create archives of articles from journals.'
+__url__         = 'https://github.com/caltechlibrary/pubarchiver'
 __author__      = 'Michael Hucka, Tom Morrell'
 __email__       = 'mhucka@caltech.edu, tmorrell@library.caltech.edu'
 __license__     = 'BSD 3-clause'

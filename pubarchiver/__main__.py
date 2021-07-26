@@ -1,5 +1,5 @@
 '''
-__main__: main command-line interface to Microarchiver
+__main__: main command-line interface to PubArchiver
 
 Authors
 -------
@@ -52,8 +52,8 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 # (100153418 pixels) exceeds limit of 89478485 pixels ..."
 Image.MAX_IMAGE_PIXELS = None
 
-import microarchiver
-from microarchiver import print_version
+import pubarchiver
+from pubarchiver import print_version
 from .exceptions import *
 
 
@@ -162,20 +162,20 @@ the server. The contents of the file can be either a list of DOIs, or article
 data in the same XML format as the list obtained from micropublication.org.
 (See option -g below for a way to get an article list in XML from the server.)
 
-If the option -d (or /d on Windows) is given, microarchiver will download only
+If the option -d (or /d on Windows) is given, pubarchiver will download only
 articles whose publication dates are AFTER the given date. Valid date
 descriptors are those accepted by the Python dateparser library. Make sure to
 enclose descriptions within single or double quotes. Examples:
 
-  microarchiver -d "2014-08-29"   ....
-  microarchiver -d "12 Dec 2014"  ....
-  microarchiver -d "July 4, 2013"  ....
-  microarchiver -d "2 weeks ago"  ....
+  pubarchiver -d "2014-08-29"   ....
+  pubarchiver -d "12 Dec 2014"  ....
+  pubarchiver -d "July 4, 2013"  ....
+  pubarchiver -d "2 weeks ago"  ....
 
 Previewing the list of articles
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If given the option -p (or /p on Windows), microarchiver will ONLY display a
+If given the option -p (or /p on Windows), pubarchiver will ONLY display a
 list of articles it will archive and stop short of creating the archive. This
 is useful to see what would be produced without actually doing it. However,
 note that because it does not attempt to download the articles and associated
@@ -183,18 +183,18 @@ files, it will not be able to report on errors that might occur when not
 operating in preview mode. Consequently, do not use the output of -p as a
 prediction of eventual success or failure.
 
-If given the option -g (or /g on Windows), microarchiver will write to
+If given the option -g (or /g on Windows), pubarchiver will write to
 standard output the complete current article list from the micropublication.org
 server, in XML format, and exit without doing anything else. This is useful
 as a starting point for creating the file used by option -a. It's probably a
 good idea to redirect the output to a file; e.g.,
 
-  microarchiver -g > article-list.xml
+  pubarchiver -g > article-list.xml
 
 Output
 ~~~~~~
 
-Unless given the option -g or -p, microarchiver will download articles from
+Unless given the option -g or -p, pubarchiver will download articles from
 micropublication.org and create archive files out of them.
 
 The value supplied after the option -s (or /s on Windows) determines the
@@ -207,7 +207,7 @@ altogether (because Portico is the default).
 
 The output will be written to the directory indicated by the value of the
 option -o (or /o on Windows). If no -o is given, the output will be written
-to the directory in which microarchiver was started. Each article will be
+to the directory in which pubarchiver was started. Each article will be
 written to a subdirectory named after the DOI of the article. The output for
 each article will consist of an XML metadata file describing the article, the
 article itself in PDF format, and a subdirectory named "jats" containing the
@@ -242,16 +242,16 @@ Summarizing the possible return codes:
 Additional command-line options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As it works, microarchiver writes information to the terminal about the archives
+As it works, pubarchiver writes information to the terminal about the archives
 it puts into the archive, including whether any problems are encountered. To
 save this info to a file, use the option -r (or /r on Windows), which will
-make microarchiver write a report file. By default, the format for the report
+make pubarchiver write a report file. By default, the format for the report
 file is CSV; the option -f (/f on Windows) can be used to select "csv" or
 "html" (or both) as the format. The title of the report will be based on the
 current date, unless the option `-t` (or `/t` on Windows) is used to supply a
 different title.
 
-Microarchiver will also print general informational messages as it works. To
+Pubarchiver will also print general informational messages as it works. To
 reduce messages to only warnings and errors, use the option -q (or /q on
 Windows). Output is color-coded by default unless the -C option (or /C on
 Windows) is given; this option can be helpful if the color control signals
@@ -262,9 +262,9 @@ real-time log of what it is doing.  The output will be sent to the given
 destination, which can be '-' to indicate console output, or a file path to
 send the output to a file.  The output is mainly intended for debugging.
 
-Microarchiver always downloads the JATS XML version of articles from
+Pubarchiver always downloads the JATS XML version of articles from
 micropublication.org (in addition to downloading the PDF version), and by
-default, microarchiver validates the XML content against the JATS DTD. To
+default, pubarchiver validates the XML content against the JATS DTD. To
 skip the XML validation step, use the option -X (/X on Windows).
 
 If given the -V option (/V on Windows), this program will print version
@@ -297,7 +297,7 @@ Command-line options summary
 
     try:
         if __debug__: log('='*8 + f' started {timestamp()}' + '='*8)
-        ui = UI('Microarchiver', use_color = not no_color, be_quiet = quiet)
+        ui = UI('PubArchiver', use_color = not no_color, be_quiet = quiet)
         ui.start()
         body = MainBody(source        = articles if articles != 'A' else None,
                         dest          = '.' if output_dir == 'O' else output_dir,
@@ -327,7 +327,7 @@ Command-line options summary
 
 
 class MainBody(object):
-    '''Main body for Microarchiver.'''
+    '''Main body for PubArchiver.'''
 
     def __init__(self, **kwargs):
         '''Initialize internal state and prepare for running services.'''
@@ -404,7 +404,7 @@ class MainBody(object):
                 raise RuntimeError(f'Invalid date: {self.after}')
 
         if self.do_validate:
-            data_dir = path.join(module_path('microarchiver'), 'data')
+            data_dir = path.join(module_path('pubarchiver'), 'data')
             dtd_dir = path.join(data_dir, _INTERNAL_DTD_DIR)
             dtd_file = path.join(dtd_dir, _JATS_DTD_FILENAME)
             if not path.exists(data_dir) or not path.isdir(data_dir):
@@ -867,8 +867,8 @@ def zip_comments(num_articles):
 
 def software_comments():
     text  = '\n'
-    text += 'The software used to create this archive file was microarchiver\n'
-    text += 'version {} <{}>'.format(microarchiver.__version__, microarchiver.__url__)
+    text += 'The software used to create this archive file was PubArchiver\n'
+    text += 'version {} <{}>'.format(pubarchiver.__version__, pubarchiver.__url__)
     return text
 
 

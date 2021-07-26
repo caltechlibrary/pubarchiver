@@ -4,7 +4,7 @@
 # @author  Michael Hucka
 # @date    2020-08-11
 # @license Please see the file named LICENSE in the project directory
-# @website https://github.com/caltechlibrary/microarchiver
+# @website https://github.com/caltechlibrary/pubarchiver
 # =============================================================================
 
 # Before we go any further, test if certain programs are available.
