@@ -1,8 +1,8 @@
-# Change log for pubarchiver (née microarchiver)
+# Change log for PubArchiver (née microarchiver)
 
 ## Version 2.0.0
 
-This version introduces a modular journal interface to handle a new journal (The Prompt Journal) archived by the Caltech Library. Along with this change, Microarchiver has been renamed _PubArchiver_.
+This version introduces a modular journal interface to handle a new journal (The Prompt Journal) archived by the Caltech Library. Along with this change, Microarchiver has been renamed _PubArchiver_. Command-line arguments have also been changed.
 
 
 ## Version 1.12.1
