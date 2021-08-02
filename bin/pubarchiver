@@ -1,0 +1,30 @@
+#!/usr/local/bin/python3
+# =============================================================================
+# @file    pubarchiver
+# @brief   Simple interface to run Pubarchiver, for testing and exploration
+# @author  Michael Hucka <mhucka@caltech.edu>
+# @license Please see the file named LICENSE in the project directory
+# @website https://github.com/caltechlibrary/pubarchiver
+# =============================================================================
+
+# Allow this program to be executed directly from the 'bin' directory.
+import os
+import sys
+import plac
+
+# Allow this program to be executed directly from the 'bin' directory.
+try:
+    thisdir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.join(thisdir, '..'))
+except:
+    sys.path.append('..')
+
+# Hand over to the command line interface.
+import pubarchiver
+from pubarchiver.__main__ import main as main
+
+if __name__ == "__main__":
+    if len(sys.argv) == 1 or (len(sys.argv) > 1 and sys.argv[1] == 'help'):
+        plac.call(main, ['-h'])
+    else:
+        plac.call(main)
