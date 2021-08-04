@@ -39,28 +39,31 @@ _DATACITE_API_URL = 'https://api.datacite.org/dois/'
 # Main class.
 # .............................................................................
 
-class MicropublicationJournal(JournalAdapter):
-    pub_name         = "microPublication.org"
-    pub_issn         = '2578-9430'
-    base_url         = 'https://www.micropublication.org'
+class Micropublication(JournalAdapter):
+    name             = "microPublication"
+    issn             = '2578-9430'
+    doi_prefix       = '10.17912'
+    uses_jats        = True
+    metadata_source  = 'DataCite'
+    base_urls        = ['https://www.micropublication.org']
     article_list_url = 'https://www.micropublication.org/archive-list/'
     archive_basename = 'micropublication-org'
 
 
-    def article_index(self, source = article_list_url):
-        (response, error) = net('get', source)
+    def all_articles(self):
+        '''Return a list of all articles.'''
+        (response, error) = net('get', self.article_list_url)
         if not error and response and response.text:
-            # The micropublication xml declaration explicit uses ascii encoding.
-            return response.text
+            return self._article_tuples(response.text)
         elif error and isinstance(error, NoContent):
             if __debug__: log(f'request for article list was met with code 404 or 410')
             alert_fatal(str(error))
-            return ''
+            return []
         elif error:
             if __debug__: log(f'error reading from micropublication.org server')
             raise error
         else:
-            raise InternalError('Unexpected response from server')
+            raise InternalError('Unexpected response from network call')
 
 
     def article_metadata(self, article):
@@ -69,65 +72,40 @@ class MicropublicationJournal(JournalAdapter):
             if __debug__: log(f'error from datacite for {article.doi}: {str(error)}')
             return None
         elif not response:
-            if __debug__: log(f'empty response from datacite for {article.doi}')
+            warn(f'Empty response from DataCite for {article.doi}')
             return None
 
         json = response.json()
-        xml = xmltodict.parse(base64.b64decode(json['data']['attributes']['xml']))
+        xmldict = xmltodict.parse(base64.b64decode(json['data']['attributes']['xml']))
         date = json['data']['attributes']['registered']
-        if 'dates' in xml['resource']:
-            xml['resource']['dates']['date']['#text'] = date
+        if 'dates' in xmldict['resource']:
+            xmldict['resource']['dates']['date']['#text'] = date
         else:
-            xml['resource']['dates'] = {'date': article.date}
-        xml['resource']['volume']  = volume_for_year(xml['resource']['publicationYear'])
-        xml['resource']['file']    = article.basename + '.pdf'
-        xml['resource']['journal'] = xml['resource'].pop('publisher')
-        xml['resource']['e-issn']  = self.pub_issn
-        xml['resource']["rightsList"] = [{
+            xmldict['resource']['dates'] = {'date': article.date}
+        xmldict['resource']['volume']  = volume_for_year(xmldict['resource']['publicationYear'])
+        xmldict['resource']['file']    = article.basename + '.pdf'
+        xmldict['resource']['journal'] = xmldict['resource'].pop('publisher')
+        xmldict['resource']['e-issn']  = self.issn
+        xmldict['resource']["rightsList"] = [{
             "rights": "Creative Commons Attribution 4.0",
             "rightsURI": "https://creativecommons.org/licenses/by/4.0/legalcode"}]
-        xml['resource'].pop('@xmlns')
-        xml['resource'].pop('@xsi:schemaLocation')
-        return xml
+        xmldict['resource'].pop('@xmlns')
+        xmldict['resource'].pop('@xsi:schemaLocation')
+        return xmldict
 
 
-    def articles_from(self, file_or_url):
-        '''Returns a list of `Article` tuples from the given URL or file.'''
-        if file_or_url.startswith('http'):
-            return self._articles_from_xml(file_or_url)
-        else:
-            with open(file_or_url, 'r') as f:
-                if f.readline().startswith('<?xml'):
-                    return self._articles_from_xml(file_or_url)
-                else:
-                    return self._articles_from_dois(file_or_url)
-
-
-    def _articles_from_xml(self, file_or_url):
-        '''Returns a list of `Article` tuples from the XML source, which can be
-        either a file or a network server responding to HTTP 'get'.'''
-        # Read the XML.
-        if file_or_url.startswith('http'):
-            xml = self.article_index()
-        else: # Assume it's a file.
-            if __debug__: log(f'reading {file_or_url}')
-            with open(file_or_url, 'rb') as xml_file:
-                xml = xml_file.readlines()
-        return self._article_tuples(xml)
-
-
-    def _articles_from_dois(self, input_file):
-        '''Read the given file (assumed to contain a list of DOIs) and return
-        a list of corresponding `Article` records.  A side-effect of doing this
-        is that this function has to contact the server to get a list of all
-        articles in XML format.'''
-        articles = self._articles_from_xml(self.article_list_url)
-        dois = []
-        with open(input_file, 'r') as f:
-            dois = [line.strip() for line in f]
-        if not any(dois or articles):
-            return []
-        return [a for a in articles if a.doi in dois]
+    def articles_from(self, doi_file):
+        '''Returns a list of `Article` tuples from a file of DOIs.'''
+        if __debug__: log(f'reading {doi_file}')
+        with open(doi_file, 'r') as f:
+            # An earlier version (Microarchiver) allowed the use of a file
+            # containing an article list in the XML format returned by
+            # micropublication.org. This proved to be unnecessary, but I'm
+            # leaving it as an undocumented feature for testing purposes.
+            if f.readline().startswith('<?xml'):
+                return self._articles_from_xml(doi_file)
+            else:
+                return self._articles_from_dois(doi_file)
 
 
     def _article_tuples(self, xml):
@@ -156,12 +134,35 @@ class MicropublicationJournal(JournalAdapter):
                     date = ''
                 basename = tail_of_doi(doi)
                 status = 'complete' if all([pdf, jats, doi, title, date]) else 'incomplete'
-                articles.append(Article(self.pub_issn, doi, date, title,
+                articles.append(Article(self.issn, doi, date, title,
                                         basename, pdf, jats, image, status))
         except Exception as ex:
             if __debug__: log(f'could not parse XML from server')
             alert('Unexpected or badly formed XML returned by server')
         return articles
+
+
+    def _articles_from_xml(self, xml_file):
+        '''Returns a list of `Article` tuples from the XML source, which can be
+        either a file or a network server responding to HTTP 'get'.'''
+        with open(xml_file, 'rb') as file:
+            xml = file.readlines()
+        return self._article_tuples(xml)
+
+
+    def _articles_from_dois(self, doi_file):
+        '''Read the given file (assumed to contain a list of DOIs) and return
+        a list of corresponding `Article` records.  A side-effect of doing this
+        is that this function has to contact the server to get a list of all
+        articles in XML format.'''
+        dois = []
+        with open(doi_file, 'r') as f:
+            dois = [line.strip() for line in f]
+        if not dois:
+            if __debug__: log(f'could not read any lines from {doi_file}')
+            return []
+        else:
+            return [a for a in self.all_articles() if a.doi in dois]
 
 
 # Miscellaneous utilities.
@@ -169,6 +170,7 @@ class MicropublicationJournal(JournalAdapter):
 
 def volume_for_year(year):
     return int(year) - 2014
+
 
 def tail_of_doi(doi):
     slash = doi.rfind('/')
