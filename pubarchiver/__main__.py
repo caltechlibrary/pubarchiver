@@ -106,85 +106,79 @@ _HTML_REPORT_BOTTOM = '''
 # Main program.
 # .............................................................................
 
+# publication source origin name journal 
+
+
 @plac.annotations(
     after_date = ('only keep articles published after date "A"',              'option', 'a'),
-    dest       = ('destination: Portico or PMC (default: portico)',           'option', 'd'),
-    get_xml    = ("print the journal's article list (in XML) & exit",         'flag',   'g'),
-    journal    = ('work with journal "J" (default: all)',                     'option', 'j'),
-    list       = ('print a list of journals & exit',                          'flag',   'l'),
+    no_color   = ('do not colorize output printed to the terminal',           'flag',   'C'),
+    dest       = ('assume destination "portico" or "pmc" (default: portico)', 'option', 'd'),
+    doi_file   = ('retrieve the articles whose DOIs are found in file "F"',   'option', 'f'),
+    journal    = ('work with journal "J" (required)',                         'option', 'j'),
+    list_dois  = ("list all known DOIs from the journal & exit",              'flag',   'l'),
     output_dir = ('write archive in directory O (default: current dir)',      'option', 'o'),
     preview    = ('preview the list of articles that would be archived',      'flag',   'p'),
-    quiet      = ('only print important diagnostic messages while working',   'flag',   'q'),
+    quiet      = ('only print important messages while working',              'flag',   'q'),
     rep_file   = ('write report to file R (default: print to terminal)',      'option', 'r'),
-    rep_style  = ('with -r, write report as "csv" or "html" (default: csv)',  'option', 's'),
+    rep_fmt    = ('with -r, write report as "csv" or "html" (default: csv)',  'option', 's'),
     rep_title  = ('with -r, use title "T" for the report',                    'option', 't'),
-    use_xml    = ('use list of articles from XML file "U" (default: server)', 'option', 'u'),
     version    = ('print version information and exit',                       'flag',   'V'),
     no_check   = ('do not validate JATS XML files against the DTD',           'flag'  , 'X'),
     no_zip     = ('do not zip up the output (default: do)',                   'flag',   'Z'),
     debug      = ('write detailed log to "OUT" (use "-" for console)',        'option', '@'),
 )
 
-def main(after_date = 'A', dest = 'D', get_xml = False, journal = 'J',
-         list = False, output_dir = 'O', preview = False, quiet = False,
-         rep_file = 'R', rep_style = 'S', rep_title = 'T', use_xml = 'U',
+def main(after_date = 'A', no_color = False, dest = 'D', doi_file = 'F',
+         journal = 'J', list_dois = False, output_dir = 'O', preview = False,
+         quiet = False, rep_file = 'R', rep_fmt = 'S', rep_title = 'T',
          version = False, no_check = False, no_zip = False, debug = 'OUT'):
-    '''Prepare archives of journals for sending to Portico or PMC.
+    '''Create archives of journals suitable for sending to Portico or PMC.
 
-By default, this program will contact micropublication.org to get a list of
-current articles. If given the option -a (or /a on Windows) followed by a
-file name, the given file will be read instead instead of getting the list from
-the server. The contents of the file can be either a list of DOIs, or article
-data in the same XML format as the list obtained from micropublication.org.
-(See option -g below for a way to get an article list in XML from the server.)
+The journal whose articles are to be archived must be indicated using the
+required option -j (or /j on Windows).  To list the currently-supported
+journals, you can use a value of "list" to the -j option:
 
-If the option -d (or /d on Windows) is given, pubarchiver will download only
-articles whose publication dates are AFTER the given date. Valid date
-descriptors are those accepted by the Python dateparser library. Make sure to
-enclose descriptions within single or double quotes. Examples:
+  pubarchiver -j list
+
+Without any additional options, PubArchiver will contact the journal website
+and either DataCite or Crossref, and create an archive containing articles and
+their metadata for all articles published to date by the journal.  The options
+below can be used to select articles and influence other PubArchiver behaviors.
+
+Selecting a subset of articles
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the option -d (or /d on Windows) is given, PubArchiver will download only
+articles whose publication dates are AFTER the given date.  Valid date
+descriptors are those accepted by the Python dateparser library.  Make sure to
+enclose descriptions within single or double quotes.  Examples:
 
   pubarchiver -d "2014-08-29"   ....
   pubarchiver -d "12 Dec 2014"  ....
   pubarchiver -d "July 4, 2013"  ....
   pubarchiver -d "2 weeks ago"  ....
 
-Previewing the list of articles
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The option -f (or /f on Windows) can be used with a value of a file path to
+limit archiving to only the DOIs listed in the given file.  The file format
+must be a simple list of one DOI per line.
 
-If given the option -p (or /p on Windows), pubarchiver will ONLY display a
-list of articles it will archive and stop short of creating the archive. This
-is useful to see what would be produced without actually doing it. However,
-note that because it does not attempt to download the articles and associated
-files, it will not be able to report on errors that might occur when not
-operating in preview mode. Consequently, do not use the output of -p as a
-prediction of eventual success or failure.
+The selection by date performed by the -d option happens after reading the
+list of articles using the -f option if present, and can be used to filter
+by date the articles whose DOIs are provided.
 
-If given the option -g (or /g on Windows), pubarchiver will write to
-standard output the complete current article list from the micropublication.org
-server, in XML format, and exit without doing anything else. This is useful
-as a starting point for creating the file used by option -a. It's probably a
-good idea to redirect the output to a file; e.g.,
+Controlling the output
+~~~~~~~~~~~~~~~~~~~~~~
 
-  pubarchiver -g > article-list.xml
+The value supplied after the option -d (or /d on Windows) can be used to
+select the destination where the publication archive is intended to be sent
+after PubArchiver has done its work.  The possible alternatives are "portico"
+and "pmc"; Portico is assumed to be the default destination.  This option
+changes the structure and content of the archive created by PubArchiver.
 
-Output
-~~~~~~
-
-Unless given the option -g or -p, pubarchiver will download articles from
-micropublication.org and create archive files out of them.
-
-The value supplied after the option -s (or /s on Windows) determines the
-structure of the archive generated by this program.  Currently, two output
-structures are supported: PMC, and a structure suitable for Portico.  (The
-PMC structure follows the "naming and delivery" specifications defined at
-https://www.ncbi.nlm.nih.gov/pmc/pub/filespec-delivery/.) If the output will
-be sent to PMC, use -s pmc; else, use -s portico or leave off the option
-altogether (because Portico is the default).
-
-The output will be written to the directory indicated by the value of the
-option -o (or /o on Windows). If no -o is given, the output will be written
-to the directory in which pubarchiver was started. Each article will be
-written to a subdirectory named after the DOI of the article. The output for
+PubArchiver will write its output to the directory indicated by the value of
+the option -o (or /o on Windows). If no -o is given, the output will be written
+to the current directory from which PubArchiver is being run.  Each article will
+be written to a subdirectory named after the DOI of the article.  The output for
 each article will consist of an XML metadata file describing the article, the
 article itself in PDF format, and a subdirectory named "jats" containing the
 article in JATS XML format along with any image that may appear in the article.
@@ -192,16 +186,39 @@ The image is always converted to uncompressed TIFF format (because it is
 considered a good preservation format).
 
 Unless the option -Z (or /Z on Windows) is given, the output will be archived
-in ZIP format. If the output structure (as determine by the -s option) is
+in ZIP format.  If the output structure (as determine by the -s option) is
 being generated for PMC, each article will be put into its own individual
 ZIP archive; else, the default action is to put the collected output of all
 articles into a single ZIP archive file.
+
+Writing a report
+~~~~~~~~~~~~~~~~
+
+As it works, PubArchiver writes information to the terminal about the articles
+it puts into the archive, including whether any problems are encountered.  To
+save this information to a file, use the option -r (or /r on Windows), which
+will make PubArchiver write a report file.  By default, the format of the
+report file is CSV; the option -s (/s on Windows) can be used to select "csv"
+or "html" (or both) as the format.  The title of the report will be based on
+the current date, unless the option -t (or /t on Windows) is used to supply a
+different title.
+
+Previewing the list of articles
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If given the option -p (or /p on Windows), pubarchiver will ONLY display a
+list of articles it will archive and stop short of creating the archive.  This
+is useful to see what would be produced without actually doing it.  However,
+note that because it does not attempt to download the articles and associated
+files, it will not be able to report on errors that might occur when not
+operating in preview mode.  Consequently, do not use the output of -p as a
+prediction of eventual success or failure.
 
 Return values
 ~~~~~~~~~~~~~
 
 This program will exit with a return code of 0 if no problems are encountered
-during execution. If a problem is encountered, it will return a nonzero value.
+during execution.  If a problem is encountered, it will return a nonzero value.
 If no network is detected, it returns a value of 1; if the program is
 interrupted (e.g., using control-c) it returns a value of 2; if it encounters
 a fatal error, it returns a value of 3. If it encounters any non-fatal
@@ -218,18 +235,12 @@ Summarizing the possible return codes:
 Additional command-line options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As it works, pubarchiver writes information to the terminal about the archives
-it puts into the archive, including whether any problems are encountered. To
-save this info to a file, use the option -r (or /r on Windows), which will
-make pubarchiver write a report file. By default, the format for the report
-file is CSV; the option -f (/f on Windows) can be used to select "csv" or
-"html" (or both) as the format. The title of the report will be based on the
-current date, unless the option `-t` (or `/t` on Windows) is used to supply a
-different title.
+The option -l (or /l on Windows) can be used to obtain a list of all DOIs
+for all articles published by the selected journal.
 
-Pubarchiver will also print general informational messages as it works. To
+Pubarchiver will print general informational messages as it works. To
 reduce messages to only warnings and errors, use the option -q (or /q on
-Windows). Output is color-coded by default unless the -C option (or /C on
+Windows).  Output is color-coded by default unless the -C option (or /C on
 Windows) is given; this option can be helpful if the color control signals
 create problems for your terminal emulator.
 
@@ -240,7 +251,7 @@ send the output to a file.  The output is mainly intended for debugging.
 
 Pubarchiver always downloads the JATS XML version of articles from
 micropublication.org (in addition to downloading the PDF version), and by
-default, pubarchiver validates the XML content against the JATS DTD. To
+default, pubarchiver validates the XML content against the JATS DTD.  To
 skip the XML validation step, use the option -X (/X on Windows).
 
 If given the -V option (/V on Windows), this program will print version
@@ -249,8 +260,6 @@ information and exit without doing anything else.
 Command-line options summary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-    # Process arguments and handle early exits --------------------------------
-
     if debug != 'OUT':
         if __debug__: set_debug(True, debug)
         import faulthandler
@@ -260,45 +269,48 @@ Command-line options summary
         print_version()
         exit(0)
 
-    if list:
-        print('Supported journals: ' + ', '.join(journal_list()))
-        exit(0)
-
-    if journal == 'J':
-        alert('Must specify a journal using the -j option.')
-        exit(1)
-    elif journal not in journal_list():
-        alert(f'Unrecognized journal "{journal}".')
-        exit(1)
-
-    if not network_available():
-        alert('No network.')
-        exit(1)
-
-    handler = journal_handler(journal)
-    if get_xml:
-        if __debug__: log(f'fetching articles from server')
-        print(handler.article_index())
-        exit(0)
-
-    # Do the real work --------------------------------------------------------
-
     try:
         if __debug__: log('='*8 + f' started {timestamp()}' + '='*8)
-        ui = UI('PubArchiver', be_quiet = quiet)
+        ui = UI('PubArchiver', use_color = not no_color, be_quiet = quiet)
         ui.start()
-        body = MainBody(handler       = handler,
-                        xml_file      = use_xml if use_xml != 'U' else None,
+
+        if journal == 'J':
+            alert('Must specify a journal using the -j option.')
+            print_supported_journals()
+            exit(1)
+        elif journal in ['list', 'help']:
+            print_supported_journals()
+            exit(0)
+        elif journal not in journal_list():
+            alert(f'Unrecognized journal "{journal}".')
+            print_supported_journals()
+            exit(1)
+
+        if not network_available():
+            alert('No network.')
+            exit(1)
+
+        handler = journal_handler(journal)
+        if list_dois:
+            inform(f'Asking {handler.name} server for a list of all DOIs ...')
+            articles = handler.all_articles()
+            if articles:
+                print('\n'.join(article.doi for article in articles))
+            else:
+                warn(f'Failed to get list of articles from {handler.name}')
+            exit(0)
+
+        body = MainBody(journal       = handler,
                         dest          = 'pmc' if dest.lower() == 'pmc' else 'portico',
+                        doi_file      = doi_file if doi_file != 'F' else None,
                         output_dir    = '.'   if output_dir == 'O' else output_dir,
                         after         = None  if after_date == 'A' else after_date,
                         report_file   = None  if rep_file == 'R' else rep_file,
-                        report_style  = 'csv' if rep_style == 'S' else rep_style,
+                        report_format = 'csv' if rep_fmt == 'S' else rep_fmt,
                         report_title  = None  if rep_title == 'T' else rep_title,
-                        do_validate   = not no_check,
+                        do_validate   = handler.uses_jats and not no_check,
                         do_zip        = not no_zip,
-                        preview       = preview,
-                        ui            = ui)
+                        preview       = preview)
         body.run()
         if __debug__: logf(f'finished with {body.failures} failures')
         if __debug__: log('_'*8 + f' stopped {timestamp()} ' + '_'*8)
@@ -332,18 +344,21 @@ class MainBody(object):
         # Check and process argument values & fail early if there's a problem.
         self._process_arguments()
 
-        # Read the article list from a file or the server
-        source = self.xml_file or self.handler.article_list_url
-        inform(f'Reading article list from {source}')
-        articles = self.handler.articles_from(source)
+        # Read the article list from a file or the server.
+        inform(f'Reading article list from {self.doi_file or "server"} ...')
+        if self.doi_file:
+            articles = self.journal.articles_from(self.doi_file)
+        else:
+            articles = self.journal.all_articles()
 
         # Do optional filtering based on the date.
         if self.after:
             date_str = self.after.strftime(_DATE_FORMAT)
-            inform(f'Will only keep articles published after {date_str}')
+            inform(f'Will only keep articles published after {date_str}.')
             articles = [x for x in articles if parsed_datetime(x.date) > self.after]
 
-        inform(f'Total articles: {humanize.intcomma(len(articles))}')
+        inform(f'Total articles left after filtering: {humanize.intcomma(len(articles))}.')
+        inform(f'Destination format: {"PMC" if self.dest == "pmc" else "Portico"}')
         if self.preview:
             self._print_articles(articles)
             return
@@ -353,21 +368,21 @@ class MainBody(object):
             self._save_articles(self.output_dir, articles, self.dest, self.do_zip)
 
         if self.report_file:
-            inform('Writing report')
+            inform(f'Writing report to {self.report_file}')
             self._write_report(self.report_file, self.report_format,
                                self.report_title, articles)
 
         # Count any failures by looking at the article statuses.
         inform('Done.')
-        self.failures = sum(a.status.startswith('fail') for a in articles)
+        self.failures = sum(article.status.startswith('fail') for article in articles)
 
 
     def _process_arguments(self):
-        if self.xml_file:
-            if not readable(self.xml_file):
-                raise RuntimeError(f'File not readable: {self.xml_file}')
-            if not nonempty(self.xml_file):
-                warn(f'File is empty: {self.xml_file}')
+        if self.doi_file:
+            if not readable(self.doi_file):
+                raise RuntimeError(f'File not readable: {self.doi_file}')
+            if not nonempty(self.doi_file):
+                warn(f'File is empty: {self.doi_file}')
 
         if not path.isabs(self.output_dir):
             self.output_dir = path.realpath(path.join(os.getcwd(), self.output_dir))
@@ -377,7 +392,7 @@ class MainBody(object):
         else:
             if path.exists(self.output_dir):
                 raise ValueError(f'Not a directory: {self.output_dir}')
-        self.output_dir = path.join(self.output_dir, self.handler.archive_basename)
+        self.output_dir = path.join(self.output_dir, self.journal.archive_basename)
 
         if self.after:
             parsed_date = None
@@ -417,16 +432,17 @@ class MainBody(object):
     def _print_articles(self, article_list):
         inform('-'*89)
         inform('{:3}  {:<32}  {:10}  {:20}'.format(
-            '?', 'DOI', 'Date', f'URL ({self.handler.base_url})'))
+            '?', 'DOI', 'Date', f'URL ({self.journal.base_urls[0]})'))
         inform('-'*89)
         count = 0
         for article in article_list:
             count += 1
-            status = self.ui.error_text('err') if article.status == 'incomplete' else 'OK'
-            doi    = article.doi if article.doi else self.ui.error_text('missing DOI')
-            date   = article.date if article.date else self.ui.error_text('missing date')
-            url    = article.pdf if article.pdf else self.ui.error_text('missing URL')
-            url    = url.replace(self.handler.base_url, '')
+            status = 'OK' if article.status != 'incomplete' else '[alert]err[/]'
+            doi    = article.doi if article.doi else '[alert]missing DOI[/]'
+            date   = article.date if article.date else '[alert]missing date[/]'
+            url    = article.pdf if article.pdf else '[alert]missing URL[/]'
+            for base in self.journal.base_urls:
+                url = url.replace(base, '')
             inform('{:3}  {:<32}  {:10}  {:20}'.format(status, doi, date, url))
         inform('-'*89)
 
@@ -470,28 +486,29 @@ class MainBody(object):
                 warn('Skipping article with missing PDF URL: ' + article.doi)
                 article.status = 'missing-pdf'
                 continue
-            if not article.jats:
-                warn('Skipping article with missing PDF URL: ' + article.doi)
+            if self.journal.uses_jats and not article.jats:
+                # We need JATS for PMC.
+                warn('Skipping article with missing JATS URL: ' + article.doi)
                 article.status = 'missing-jats'
                 continue
-            xml = self.handler.article_metadata(article)
-            if not xml:
+            xmldict = self.journal.article_metadata(article)
+            if not xmldict:
                 warn('Skipping article with missing metadata: ' + article.doi)
-                article.status = 'missing-datacite'
+                article.status = 'missing-' + self.journal.metadata_source.lower()
                 continue
 
             # Looks good. Carry on.
             if dest_service == 'pmc':
-                self._save_article_pmc(dest_dir, article, xml, zip_articles)
+                self._save_article_pmc(dest_dir, article, xmldict, zip_articles)
             else:
-                self._save_article_portico(dest_dir, article, xml)
+                self._save_article_portico(dest_dir, article, xmldict)
             saved_files.append(article)
 
         # After we've downloaded everything, maybe zip it all up together.
         if zip_articles and dest_service != 'pmc':
             final_file = self.output_dir + '.zip'
             inform(f'Creating ZIP archive file "{final_file}"')
-            comments = zip_comments(len(article_list), self.handler.pub_name)
+            comments = zip_comments(len(article_list), self.journal.name)
             archive_directory(final_file, self.output_dir, comments)
             if __debug__: log(f'verifying ZIP file {final_file}')
             verify_archive(final_file, 'zip')
@@ -499,25 +516,30 @@ class MainBody(object):
             shutil.rmtree(self.output_dir)
 
 
-    def _save_article_portico(self, dest_dir, article, xml):
+    def _save_article_portico(self, dest_dir, article, xmldict):
         article_dir = path.join(dest_dir, article.basename)
         jats_dir    = path.join(article_dir, 'jats')
         try:
             os.makedirs(article_dir)
-            os.makedirs(jats_dir)
+            if self.journal.uses_jats:
+                os.makedirs(jats_dir)
         except FileExistsError:
             pass
         inform('Writing ' + article.doi)
         xml_file = xml_filename(article, article_dir)
         with open(xml_file, 'w', encoding = 'utf8') as f:
             if __debug__: log(f'writing XML to {xml_file}')
-            f.write(xmltodict.unparse(xml))
+            f.write(xmltodict.unparse(xmldict, pretty = True))
 
         pdf_file = pdf_filename(article, article_dir)
         if __debug__: log(f'downloading PDF to {pdf_file}')
         if not download_file(article.pdf, pdf_file):
             warn(f'Could not download PDF file for {article.doi}')
             article.status = 'failed-pdf-download'
+
+        if not self.journal.uses_jats:
+            # Nothing more to do.
+            return
 
         jats_file = jats_filename(article, jats_dir)
         if __debug__: log(f'downloading JATS XML to {jats_file}')
@@ -543,11 +565,11 @@ class MainBody(object):
                     converted = converted.convert('RGB')
                     if __debug__: log(f'converting image to TIFF format')
                     tiff_name = filename_basename(image_file) + '.tif'
-                    comments = tiff_comments(article, self.handler.pub_name)
+                    comments = tiff_comments(article, self.journal.name)
                     # Using save() means only the 1st frame of a multiframe
                     # image will be saved.
-                    converted.save(tiff_name, dpi = _TIFF_DPI, compression = None,
-                                   description = comments)
+                    converted.save(tiff_name, compression = None,
+                                   dpi = _TIFF_DPI, description = comments)
                 # We keep only the uncompressed TIFF version.
                 if __debug__: log(f'deleting original image file {image_file}')
                 delete_existing(image_file)
@@ -555,7 +577,7 @@ class MainBody(object):
                 warn(f'Failed to download image for {article.doi}')
                 article.status = 'failed-image-download'
         else:
-            if __debug__: log(f'skipping empty image file URL for {article.doi}')
+            if __debug__: log(f'skipping empty image URL for {article.doi}')
 
 
     def _save_article_pmc(self, dest_dir, article, xml, zip_articles):
@@ -626,6 +648,10 @@ class MainBody(object):
 # Miscellaneous utilities.
 # .............................................................................
 
+def print_supported_journals():
+    inform('Recognized journals: [white]' + ', '.join(journal_list()) + '[/]')
+
+
 def pdf_filename(article, article_dir = ''):
     filename = article.basename + '.pdf'
     return path.join(article_dir, filename)
@@ -690,19 +716,19 @@ def image_without_alpha(img):
         return img
 
 
-def tiff_comments(article, pub_name):
+def tiff_comments(article, name):
     text = f'Image converted from {article.image} on {str(date.today())}'
     text += f' for article titled "{article.title}", DOI {article.doi},'
-    text += f' originally published on {article.date} in {pub_name}.'
+    text += f' originally published on {article.date} in {name}.'
     return text
 
 
-def zip_comments(num_articles, pub_name):
+def zip_comments(num_articles, name):
     text  = '~ '*35
     text += '\n'
     text += 'About this ZIP archive file:\n'
     text += '\n'
-    text += f'This archive contains a directory of articles from {pub_name}\n'
+    text += f'This archive contains a directory of articles from {name}\n'
     text += 'created on {}. There {} {} article{} in this archive.'.format(
         str(date.today()), 'is' if num_articles == 1 else 'are',
         num_articles, '' if num_articles == 1 else 's')
@@ -810,9 +836,12 @@ if sys.platform.startswith('win'):
 def console_scripts_main():
     plac.call(main)
 
-# The following allows users to invoke this using "python3 -m handprint".
+# The following allows users to invoke this using "python3 -m pubarchiver".
 if __name__ == '__main__':
-    plac.call(main)
+    if len(sys.argv) == 1 or (len(sys.argv) > 1 and sys.argv[1] == 'help'):
+        plac.call(main, ['-h'])
+    else:
+        plac.call(main)
 
 
 # For Emacs users
