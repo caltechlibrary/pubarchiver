@@ -29,20 +29,23 @@ if __debug__:
 class JournalAdapter(object):
     '''Base class for journal site adapters.'''
 
-    # The internal name of this adapter.
+    # The publication name.  Used in printing file comments and such.
     name = None
 
-    # The publication name.  Used in printing file comments and such.
-    pub_name = None
-
     # The ISSN of the publication.
-    pub_issn = None
+    issn = None
 
-    # The home page URL.
-    pub_home_page = None
+    # List of alternative base URLs for the journal site.
+    base_urls = None
 
-    # The URL to get a full list of articles.
-    article_list_url = None
+    # Base file name for the archives we create for this journal.
+    archive_basename = None
+
+    # Whether the journal provides JATS.
+    uses_jats = False
+
+    # Which source of metadata we use for this journal.
+    metadata_source = None
 
 
     def __init__(self):
