@@ -14,12 +14,12 @@ is open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
-from .micropublication import MicropublicationJournal
-from .prompt import PromptJournal
+from .micropublication import Micropublication
+from .prompt import Prompt
 
 KNOWN_JOURNALS = {
-    'micropublication': MicropublicationJournal,
-    'prompt': PromptJournal,
+    'micropublication': Micropublication,
+    'prompt': Prompt,
 }
 
 # Save this list to avoid recreating it all the time.
