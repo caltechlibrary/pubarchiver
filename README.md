@@ -1,7 +1,7 @@
 PubArchiver<img width="12%" align="right" src="https://github.com/caltechlibrary/pubarchiver/blob/main/.graphics/pubarchiver-logo.png?raw=true">
 =======
 
-A program that creates archives of articles from specific journal sites (currently [microPublication.org](https://www.micropublication.org) and [Prompt](https://thepromptjournal.com/index.php/prompt)) for sending to [Portico](https://www.portico.org) and [PMC](https://www.ncbi.nlm.nih.gov/pmc/).
+A program that creates archives of articles from specific journal sites (currently [microPublication](https://www.micropublication.org) and [Prompt](https://thepromptjournal.com/index.php/prompt)) for sending to [Portico](https://www.portico.org) and [PMC](https://www.ncbi.nlm.nih.gov/pmc/).
 
 *Authors*:      [Michael Hucka](http://github.com/mhucka), [Tom Morrell](https://github.com/tmorrell)<br>
 *Repository*:   [https://github.com/caltechlibrary/pubarchiver](https://github.com/caltechlibrary/pubarchiver)<br>
@@ -19,7 +19,6 @@ Table of Contents
 * [Introduction](#-introduction)
 * [Installation](#-installation)
 * [Usage](#︎-usage)
-* [Known issues and limitations](#-known-issues-and-limitations)
 * [Getting help and support](#-getting-help-and-support)
 * [Contributing](#-contributing)
 * [License](#︎-license)
@@ -30,7 +29,7 @@ Table of Contents
 ☀ Introduction
 -----------------------------
 
-The Caltech Library is the publisher of [microPublication](https://www.micropublication.org) and provides services to that journal as well as some other journals. The services include archiving in a dark archive (specifically, [Portico](https://www.portico.org)) and sending to [PMC](https://www.ncbi.nlm.nih.gov/pmc/).  The archiving process involves pulling down articles from the journals and packaging them up in a format suitable for sending to the archives.  PubArchiver is a program to automate this process.
+The Caltech Library is the publisher of a few academic journals and provides services for them. The services include archiving in a dark archive (specifically, [Portico](https://www.portico.org)) as well as submitting articles to [PMC](https://www.ncbi.nlm.nih.gov/pmc/).  The archiving process involves pulling down articles from the journals and packaging them up in a format suitable for sending to the archives.  PubArchiver is a program to help automate this process.
 
 
 ✺ Installation
@@ -63,31 +62,6 @@ PubArchiver is a command-line program.  The installation process should put a pr
 pubarchiver -h
 ```
 
-### _Basic usage_
-
-The simplest use of `pubarchiver` involves running it with one option, `-j` (or `/j` on Windows), to indicate which journal should be archived. To get a list of supported journals, use `-l` (or `/l` on Windows):
-
-```bash
-pubarchiver -l
-```
-
-If given the option `-o` (or `/o` on Windows), the output will be written to the directory named after the `-o`.  (If no `-o` is given, the output will be written to the current directory instead.)  For example:
-
-```bash
-pubarchiver -j micropublication -o /tmp/micropublication-archive
-```
-
-If the option `-d` is given, `pubarchiver` will download only articles whose publication dates are _after_ the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
-
-```
-  pubarchiver -d "2014-08-29"   ....
-  pubarchiver -d "12 Dec 2014"  ....
-  pubarchiver -d "July 4, 2013"  ....
-  pubarchiver -d "2 weeks ago"  ....
-```
-
-As it works, `pubarchiver` writes information to the terminal about the archives it puts into the archive, including whether any problems are encountered. To save this info to a file, use the option `-r` (or `/r` on Windows), which will make `pubarchiver` write a report file.  By default, the format is [CSV](https://en.wikipedia.org/wiki/Comma-separated_values); to change the format of the report to HTML, use the option `-f html` (or `/f html` on Windows).  The title of the report will be named after the current date, unless the option `-t` (or `/t` on Windows) is used to supply a different title.
-
 The following is a screen recording of an actual run of `pubarchiver`:
 
 <p align="center">
@@ -95,39 +69,69 @@ The following is a screen recording of an actual run of `pubarchiver`:
 </p>
 
 
-### Previewing the list of articles
+### _Basic usage_
 
-If given the option `-p` (or `/p` on Windows), `pubarchiver` will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.  However, note that because it does not attempt to download the articles and associated files, it will not be able to report on errors that might occur when not operating in preview mode.  Consequently, do not use the output of `-p` as a prediction of eventual success or failure.
+The journal whose articles are to be archived must be indicated using the required option `-j` (or `/j` on Windows). To see a list of supported journals, you can use `-j list` (or `/j list` on Windows) like this:
 
-If given the option `-g` (or `/g` on Windows), `pubarchiver` will _only_ write a file named `article-list.xml` containing the complete current article list from the micropublication.org server, and exit without doing anything else.  This is useful as a starting point for creating the file used by option `-a`.  It's probably a good idea to redirect the output to a file; e.g.,
-
-```
-pubarchiver -j micropublication -g > article-list.xml
+```bash
+pubarchiver -j list
 ```
 
-### Output
+If not given any additional options besides a `-j` option to select the journal, `pubarchiver` will proceed to contact the journal website as well as either [DataCite](https://datacite.org) or [Crossref](https://www.crossref.org), and create an archive containing articles and their metadata for all articles published to date by the journal.  The options below can be used to select articles and influence other `pubarchiver` behaviors.
 
-Unless given the option `-g` or `-p`, pubarchiver will download articles from a journal site and create archive files out of them.
 
-The value supplied after the option `-s` (or `/s` on Windows) determines the structure of the archive generated by this program.  Currently, two output structures are supported: PMC, and a structure suitable for Portico.  (The PMC structure follows the "naming and delivery" specifications defined at https://www.ncbi.nlm.nih.gov/pmc/pub/filespec-delivery/.) If the output will be sent to PMC, use `-s pmc`; else, use `-s portico` or leave off the option altogether (because Portico is the default).
+### _Printing information without doing anything_
 
-The output will be written to the directory indicated by the value of the option `-o` (or `/o` on Windows).  If no `-o` is given, the output will be written to the directory in which `pubarchiver` was started. Each article will be written to a subdirectory named after the DOI of the article. The output for each article will consist of an XML metadata file describing the article, the article itself in PDF format, and a subdirectory named `jats` containing the article in JATS XML format along with any image that may appear in the article.  The image is always converted to uncompressed TIFF format (because it is considered a good preservation format).
+The option `-l` (or `/l` on Windows) can be used to obtain a list of all DOIs for all articles published by the selected journal. When `-l` is used, `pubarchiver` prints the list to the terminal and exits without doing further work. This can be useful if you intend to use the `-f` option discussed below.
 
-Unless the option `-Z` (or `/Z` on Windows) is given, the output will be archived in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format. If the output structure (as determine by the `-s` option) is being generated for PMC, each article will be put into its own individual ZIP archive; else, the default action is to put the collected output of all articles into a single ZIP archive file.  The option `-Z` makes `pubarchiver` leave the output unarchived in the output directory determined by the `-o` option.
+If given the option `-p` (or `/p` on Windows), `pubarchiver` will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.  Note, however, that because it does not attempt to download the articles and associated files, it cannot report errors that _might_ occur when actually creating an archive.  Consequently, do not use the output of `-p` as a prediction of eventual success or failure.
+
+
+### _Selecting the archive format and archive output location_
+
+The value supplied after the option `-d` (or `/d` on Windows) can be used to tell `pubarchiver` the intended destination where the archive will be sent.  The option changes the structure and content of the archive created by `pubarchiver`. The possible alternatives are `portico` and `pmc`. Portico is assumed to be the default destination if no `-d` option is given. 
+
+By default, `pubarchiver` will write its output to a new subdirectory it creates in the directory from which `pubarchiver` is being run. The option `-o` (or `/o` on Windows) can be used to select a different location. For example,
+
+```bash
+pubarchiver -j micropublication -o /tmp/micropublication-archive
+```
+
+The materials for each article will be written to an individual subdirectory named after the DOI of the article.  The output for each article will consist of an XML metadata file describing the article, the article itself in PDF format, and (if the journal provides [JATS](https://jats.nlm.nih.gov)) a subdirectory named `jats` containing the article in JATS XML format along with any image that may appear in the article.  The image is always converted to uncompressed TIFF format, because it is considered a good preservation format. The PMC structure follows the _naming and delivery_ specifications defined at https://www.ncbi.nlm.nih.gov/pmc/pub/filespec-delivery/.
+
+Unless the option `-Z` (or `/Z` on Windows) is given, the output will be archived in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format.  If the output structure (as determine by the `-d` option) is being generated for PMC, each article will be put into its own individual ZIP archive; else, the default action is to put the collected output of all articles into a single ZIP archive file.  The option `-Z` makes `pubarchiver` leave the output unarchived in the directory determined by the `-o` option.
+
+
+### _Selecting a subset of articles_
+
+If the option `-a` is given, `pubarchiver` will download only articles whose publication dates are _after_ the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
+
+```
+  pubarchiver -a "2014-08-29"   ....
+  pubarchiver -a "12 Dec 2014"  ....
+  pubarchiver -a "July 4, 2013"  ....
+  pubarchiver -a "2 weeks ago"  ....
+```
+
+The option `-f` (or `/f` on Windows) can be used to tell `pubarchiver` to read a file containing DOIs and only fetch those particular articles instead of asking the journal for all articles.  The format of the file indicated after the `-f` option must be a simple text file containing one DOI per line.
+
+The selection by date performed by the `-a` option is performed after reading the list of articles using the `-f` option if present, and thus can be used to filter by date the articles whose DOIs are provided.
+
+
+### _Writing a report_
+
+As it works, `pubarchiver` writes information to the terminal about the articles it puts into the archive, including whether any problems are encountered.  To save this information to a file, use the option `-r` (or `/r` on Windows), which will make `pubarchiver` write a report file.  By default, the format of the report file is [CSV](https://en.wikipedia.org/wiki/Comma-separated_values); the option `-s` (`/s` on Windows) can be used to select `csv` or `html` (or both) as the format.  The title of the report will be based on the current date, unless the option `-t` (or `/t` on Windows) is used to supply a different title.
 
 
 ### _Additional command-line options_
 
-If given the option `-a` (or `/a` on Windows) followed by a file name, the given file will be read for the list of articles instead of getting the list from the server. The contents of the file can be either a list of DOIs, or article data in the same XML format as the list obtained from the journal website.  (See option `-g` above for a way to get an article list in XML from the server.)
-
-Pubarchiver always downloads the JATS XML version of articles from the journal site (in addition to downloading the PDF version), and by default, pubarchiver validates the XML content against the JATS DTD.  To skip the XML validation step, use the option `-X` (`/X` on Windows).
+When `pubarchiver` downloads the JATS XML version of articles from the journal site, it will by default validate the XML content against the JATS DTD.  To skip the XML validation step, use the option `-X` (`/X` on Windows).
 
 `pubarchiver` will print informational messages as it works. To reduce messages to only warnings and errors, use the option `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` option (or `/C` on Windows) is given; this option can be helpful if the color control sequences create problems for your terminal emulator.
 
 If given the `-@` option (`/@` on Windows), this program will output a detailed real-time trace of what it is doing.  The output will be written to the given destination, which can be a dash character (`-`) to indicate console output, or a file path.
 
-If given the `-V` option (`/V` on Windows), this program will print version
-information and exit without doing anything else.
+If given the `-V` option (`/V` on Windows), this program will print version information and exit without doing anything else.
 
 
 ### Return values
@@ -150,17 +154,17 @@ The following table summarizes all the command line options available. (Note: on
 | Short&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Long&nbsp;form&nbsp;opt&nbsp;&nbsp; | Meaning | Default | |
 |---------|-------------------|----------------------|---------|--|
 | `-a`_A_ | `--after-date`_A_ | Only get articles published after date _A_ | Get all articles | ⬥ |
+| `-C`    | `--no-color`      | Don't color-code info messages | Color-code terminal output |
 | `-d`_D_ | `--dest`_D_       | Make archive for destination Portico or PMC | Portico | |
-| `-g`    | `--get-xml`       | Print the server's article list, then exit | Do other actions instead | |
+| `-f`_F_ | `--doi-file`_F_   | Only get articles whose DOIs are in file _F_ | Get all articles | |
 | `-j`_J_ | `--journal`_J_    | Work with journal _J_ | | ★ |
-| `-l`    | `--list`          | Print a list of supported journals and exit | Do other actions instead | |
+| `-l`    | `--list-dois`     | Print a list of all known DOIs, then exit | Do other actions instead | |
 | `-o`_O_ | <nobr><code>--output-dir</code></nobr>_O_ | Write output in directory _O_ | Write in current dir | |
 | `-p`    | `--preview`       | Preview what would be obtained, then exit | Obtain the articles | |
 | `-q`    | `--quiet`         | Only print important messages | Be chatty while working | |
 | `-r`_R_ | `--rep-file`_R_   | Write list of article & results in file _R_ | Don't write a report | |
-| `-f`_S_ | `--rep-style`_S_  | With `-r`, write either `html` or `csv` | `csv` | |
+| `-s`_S_ | `--rep-fmt`_S_    | With `-r`, write either `html` or `csv` | `csv` | |
 | `-t`_T_ | `--rep-title`_T_  | With `-r`, use _T_ as the report title | Use the current date | |
-| `-u`_U_ | `--use-xml`_U_    | Use list of articles from XML file _U_ | Get list from server | |
 | `-V`    | `--version`       | Print program version info, then exit | Do other actions instead | |
 | `-X`    | `--no-check`      | Don't validate JATS XML files | Validate JATS XML | |
 | `-Z`    | `--no-zip`        | Don't put output into one ZIP archive | ZIP up the output | |
@@ -169,12 +173,6 @@ The following table summarizes all the command line options available. (Note: on
 ⬥ &nbsp; Enclose the date in quotes if it contains space characters; e.g., `"12 Dec 2014"`.<br>
 ★ &nbsp; Required argument.<br>
 ⚑ &nbsp; To write to the console, use the character `-` (a single dash) as the value of _OUT_; otherwise, _OUT_ must be the name of a file where the output should be written.
-
-
-⚑ Known issues and limitations
--------------------------------
-
-Currently, the only way to indicate that a subset of articles should be obtained from a journal is to use the option `-a` in combination with a file that contains the list of desired articles, or the `-d` option to indicate a cut-off for the article publication date.
 
 
 ⁇ Getting help and support
