@@ -27,7 +27,6 @@ from   commonpy.network_utils import net, network_available, download_file
 import dateparser
 from   datetime import date
 from   datetime import datetime as dt
-from   dateutil import tz
 import humanize
 import json as jsonlib
 from   lxml import etree
@@ -105,9 +104,6 @@ _HTML_REPORT_BOTTOM = '''
 
 # Main program.
 # .............................................................................
-
-# publication source origin name journal 
-
 
 @plac.annotations(
     after_date = ('only keep articles published after date "A"',              'option', 'a'),
