@@ -148,21 +148,21 @@ below can be used to select articles and influence other PubArchiver behaviors.
 Selecting a subset of articles
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If the option -d (or /d on Windows) is given, PubArchiver will download only
+If the option -a (or /a on Windows) is given, PubArchiver will download only
 articles whose publication dates are AFTER the given date.  Valid date
 descriptors are those accepted by the Python dateparser library.  Make sure to
 enclose descriptions within single or double quotes.  Examples:
 
-  pubarchiver -d "2014-08-29"   ....
-  pubarchiver -d "12 Dec 2014"  ....
-  pubarchiver -d "July 4, 2013"  ....
-  pubarchiver -d "2 weeks ago"  ....
+  pubarchiver -a "2014-08-29"   ....
+  pubarchiver -a "12 Dec 2014"  ....
+  pubarchiver -a "July 4, 2013"  ....
+  pubarchiver -a "2 weeks ago"  ....
 
 The option -f (or /f on Windows) can be used with a value of a file path to
 limit archiving to only the DOIs listed in the given file.  The file format
 must be a simple list of one DOI per line.
 
-The selection by date performed by the -d option happens after reading the
+The selection by date performed by the -a option happens after reading the
 list of articles using the -f option if present, and can be used to filter
 by date the articles whose DOIs are provided.
 
