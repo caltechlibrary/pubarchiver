@@ -151,7 +151,7 @@ This program exits with a return code of `0` if no problems are encountered whil
 
 The following table summarizes all the command line options available. (Note: on Windows computers, `/` must be used as the prefix character instead of `-`):
 
-| Short&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Long&nbsp;form&nbsp;opt&nbsp;&nbsp; | Meaning | Default | |
+| Short&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Long&nbsp;form&nbsp;opt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Meaning | Default | |
 |---------|-------------------|----------------------|---------|--|
 | `-a`_A_ | `--after-date`_A_ | Only get articles published after date _A_ | Get all articles | ⬥ |
 | `-C`    | `--no-color`      | Don't color-code info messages | Color-code terminal output |
