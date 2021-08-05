@@ -56,7 +56,7 @@ python3 -m pip install .
 ▶︎ Usage
 -------
 
-PubArchiver is a command-line program.  The installation process should put a program named `pubarchiver` in a location normally searched by your shell interpreter.  For help with usage at any time, run `pubarchiver` with the option `-h` (or `/h` on Windows).
+PubArchiver is a command-line program.  The installation process should put a program named `pubarchiver` in a location normally searched by your shell interpreter.  For help with usage at any time, run `pubarchiver` with the option `--help` (or `-h` for short).
 
 ```bash
 pubarchiver -h
@@ -71,67 +71,69 @@ The following is a screen recording of an actual run of `pubarchiver`:
 
 ### _Basic usage_
 
-The journal whose articles are to be archived must be indicated using the required option `-j` (or `/j` on Windows). To see a list of supported journals, you can use `-j list` (or `/j list` on Windows) like this:
+Options to `pubarchiver` use a dash (`-`) as the prefix character on macOS and Linux, and forward slash (`/`) on Windows.
+
+The journal whose articles are to be archived must be indicated using the required option `--journal` (or `-j` for short). To see a list of supported journals, you can use `--journal list` like this:
 
 ```bash
-pubarchiver -j list
+pubarchiver --journal list
 ```
 
-If not given any additional options besides a `-j` option to select the journal, `pubarchiver` will proceed to contact the journal website as well as either [DataCite](https://datacite.org) or [Crossref](https://www.crossref.org), and create an archive containing articles and their metadata for all articles published to date by the journal.  The options below can be used to select articles and influence other `pubarchiver` behaviors.
+If not given any additional options besides a `--journal` option to select the journal, `pubarchiver` will proceed to contact the journal website as well as either [DataCite](https://datacite.org) or [Crossref](https://www.crossref.org), and create an archive containing articles and their metadata for all articles published to date by the journal.  The options below can be used to select articles and influence other `pubarchiver` behaviors.
 
 
 ### _Printing information without doing anything_
 
-The option `-l` (or `/l` on Windows) can be used to obtain a list of all DOIs for all articles published by the selected journal. When `-l` is used, `pubarchiver` prints the list to the terminal and exits without doing further work. This can be useful if you intend to use the `-f` option discussed below.
+The option `--list-dois` (or `-l` for short) can be used to obtain a list of all DOIs for all articles published by the selected journal. When `--list-dois` is used, `pubarchiver` prints the list to the terminal and exits without doing further work. This can be useful if you intend to use the `--doi-file` option discussed below.
 
-If given the option `-p` (or `/p` on Windows), `pubarchiver` will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.  Note, however, that because it does not attempt to download the articles and associated files, it cannot report errors that _might_ occur when actually creating an archive.  Consequently, do not use the output of `-p` as a prediction of eventual success or failure.
+If given the option `--preview` (or `-p` for short), `pubarchiver` will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.  Note, however, that because it does not attempt to download the articles and associated files, it cannot report errors that _might_ occur when actually creating an archive.  Consequently, do not use the output of `--preview` as a prediction of eventual success or failure.
 
 
 ### _Selecting the archive format and archive output location_
 
-The value supplied after the option `-d` (or `/d` on Windows) can be used to tell `pubarchiver` the intended destination where the archive will be sent.  The option changes the structure and content of the archive created by `pubarchiver`. The possible alternatives are `portico` and `pmc`. Portico is assumed to be the default destination if no `-d` option is given. 
+The value supplied after the option `--dest` (or `-d` for short) can be used to tell `pubarchiver` the intended destination where the archive will be sent.  The option changes the structure and content of the archive created by `pubarchiver`. The possible alternatives are `portico` and `pmc`. Portico is assumed to be the default destination if no `--dest` option is given. 
 
-By default, `pubarchiver` will write its output to a new subdirectory it creates in the directory from which `pubarchiver` is being run. The option `-o` (or `/o` on Windows) can be used to select a different location. For example,
+By default, `pubarchiver` will write its output to a new subdirectory it creates in the directory from which `pubarchiver` is being run. The option `--output-dir` (or `/o` on Windows) can be used to select a different location. For example,
 
 ```bash
-pubarchiver -j micropublication -o /tmp/micropublication-archive
+pubarchiver --journal micropublication --output-dir /tmp/micropub
 ```
 
 The materials for each article will be written to an individual subdirectory named after the DOI of the article.  The output for each article will consist of an XML metadata file describing the article, the article itself in PDF format, and (if the journal provides [JATS](https://jats.nlm.nih.gov)) a subdirectory named `jats` containing the article in JATS XML format along with any image that may appear in the article.  The image is always converted to uncompressed TIFF format, because it is considered a good preservation format. The PMC structure follows the _naming and delivery_ specifications defined at https://www.ncbi.nlm.nih.gov/pmc/pub/filespec-delivery/.
 
-Unless the option `-Z` (or `/Z` on Windows) is given, the output will be archived in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format.  If the output structure (as determine by the `-d` option) is being generated for PMC, each article will be put into its own individual ZIP archive; else, the default action is to put the collected output of all articles into a single ZIP archive file.  The option `-Z` makes `pubarchiver` leave the output unarchived in the directory determined by the `-o` option.
+Unless the option `--no-zip` (or `-Z` for short) is given, the output will be archived in [ZIP](https://en.wikipedia.org/wiki/Zip_(file_format)) format.  If the output structure (as determine by the `--dest` option) is being generated for PMC, each article will be put into its own individual ZIP archive; else, the default action is to put the collected output of all articles into a single ZIP archive file.  The option `--no-zip` makes `pubarchiver` leave the output unarchived in the directory determined by the `--output-dir` option.
 
 
 ### _Selecting a subset of articles_
 
-If the option `-a` is given, `pubarchiver` will download only articles whose publication dates are _after_ the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
+If the option `--after-date` is given, `pubarchiver` will download only articles whose publication dates are _after_ the given date.  Valid date descriptors are those accepted by the Python [dateparser](https://pypi.org/project/dateparser/) library.  Make sure to enclose descriptions within single or double quotes.  Examples:
 
 ```
-  pubarchiver -a "2014-08-29"   ....
-  pubarchiver -a "12 Dec 2014"  ....
-  pubarchiver -a "July 4, 2013"  ....
-  pubarchiver -a "2 weeks ago"  ....
+  pubarchiver --after-date "2014-08-29"   ....
+  pubarchiver --after-date "12 Dec 2014"  ....
+  pubarchiver --after-date "July 4, 2013"  ....
+  pubarchiver --after-date "2 weeks ago"  ....
 ```
 
-The option `-f` (or `/f` on Windows) can be used to tell `pubarchiver` to read a file containing DOIs and only fetch those particular articles instead of asking the journal for all articles.  The format of the file indicated after the `-f` option must be a simple text file containing one DOI per line.
+The option `--doi-file` (or `-f` for short) can be used to tell `pubarchiver` to read a file containing DOIs and only fetch those particular articles instead of asking the journal for all articles.  The format of the file indicated after the `--doi-file` option must be a simple text file containing one DOI per line.
 
-The selection by date performed by the `-a` option is performed after reading the list of articles using the `-f` option if present, and thus can be used to filter by date the articles whose DOIs are provided.
+The selection by date performed by the `--after-date` option is performed after reading the list of articles using the `--doi-file` option if present, and thus can be used to filter by date the articles whose DOIs are provided.
 
 
 ### _Writing a report_
 
-As it works, `pubarchiver` writes information to the terminal about the articles it puts into the archive, including whether any problems are encountered.  To save this information to a file, use the option `-r` (or `/r` on Windows), which will make `pubarchiver` write a report file.  By default, the format of the report file is [CSV](https://en.wikipedia.org/wiki/Comma-separated_values); the option `-s` (`/s` on Windows) can be used to select `csv` or `html` (or both) as the format.  The title of the report will be based on the current date, unless the option `-t` (or `/t` on Windows) is used to supply a different title.
+As it works, `pubarchiver` writes information to the terminal about the articles it puts into the archive, including whether any problems are encountered.  To save this information to a file, use the option `--rep-file` (or `-r` for short), which will make `pubarchiver` write a report file.  By default, the format of the report file is [CSV](https://en.wikipedia.org/wiki/Comma-separated_values); the option `--rep-fmt` (or `-s` for short) can be used to select `csv` or `html` (or both) as the format.  The title of the report will be based on the current date, unless the option `--rep-title` (or `-t` for short) is used to supply a different title.
 
 
 ### _Additional command-line options_
 
-When `pubarchiver` downloads the JATS XML version of articles from the journal site, it will by default validate the XML content against the JATS DTD.  To skip the XML validation step, use the option `-X` (`/X` on Windows).
+When `pubarchiver` downloads the JATS XML version of articles from the journal site, it will by default validate the XML content against the JATS DTD.  To skip the XML validation step, use the option `--no-check` (or `-X` for short).
 
-`pubarchiver` will print informational messages as it works. To reduce messages to only warnings and errors, use the option `-q` (or `/q` on Windows). Also, output is color-coded by default unless the `-C` option (or `/C` on Windows) is given; this option can be helpful if the color control sequences create problems for your terminal emulator.
+`pubarchiver` will print informational messages as it works. To reduce messages to only warnings and errors, use the option `--quiet` (or `-q` for short). Also, output is color-coded by default unless the `--no-color` option (or `-C` for short) is given; this option can be helpful if the color control sequences create problems for your terminal emulator.
 
-If given the `-@` option (`/@` on Windows), this program will output a detailed real-time trace of what it is doing.  The output will be written to the given destination, which can be a dash character (`-`) to indicate console output, or a file path.
+If given the `--debug` option (or `-@` for short), this program will output a detailed real-time trace of what it is doing.  The output will be written to the given destination, which can be a dash character (`-`) to indicate console output, or a file path.
 
-If given the `-V` option (`/V` on Windows), this program will print version information and exit without doing anything else.
+If given the `--version` option (or `-V` for short), this program will print version information and exit without doing anything else.
 
 
 ### Return values
@@ -165,7 +167,7 @@ The following table summarizes all the command line options available. (Note: on
 | `-r`_R_ | `--rep-file`_R_   | Write list of article & results in file _R_ | Don't write a report | |
 | `-s`_S_ | `--rep-fmt`_S_    | With `-r`, write either `html` or `csv` | `csv` | |
 | `-t`_T_ | `--rep-title`_T_  | With `-r`, use _T_ as the report title | Use the current date | |
-| `-V`    | `--version`       | Print program version info, then exit | Do other actions instead | |
+| `-V`    | `--version`       | Print program version info & exit | Do other actions instead | |
 | `-X`    | `--no-check`      | Don't validate JATS XML files | Validate JATS XML | |
 | `-Z`    | `--no-zip`        | Don't put output into one ZIP archive | ZIP up the output | |
 | `-@`_OUT_ | `--debug`_OUT_  | Debugging mode; write trace to _OUT_ | Normal mode | ⚑ |
@@ -190,13 +192,13 @@ We would be happy to receive your help and participation with enhancing `pubarch
 ☥ License
 ----------
 
-Copyright &copy; 2019-2021, Caltech.  This software is freely distributed under a BSD/MIT type license.  Please see the [LICENSE](LICENSE) file for more information.
+Copyright &copy; 2019-2021, Caltech.  This software is freely distributed under a BSD 3-clause license.  Please see the [LICENSE](LICENSE) file for more information.
 
 
 ❡ Authors and history
 --------------------
 
-[Tom Morrell](https://github.com/tmorrell) developed the original algorithm for extracting metadata from DataCite and creating XML files for use with Portico submissions of microPublication.org articles.  [Mike Hucka](https://github.com/mhucka) created the much-expanded second version of the software, now known as PubArchiver.
+[Tom Morrell](https://github.com/tmorrell) developed the original algorithm for extracting metadata from DataCite and creating XML files for use with Portico submissions of microPublication.org articles.  Starting with that original script, [Mike Hucka](https://github.com/mhucka) created the much-expanded Microarchiver program (later renamed to PubArchiver).
 
 
 ♥︎ Acknowledgments
@@ -204,36 +206,39 @@ Copyright &copy; 2019-2021, Caltech.  This software is freely distributed under 
 
 The [vector artwork](https://thenounproject.com/term/archive/1590047/) used as a starting point for the logo for this repository was created by [Cuby Design](https://thenounproject.com/back1design1/) for the [Noun Project](https://thenounproject.com).  It is licensed under the Creative Commons [Attribution 3.0 Unported](https://creativecommons.org/licenses/by/3.0/deed.en) license.  The vector graphics was modified by Mike Hucka to change the color.
 
-[Nick Stiffler](https://github.com/nickstiffler) from the [microPublication.org team](https://www.micropublication.org/contact-us/) helped figure out the requirements for PMC output (introduced in version 1.9), helped guide development of PubArchiver, and engaged in many discussions about microPublication.org's needs.
+[Nick Stiffler](https://github.com/nickstiffler) from the [microPublication.org team](https://www.micropublication.org/contact-us/) helped figure out the requirements for PMC output (introduced in Microarchiver version 1.9), helped guide development of Microarchiver/PubArchiver, and engaged in many discussions about microPublication.org's needs.
 
 PubArchiver makes use of numerous open-source packages, without which it would have been effectively impossible to develop PubArchiver with the resources we had.  We want to acknowledge this debt.  In alphabetical order, the packages are:
 
-* [colorful](https://github.com/timofurrer/colorful) &ndash; terminal/text string styling
+* [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) &ndash; an HTML parsing library
+* [bun](https://github.com/caltechlibrary/bun) &ndash; a set of basic user interface classes and functions
 * [commonpy](https://github.com/caltechlibrary/commonpy) &ndash; a collection of commonly-useful Python functions
+* [crossrefapi](https://github.com/fabiobatalha/crossrefapi) &ndash; a python library that implements the Crossref API
 * [dateparser](https://github.com/scrapinghub/dateparser) &ndash; parser for human-readable dates
-* [dateutil](https://dateutil.readthedocs.io/en/stable/) &ndash; extensions to the Python `datetime` module
 * [humanize](https://github.com/jmoiron/humanize) &ndash; make numbers more easily readable by humans
 * [lxml](https://lxml.de) &ndash; an XML parsing library for Python
 * [Pillow](https://github.com/python-pillow/Pillow) &ndash; a fork of the Python Imaging Library
 * [plac](http://micheles.github.io/plac/) &ndash; a command line argument parser
-* [pypubsub](https://github.com/schollii/pypubsub) &ndash; a publish-and-subscribe message-passing library for Python
 * [recordclass](https://github.com/intellimath/recordclass) &ndash; a mutable version of Python named tuples
-* [requests](http://docs.python-requests.org) &ndash; an HTTP library for Python
 * [setuptools](https://github.com/pypa/setuptools) &ndash; library for `setup.py`
+* [sidetrack](https://github.com/caltechlibrary/sidetrack) &ndash; simple debug logging/tracing package
 * [slack-cli](https://github.com/rockymadden/slack-cli) &ndash; a command-line interface to Slack written in [Bash](https://www.gnu.org/software/bash/)
 * [urllib3](https://urllib3.readthedocs.io/en/latest/) &ndash; a powerful HTTP library for Python
 * [xmltodict](https://github.com/martinblech/xmltodict) &ndash; a module to make working with XML feel like working with JSON
-* [wxPython](https://wxpython.org) &ndash; a cross-platform GUI toolkit for the Python language
 
 Finally, we are grateful for computing &amp; institutional resources made available by the California Institute of Technology.
     
-<div align="center">
-  <a href="https://micropublication.org">
-    <img height="100" src="https://github.com/caltechlibrary/pubarchiver/blob/main/.graphics/micropublication-logo-main.png?raw=true">
+<div align="middle">
+  <a href="https://www.caltech.edu">
+    <img align="center" width="80" src="https://github.com/caltechlibrary/pubarchiver/blob/main/.graphics/caltech-round.png?raw=true">
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.caltech.edu">
-    <img width="100" height="100" src="https://github.com/caltechlibrary/pubarchiver/blob/main/.graphics/caltech-round.png?raw=true">
+  <a href="https://micropublication.org">
+    <img align="center" height="60" src="https://github.com/caltechlibrary/pubarchiver/blob/main/.graphics/micropublication-logo-main.png?raw=true">
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="http://thepromptjournal.com">
+    <img align="center" height="60" src="https://github.com/caltechlibrary/pubarchiver/blob/main/.graphics/prompt-logo.jpg?raw=true">
+  </a>
+
 </div>
