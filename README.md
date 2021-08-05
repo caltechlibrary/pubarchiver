@@ -151,16 +151,16 @@ This program exits with a return code of `0` if no problems are encountered whil
 
 The following table summarizes all the command line options available. (Note: on Windows computers, `/` must be used as the prefix character instead of `-`):
 
-| Short&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Long&nbsp;form&nbsp;opt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Meaning | Default | |
+| Short&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Long&nbsp;form&nbsp;opt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Meaning | Default | |
 |---------|-------------------|----------------------|---------|--|
 | `-a`_A_ | `--after-date`_A_ | Only get articles published after date _A_ | Get all articles | ⬥ |
 | `-C`    | `--no-color`      | Don't color-code info messages | Color-code terminal output |
-| `-d`_D_ | `--dest`_D_       | Make archive for destination Portico or PMC | Portico | |
+| `-d`_D_ | `--dest`_D_       | Destination for archive: Portico or PMC | Portico | |
 | `-f`_F_ | `--doi-file`_F_   | Only get articles whose DOIs are in file _F_ | Get all articles | |
 | `-j`_J_ | `--journal`_J_    | Work with journal _J_ | | ★ |
-| `-l`    | `--list-dois`     | Print a list of all known DOIs, then exit | Do other actions instead | |
+| `-l`    | `--list-dois`     | Print a list of all known DOIs & exit | Do other actions instead | |
 | `-o`_O_ | <nobr><code>--output-dir</code></nobr>_O_ | Write output in directory _O_ | Write in current dir | |
-| `-p`    | `--preview`       | Preview what would be obtained, then exit | Obtain the articles | |
+| `-p`    | `--preview`       | Preview what would be archived & exit | Obtain the articles | |
 | `-q`    | `--quiet`         | Only print important messages | Be chatty while working | |
 | `-r`_R_ | `--rep-file`_R_   | Write list of article & results in file _R_ | Don't write a report | |
 | `-s`_S_ | `--rep-fmt`_S_    | With `-r`, write either `html` or `csv` | `csv` | |
