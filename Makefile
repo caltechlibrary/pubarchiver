@@ -58,7 +58,7 @@ update-init:;
 	@sed -i .bak -e "s|^\(__email__ *=\).*|\1 '$(email)'|"	    $(init_file)
 	@sed -i .bak -e "s|^\(__license__ *=\).*|\1 '$(license)'|"  $(init_file)
 
-update-codemeta:;
+update-meta:;
 	@sed -i .bak -e "/version/ s/[0-9].[0-9][0-9]*.[0-9][0-9]*/$(version)/" codemeta.json
 
 update-citation:;
@@ -73,7 +73,7 @@ commit-updates:;
 	git diff-index --quiet HEAD $(edited) || \
 	    git commit -m"Update stored version number" $(edited)
 
-release-on-github: | update-init update-codemeta update-citation commit-updates
+release-on-github: | update-init update-meta update-citation commit-updates
 	$(eval tmp_file  := $(shell mktemp /tmp/release-notes-$(name).XXXX))
 	git push -v --all
 	git push -v --tags
@@ -138,5 +138,5 @@ clean:;
 	-rm -rf dist build $(name).egg-info codemeta.json.bak $(init_file).bak \
 	README.md.bak
 
-.PHONY: release release-on-github update-init update-codemeta \
+.PHONY: release release-on-github update-init update-meta \
 	print-instructions create-dist clean test-pypi pypi
