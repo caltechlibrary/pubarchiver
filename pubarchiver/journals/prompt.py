@@ -68,7 +68,7 @@ class Prompt(JournalAdapter):
                                         basename, pdf, jats, image, status))
         except Exception as ex:
             if __debug__: log(f'crossref API exception: {str(ex)}')
-            raise
+            raise ServerError(f'Failed to get data from Crossref: {str(ex)}')
         return articles
 
 
@@ -107,16 +107,22 @@ class Prompt(JournalAdapter):
             data    = works.doi(article.doi)
             year    = article.date.split('-')[0]
             file    = tail_of_doi(article.doi) + '.pdf'
+            field   = lambda key: data.get(key, '')
+            if isinstance(field('license'), list) and len(field('license')) > 1:
+                rights_link = field('license')[0]['URL']
+            else:
+                rights_link  = 'https://creativecommons.org/licenses/by-nc/4.0/'
             xmldict = {
                 'resource': {
                     '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
                     'identifier': {
                         '@identifierType': 'DOI',
-                        '#text': '10.17912/MICROPUB.BIOLOGY.000185'
+                        '#text': article.doi
                     },
                     'journal':         { '#text': self.name, },
-                    'volume':          { '#text': data['volume'] },
-                    'issue':           { '#text': data['issue'] },
+                    'volume':          { '#text': field('volume') },
+                    'issue':           { '#text': field('issue') },
+                    'publisher':       { '#text': field('publisher') },
                     'publicationYear': { '#text': year },
                     'e-issn':          { '#text': self.issn },
                     'file':            { '#text': file },
@@ -131,27 +137,29 @@ class Prompt(JournalAdapter):
                         }
                     },
                     'creators': {
-                        'creator': creator_list(data['author']),
+                        'creator': creator_list(field('author')),
                     },
                     'descriptions': {
                         'description': {
                             '@descriptionType': 'Abstract',
-                            '#text': strip_tags(data['abstract'])
+                            '#text': strip_tags(field('abstract'))
                         }
                     },
                     'rightsList': {
                         'rights': {
-                            '#text': 'Creative Commons Attribution-NonCommercial 4.0'
+                            '#text': copyright_text(field('author'), year),
                         },
                         'rightsURI': {
-                            '#text': 'https://creativecommons.org/licenses/by-nc/4.0/'
+                            '#text': rights_link
                         }
-                    }
+                    },
+
                 }
             }
             return xmldict
         except Exception as ex:
             if __debug__: log(f'crossref API exception: {str(ex)}')
+            foo = ex
             import pdb; pdb.set_trace()
 
 
@@ -172,6 +180,11 @@ def strip_tags(text):
     return BeautifulSoup(text, features = 'lxml').get_text()
 
 
-def creator_list(data):
-    return [{'givenName': { '#text': x['given'] }, 'familyName': { '#text': x['family'] } }
-            for x in data]
+def creator_list(authors):
+    return [{'givenName': { '#text': a['given'] }, 'familyName': { '#text': a['family'] }}
+            for a in authors]
+
+
+def copyright_text(authors, year):
+    author_list = [f'{a["given"]} {a["family"]}' for a in authors]
+    return f'Copyright (c) {year} ' + ', '.join(author_list)
