@@ -1,0 +1,21 @@
+# YAML 1.2
+---
+authors: 
+  -
+    affiliation: "Caltech Library"
+    given-names: Michasel
+    family-names: Hucka
+    orcid: "0000-0001-9105-5960"
+cff-version: "1.1.0"
+message: "If you use this software, please cite it using these metadata."
+repository-code: "https://github.com/caltechlibrary/pubarchiver"
+title: "PubArchiver: send journals to Portico and PMC"
+date-released: 2022-01-31
+version: "2.0.0"
+doi: 10.22002/20020
+keywords: 
+  - archiving
+  - preservation
+  - Portico
+  - PubMed Central
+...

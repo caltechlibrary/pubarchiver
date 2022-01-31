@@ -4,8 +4,11 @@
 # @author  Michael Hucka
 # @date    2020-08-11
 # @license Please see the file named LICENSE in the project directory
-# @website https://github.com/caltechlibrary/microarchiver
+# @website https://github.com/caltechlibrary/pubarchiver
 # =============================================================================
+
+.ONESHELL: 				# Run all commands in the same shell.
+.SHELLFLAGS += -e			# Exit at the first error.
 
 # Before we go any further, test if certain programs are available.
 # The following is based on the approach posted by Jonathan Ben-Avraham to
@@ -35,7 +38,6 @@ doi_url	  := $(shell curl -sILk $(id_url) | grep Locat | cut -f2 -d' ')
 doi	  := $(subst https://doi.org/,,$(doi_url))
 doi_tail  := $(lastword $(subst ., ,$(doi)))
 init_file := $(name)/__init__.py
-tmp_file  := $(shell mktemp /tmp/release-notes-$(name).XXXXXX)
 
 $(info Gathering data ... Done.)
 
@@ -48,7 +50,7 @@ ifneq ($(branch),main)
 	$(error Current git branch != main. Merge changes into main first)
 endif
 
-update-init-file:;
+update-init:;
 	@sed -i .bak -e "s|^\(__version__ *=\).*|\1 '$(version)'|"  $(init_file)
 	@sed -i .bak -e "s|^\(__description__ *=\).*|\1 '$(desc)'|" $(init_file)
 	@sed -i .bak -e "s|^\(__url__ *=\).*|\1 '$(url)'|"	    $(init_file)
@@ -56,52 +58,78 @@ update-init-file:;
 	@sed -i .bak -e "s|^\(__email__ *=\).*|\1 '$(email)'|"	    $(init_file)
 	@sed -i .bak -e "s|^\(__license__ *=\).*|\1 '$(license)'|"  $(init_file)
 
-update-codemeta-file:;
+update-meta:;
 	@sed -i .bak -e "/version/ s/[0-9].[0-9][0-9]*.[0-9][0-9]*/$(version)/" codemeta.json
 
-edited := codemeta.json $(init_file)
+update-citation:;
+	$(eval date  := $(shell date "+%F"))
+	@sed -i .bak -e "/^date-released/ s/[0-9][0-9-]*/$(date)/" CITATION.cff
+	@sed -i .bak -e "/^version/ s/[0-9].[0-9][0-9]*.[0-9][0-9]*/$(version)/" CITATION.cff
 
-check-in-updated-files:;
+edited := codemeta.json $(init_file) CITATION.cff
+
+commit-updates:;
 	git add $(edited)
-	git diff-index --quiet HEAD $(edited) || git commit -m"Update stored version number" $(edited)
+	git diff-index --quiet HEAD $(edited) || \
+	    git commit -m"Update stored version number" $(edited)
 
-release-on-github: | update-init-file update-codemeta-file check-in-updated-files
+release-on-github: | update-init update-meta update-citation commit-updates
+	$(eval tmp_file  := $(shell mktemp /tmp/release-notes-$(name).XXXX))
 	git push -v --all
 	git push -v --tags
-	$(info ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓)
-	$(info ┃ Write release notes in the file that will be opened in your editor ┃)
-	$(info ┃ then save and close the file to complete this release process.     ┃)
-	$(info ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛)
+	@$(info ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓)
+	@$(info ┃ Write release notes in the file that gets opened in your   ┃)
+	@$(info ┃ editor. Close the editor to complete the release process.  ┃)
+	@$(info ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛)
 	sleep 2
 	$(EDITOR) $(tmp_file)
 	gh release create v$(version) -t "Release $(version)" -F $(tmp_file)
 
 print-instructions:;
-	$(info ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓)
-	$(info ┃ Next steps:                                                        ┃)
-	$(info ┃ 1. Visit https://github.com/$(repo)/releases )
-	$(info ┃ 2. Double-check the draft release, and click "Publish" if ready    ┃)
-	$(info ┃ 3. Wait a few seconds to let web services do their work            ┃)
-	$(info ┃ 4. Run "make update-doi" to update the DOI in README.md            ┃)
-	$(info ┃ 5. Run "make create-dist" and check the distribution for problems  ┃)
-	$(info ┃ 6. Run "make test-pypi" to push to test.pypi.org                   ┃)
-	$(info ┃ 7. Double-check https://test.pypi.org/$(repo) )
-	$(info ┃ 8. Run "make pypi" to push to pypi for real                        ┃)
-	$(info ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛)
-	@echo ""
+	@$(info ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓)
+	@$(info ┃ Next steps:                                                ┃)
+	@$(info ┃ 1. Check https://github.com/$(repo)/releases )
+	@$(info ┃ 2. Wait a few seconds to let web services do their work    ┃)
+	@$(info ┃ 3. Run "make update-doi" to update the DOI in README.md    ┃)
+	@$(info ┃ 4. Run "make packages" & check the results                 ┃)
+	@$(info ┃ 5. Run "make test-pypi" to push to test.pypi.org           ┃)
+	@$(info ┃ 6. Check https://test.pypi.org/project/$(name) )
+	@$(info ┃ 7. Run "make pypi" to push to pypi for real                ┃)
+	@$(info ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛)
 
 update-doi: 
 	sed -i .bak -e 's|/api/record/[0-9]\{1,\}|/api/record/$(doi_tail)|' README.md
-	sed -i .bak -e 's|caltech.edu/records/[0-9]\{1,\}|caltech.edu/records/$(doi_tail)|' README.md
-	git add README.md
-	git diff-index --quiet HEAD README.md || git commit -m"Update DOI" README.md && git push -v --all
+	sed -i .bak -e 's|edu/records/[0-9]\{1,\}|edu/records/$(doi_tail)|' README.md
+	sed -i .bak -e '/doi:/ s|10.22002/[0-9]\{1,\}|10.22002/$(doi_tail)|' CITATION.cff
+	git add README.md CITATION.cff
+	git diff-index --quiet HEAD README.md || \
+	    (git commit -m"Update DOI" README.md && git push -v --all)
+	git diff-index --quiet HEAD CITATION.cff || \
+	    (git commit -m"Update DOI" CITATION.cff && git push -v --all)
 
 create-dist: clean
 	python3 setup.py sdist bdist_wheel
 	python3 -m twine check dist/*
 
+# Note: for the next action to work, the repository "testpypi" needs to be
+# defined in your ~/.pypirc file. Here is an example file:
+#
+#  [distutils]
+#  index-servers =
+#    pypi
+#    testpypi
+# 
+#  [testpypi]
+#  repository = https://test.pypi.org/legacy/
+#  username = YourPyPIlogin
+#  password = YourPyPIpassword
+#
+# You could copy-paste the above to ~/.pypirc, substitute your user name and
+# password, and things should work after that. See the following for more info:
+# https://packaging.python.org/en/latest/specifications/pypirc/
+
 test-pypi: create-dist
-	python3 -m twine upload --verbose --repository-url https://test.pypi.org/legacy/ dist/*
+	python3 -m twine upload --repository testpypi dist/*
 
 pypi: create-dist
 	python3 -m twine upload --verbose dist/*
@@ -110,5 +138,5 @@ clean:;
 	-rm -rf dist build $(name).egg-info codemeta.json.bak $(init_file).bak \
 	README.md.bak
 
-.PHONY: release release-on-github update-init-file update-codemeta-file \
+.PHONY: release release-on-github update-init update-meta \
 	print-instructions create-dist clean test-pypi pypi
