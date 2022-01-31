@@ -219,7 +219,7 @@ We would be happy to receive your help and participation with enhancing `pubarch
 ☥ License
 ----------
 
-Copyright &copy; 2019-2021, Caltech.  This software is freely distributed under a BSD 3-clause license.  Please see the [LICENSE](LICENSE) file for more information.
+Copyright &copy; 2019-2022, Caltech.  This software is freely distributed under a BSD 3-clause license.  Please see the [LICENSE](LICENSE) file for more information.
 
 
 ❡ Authors and history
