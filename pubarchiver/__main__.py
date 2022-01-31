@@ -291,6 +291,7 @@ Command-line options summary
             inform(f'Asking {handler.name} server for a list of all DOIs ...')
             articles = handler.all_articles()
             if articles:
+                inform(f'Got {len(articles)} DOIs from {handler.name}:')
                 print('\n'.join(article.doi for article in articles))
             else:
                 warn(f'Failed to get list of articles from {handler.name}')
