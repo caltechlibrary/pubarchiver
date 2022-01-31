@@ -89,12 +89,6 @@ PubArchiver is a command-line program.  The installation process should put a pr
 pubarchiver -h
 ```
 
-The following is a screen recording of an actual run of `pubarchiver`:
-
-<p align="center">
-  <a href="https://asciinema.org/a/260298"><img src="https://github.com/caltechlibrary/pubarchiver/blob/main/.graphics/pubarchiver-asciinema.png?raw=true" alt="Screencast of simple pubarchiver demo"></a>
-</p>
-
 
 ### _Basic usage_
 
