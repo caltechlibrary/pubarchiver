@@ -31,3 +31,8 @@ class PubArchiverException(Exception):
 class InternalError(Exception):
     '''Unrecoverable problem involving PubArchiver itself.'''
     pass
+
+
+class ServerError(Exception):
+    '''Unrecoverable problem involving a server contacted by PubArchiver.'''
+    pass
