@@ -29,27 +29,54 @@ Table of Contents
 ☀ Introduction
 -----------------------------
 
-The Caltech Library is the publisher of a few academic journals and provides services for them. The services include archiving in a dark archive (specifically, [Portico](https://www.portico.org)) as well as submitting articles to [PMC](https://www.ncbi.nlm.nih.gov/pmc/).  The archiving process involves pulling down articles from the journals and packaging them up in a format suitable for sending to the archives.  PubArchiver is a program to help automate this process.
+The Caltech Library is the publisher of a few academic journals and provides services for them. The services include archiving in a [dark archive](http://preservationmatters.blogspot.com/2013/05/light-dark-and-dim-archives-what-are.html) (specifically, [Portico](https://www.portico.org)) as well as submitting articles to [PMC](https://www.ncbi.nlm.nih.gov/pmc/).  The archiving process involves pulling down articles from the journals and packaging them up in a format suitable for sending to the archives.  PubArchiver is a program to help automate this process.
 
 
 ✺ Installation
 -------------
 
-On **Linux**, **macOS**, and **Windows** operating systems, you should be able to install PubArchiver directly from the GitHub repository using [pip](https://pip.pypa.io/en/stable/installing/).  If you don't have the `pip` package or are uncertain if you do, first run the following command in a terminal command line interpreter: 
-```
-sudo python3 -m ensurepip
+There are multiple ways of installing PubArchiver.  Please choose the alternative that suits you.
+
+### _Alternative 1: installing PubArchiver using `pipx`_
+
+You can use [pipx](https://pypa.github.io/pipx/) to install PubArchiver. Pipx will install it into a separate Python environment that isolates the dependencies needed by PubArchiver from other Python programs on your system, and yet the resulting `pubarchiver` command wil be executable from any shell &ndash; like any normal program on your computer. If you do not already have `pipx` on your system, it can be installed in a variety of easy ways and it is best to consult [Pipx's installation guide](https://pypa.github.io/pipx/installation/) for instructions. Once you have pipx on your system, you can install PubArchiver with the following command:
+```sh
+pipx install pubarchiver
 ```
 
-Then, install this software by running the following command on your computer:
+Pipx can also let you run PubArchiver directly using `pipx run pubarchiver`, although in that case, you must always prefix every `pubarchiver` command with `pipx run`.  Consult the [documentation for `pipx run`](https://github.com/pypa/pipx#walkthrough-running-an-application-in-a-temporary-virtual-environment) for more information.
+
+
+### _Alternative 2: installing PubArchiver using `pip`_
+
+The instructions below assume you have a Python 3 interpreter installed on your computer.  Note that the default on macOS at least through 10.14 (Mojave) is Python **2** &ndash; please first install Python version 3 and familiarize yourself with running Python programs on your system before proceeding further.
+
+On **Linux**, **macOS**, and **Windows** operating systems, you should be able to install `pubarchiver` with [`pip`](https://pip.pypa.io/en/stable/installing/) for Python&nbsp;3.  To install `pubarchiver` from the [Python package repository (PyPI)](https://pypi.org), run the following command:
 ```sh
-python3 -m pip install git+https://github.com/caltechlibrary/pubarchiver.git 
+python3 -m pip install pubarchiver
 ```
 
-Alternatively, you can clone this GitHub repository and then run `setup.py`:
+As an alternative to getting it from [PyPI](https://pypi.org), you can use `pip` to install `pubarchiver` directly from GitHub:
 ```sh
-git clone https://github.com/caltechlibrary/pubarchiver.git
+python3 -m pip install git+https://github.com/calitechlibrary/pubarchiver.git
+```
+
+_If you already installed PubArchiver once before_, and want to update to the latest version, add `--upgrade` to the end of either command line above.
+
+
+### _Alternative 3: installing PubArchiver from sources_
+
+If  you prefer to install PubArchiver directly from the source code, you can do that too. To get a copy of the files, you can clone the GitHub repository:
+```sh
+git clone https://github.com/caltechlibrary/pubarchiver
+```
+
+Alternatively, you can download the files as a ZIP archive using this link directly from your browser using this link: <https://github.com/caltechlibrary/pubarchiver/archive/refs/heads/main.zip>
+
+Next, after getting a copy of the files,  run `setup.py` inside the code directory:
+```sh
 cd pubarchiver
-python3 -m pip install .
+python3 setup.py install
 ```
 
 
