@@ -46,7 +46,7 @@ class Micropublication(JournalAdapter):
     uses_jats        = True
     metadata_source  = 'DataCite'
     base_urls        = ['https://www.micropublication.org']
-    article_list_url = 'https://www.micropublication.org/archive-list/'
+    article_list_url = 'https://portal.micropublication.org/api/export/archives.xml'
     archive_basename = 'micropublication-org'
 
 
@@ -116,30 +116,43 @@ class Micropublication(JournalAdapter):
         articles = []
         if type(xml) == str:
             # The micropublication xml declaration explicit uses ascii encoding.
-            xml = xml.encode('ascii')
+            xml = xml.encode('utf-8')
         try:
             for element in etree.fromstring(xml).findall('article'):
-                doi      = (element.find('doi').text or '').strip()
-                pdf      = (element.find('pdf-url').text or '').strip()
-                jats     = (element.find('jats-url').text or '').strip()
-                image    = (element.find('image-url').text or '').strip()
-                title    = (element.find('article-title').text or '').strip()
-                date     = element.find('date-published')
-                if date != None:
-                    year  = (date.find('year').text or '').strip()
-                    month = (date.find('month').text or '').strip()
-                    day   = (date.find('day').text or '').strip()
-                    date  = year + '-' + month + '-' + day
-                else:
-                    date = ''
-                basename = tail_of_doi(doi)
-                status = 'complete' if all([pdf, jats, doi, title, date]) else 'incomplete'
-                articles.append(Article(self.issn, doi, date, title,
-                                        basename, pdf, jats, image, status))
+                doi = ''
+                try:
+                    doi      = (element.find('doi').text or '').strip()
+                    pdf      = (element.find('pdf-url').text or '').strip()
+                    jats     = (element.find('jats-url').text or '').strip()
+                    image    = (element.find('image-url').text or '').strip()
+                    title_el = element.find('article-title')
+                    title    = (etree.tostring(title_el, encoding = 'utf-8',
+                                               method = 'text') or '').strip()
+                    date     = element.find('date-published')
+                    if date != None:
+                        year  = (date.find('year').text or '').strip()
+                        month = (date.find('month').text or '').strip()
+                        day   = (date.find('day').text or '').strip()
+                        date  = year + '-' + month.rjust(2, '0') + '-' + day.rjust(2, '0')
+                    else:
+                        date = ''
+                    basename = tail_of_doi(doi)
+                    status = 'complete' if all([pdf, jats, doi, title, date]) else 'incomplete'
+                    articles.append(Article(self.issn, doi, date, title,
+                                            basename, pdf, jats, image, status))
+                    if __debug__: log(f'parsed {doi}')
+                except Exception as ex:
+                    if doi:
+                        alert(f'Error parsing XML data for {doi} -- skipping')
+                        if __debug__: log(f'Parse error for {doi}: {str(ex)}')
+                    else:
+                        alert('Skipping unparseable XML element')
+                        if __debug__: log(str(ex))
+                    continue
         except Exception as ex:
             if __debug__: log(f'could not parse XML from server')
             alert('Unexpected or badly formed XML returned by server')
-        return articles
+        return sorted(articles, key = lambda item: item.date)
 
 
     def _articles_from_xml(self, xml_file):
