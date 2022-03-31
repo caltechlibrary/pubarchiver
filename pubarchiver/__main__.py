@@ -557,19 +557,25 @@ class MainBody(object):
         if article.image:
             if __debug__: log(f'downloading image file to {image_file}')
             if download_file(article.image, image_file):
-                with Image.open(image_file) as img:
-                    converted = image_without_alpha(img)
-                    converted = converted.convert('RGB')
-                    if __debug__: log(f'converting image to TIFF format')
-                    tiff_name = filename_basename(image_file) + '.tif'
-                    comments = tiff_comments(article, self.journal.name)
-                    # Using save() means only the 1st frame of a multiframe
-                    # image will be saved.
-                    converted.save(tiff_name, compression = None,
-                                   dpi = _TIFF_DPI, description = comments)
-                # We keep only the uncompressed TIFF version.
-                if __debug__: log(f'deleting original image file {image_file}')
-                delete_existing(image_file)
+                try:
+                    with Image.open(image_file) as img:
+                        converted = image_without_alpha(img)
+                        converted = converted.convert('RGB')
+                        if __debug__: log(f'converting image to TIFF format')
+                        tiff_name = filename_basename(image_file) + '.tif'
+                        comments = tiff_comments(article, self.journal.name)
+                        # Using save() means only the 1st frame of a multiframe
+                        # image will be saved.
+                        converted.save(tiff_name, compression = None,
+                                       dpi = _TIFF_DPI, description = comments)
+                    # We keep only the uncompressed TIFF version.
+                    if __debug__: log(f'deleting original image file {image_file}')
+                    delete_existing(image_file)
+                except Exception as ex:
+                    if __debug__: log(str(ex))
+                    warn(f'Encountered error trying to open image '
+                         + f'{article.image} saved in file {image_file}')
+                    article.status = 'failed-image-download'
             else:
                 warn(f'Failed to download image for {article.doi}')
                 article.status = 'failed-image-download'
