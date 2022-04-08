@@ -621,8 +621,9 @@ class MainBody(object):
                     tiff_file = filename_basename(image_file) + '.tif'
                     # Using save() means that only the 1st frame of a
                     # multiframe image will be saved.
-                    converted_img.save(tiff_file, dpi = _TIFF_DPI, compression = None,
-                                       description = tiff_comments(article))
+                    desc = tiff_comments(article, self.journal.name)
+                    converted_img.save(tiff_file, dpi = _TIFF_DPI,
+                                       compression = None, description = desc)
                     to_archive.append(tiff_file)
                 # We keep only the uncompressed TIFF version.
                 if __debug__: log(f'deleting original image file {image_file}')
