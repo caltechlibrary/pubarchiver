@@ -121,15 +121,13 @@ class Micropublication(JournalAdapter):
             for element in etree.fromstring(xml).findall('article'):
                 doi = ''
                 try:
-                    doi      = (element.find('doi').text or '').strip()
-                    pdf      = (element.find('pdf-url').text or '').strip()
-                    jats     = (element.find('jats-url').text or '').strip()
-                    image    = (element.find('image-url').text or '').strip()
-                    title_el = element.find('article-title')
-                    title    = (etree.tostring(title_el, encoding = 'utf-8',
-                                               method = 'text') or '').strip()
-                    date     = element.find('date-published')
-                    if date != None:
+                    doi   = field_text(element, 'doi')
+                    pdf   = field_text(element, 'pdf-url')
+                    jats  = field_text(element, 'jats-url')
+                    image = field_text(element, 'image-url')
+                    title = field_text(element, 'article-title')
+                    date  = element.find('date-published')
+                    if date is not None:
                         year  = (date.find('year').text or '').strip()
                         month = (date.find('month').text or '').strip()
                         day   = (date.find('day').text or '').strip()
@@ -188,3 +186,11 @@ def volume_for_year(year):
 def tail_of_doi(doi):
     slash = doi.rfind('/')
     return doi[slash + 1:]
+
+
+def field_text(element, field):
+    field_el = element.find(field)
+    if field_el is None:
+        return ''
+    as_text = etree.tostring(field_el, encoding = 'unicode', method = 'text')
+    return ' '.join(as_text.split())
