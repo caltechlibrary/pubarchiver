@@ -10,7 +10,7 @@ A program that creates archives of articles from specific journal sites (current
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-yellow.svg?style=flat-square)](https://choosealicense.com/licenses/bsd-3-clause)
 [![Python](https://img.shields.io/badge/Python-3.5+-brightgreen.svg?style=flat-square)](https://www.python.org/downloads/release/python-350/)
 [![Latest release](https://img.shields.io/github/v/release/caltechlibrary/pubarchiver.svg?style=flat-square&color=b44e88)](https://github.com/caltechlibrary/pubarchiver/releases)
-[![DOI](https://img.shields.io/badge/dynamic/json.svg?label=DOI&style=flat-square&colorA=gray&colorB=navy&query=$.metadata.doi&uri=https://data.caltech.edu/api/record/1982)](https://data.caltech.edu/records/1982)
+[![DOI](https://img.shields.io/badge/dynamic/json.svg?label=DOI&style=flat-square&colorA=gray&colorB=navy&query=$.metadata.doi&uri=https://data.caltech.edu/api/record/20094)](https://data.caltech.edu/records/20094)
 [![PyPI](https://img.shields.io/pypi/v/pubarchiver.svg?style=flat-square&color=red)](https://pypi.org/project/pubarchiver/)
 
 
