@@ -10,7 +10,7 @@ cff-version: "1.1.0"
 message: "If you use this software, please cite it using these metadata."
 repository-code: "https://github.com/caltechlibrary/pubarchiver"
 title: "PubArchiver: send journals to Portico and PMC"
-date-released: 2022-03-31
+date-released: 2022-04-08
 version: "2.1.0"
 doi: 10.22002/20020
 keywords: 
