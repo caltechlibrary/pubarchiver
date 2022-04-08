@@ -580,7 +580,7 @@ class MainBody(object):
                 warn(f'Failed to download image for {article.doi}')
                 article.status = 'failed-image-download'
         else:
-            if __debug__: log(f'skipping empty image URL for {article.doi}')
+            if __debug__: log(f'{article.doi} has no image (going on without it')
 
 
     def _save_article_pmc(self, dest_dir, article, xml, zip_articles):
@@ -631,7 +631,7 @@ class MainBody(object):
                 warn(f'Failed to download image for {article.doi}')
                 article.status = 'failed-image-download'
         else:
-            if __debug__: log(f'skipping empty image file URL for {article.doi}')
+            if __debug__: log(f'{article.doi} has no image (going on without it')
 
         # Finally, put the files into their own zip archive.
         if zip_articles:
