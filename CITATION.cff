@@ -11,7 +11,7 @@ message: "If you use this software, please cite it using these metadata."
 repository-code: "https://github.com/caltechlibrary/pubarchiver"
 title: "PubArchiver: send journals to Portico and PMC"
 date-released: 2022-04-08
-version: "2.1.0"
+version: "2.1.1"
 doi: 10.22002/20094
 keywords: 
   - archiving
