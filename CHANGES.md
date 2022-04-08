@@ -1,5 +1,10 @@
 # Change log for PubArchiver (née microarchiver)
 
+## Version 2.1.1
+
+This version fixes a bug with the generation of zip files for PMC.
+
+
 ## Version 2.1.0
 
 This version supports microPublication.org's new XML service.
