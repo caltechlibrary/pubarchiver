@@ -4,7 +4,7 @@
 # @brief   Script meant to be run from cron
 # @author  Michael Hucka <mhucka@caltech.edu>
 # @license Please see the file named LICENSE in the project directory
-# @website https://github.com/caltechlibrary/microarchiver
+# @website https://github.com/caltechlibrary/pubarchiver
 #
 # Principles:
 #
@@ -13,7 +13,7 @@
 #  2. The local output directory where files are saved is set by environment
 #     variable PMC_OUTPUT.
 #
-#  3. A timestamp file is created in the output directory, and microarchiver
+#  3. A timestamp file is created in the output directory, and pubarchiver
 #     is run with that date stamp as the "after date" argument.
 #
 #  4. Archives are created in subdirectories of the output directory named
@@ -45,7 +45,7 @@ mainscript=${BASH_SOURCE[0]}
 today=$(date +%Y-%m-%d)
 datestampfile=$PMC_OUTPUT/last-run-date
 
-# Today's run will be written in a subdirctory.  Note the subdirectory name
+# Today's run will be written in a subdirectory.  Note the subdirectory name
 # includes the current time, not just today's date, because otherwise we
 # would overwrite the previous data if we ran run multiple times per day.
 now=$(date +%Y-%m-%d-%H%M)
@@ -81,7 +81,7 @@ echo "" >> $log
 if [[ -e $datestampfile ]]; then
     read afterdate < $datestampfile
     # Go back one day to include the run date in the argument given to
-    # microarchiver's --after-date (or else we miss the day of the run itself).
+    # pubarchiver's --after-date (or else we miss the day of the run itself).
     afterdate=$(date -d "$afterdate -1 days" +"%Y-%m-%d")
 else
     # We've never run, or someone reset the date stamp.
@@ -89,12 +89,12 @@ else
     afterdate="1900-01-01"
 fi
 
-echo "=== Running microarchiver for articles since $afterdate ===" >> $log
+echo "=== Running pubarchiver for articles since $afterdate ===" >> $log
 echo "" >> $log
 # This will get all articles since the last successful run.  If there were
 # any failures, they will be tried again as a result of this, because we
 # don't upload and don't update the last-run date if there are any failures.
-run_microarchiver -s pmc -C -d $afterdate -o $outputdir -r $report -@ $debuglog
+run_pubarchiver -s pmc -C -d $afterdate -o $outputdir -r $report -@ $debuglog
 
 # Did we have validation failures?  Notify someone specifically about that.
 lines=$(egrep 'validation|missing|failed' $report | wc -l)
@@ -105,9 +105,9 @@ if [[ $lines -gt 0 ]]; then
 
     run_slack chat send --channel $SLACK_CHANNEL --color "#ff0000" \
           --title "Error: did not upload micropublication.org to PMC" \
-          --text "Microarchiver stopped PMC upload due to errors in $lines articles"
+          --text "Pubarchiver stopped PMC upload due to errors in $lines articles"
     run_slack file upload --channels $SLACK_CHANNEL --file "$log" \
-          --comment "Here is the microarchiver run log"
+          --comment "Here is the pubarchiver run log"
 else
     # If we didn't have validation errors, ftp any new archives to PMC.
     # Note: curl has weird syntax for sending multiple files at once.
@@ -131,7 +131,7 @@ else
     # Post the report to Slack.
 
     run_slack chat send --channel $SLACK_CHANNEL --color "#00ff00" \
-        --title "microarchiver successfully completed PMC upload"
+        --title "pubarchiver successfully completed PMC upload"
     run_slack file upload --channels $SLACK_CHANNEL --file $report \
         --comment "Here is the record of what was uploaded:"
 fi

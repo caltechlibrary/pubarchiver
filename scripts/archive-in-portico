@@ -4,7 +4,7 @@
 # @brief   Script meant to be run from cron
 # @author  Michael Hucka <mhucka@caltech.edu>
 # @license Please see the file named LICENSE in the project directory
-# @website https://github.com/caltechlibrary/microarchiver
+# @website https://github.com/caltechlibrary/pubarchiver
 #
 # Principles:
 #
@@ -13,7 +13,7 @@
 #  2. The local output directory where files are saved is set by environment
 #     variable PORTICO_OUTPUT.
 #
-#  3. A timestamp file is created in the output directory, and microarchiver
+#  3. A timestamp file is created in the output directory, and pubarchiver
 #     is run with that date stamp as the "after date" argument.
 #
 #  4. Archives are created in subdirectories of the output directory named
@@ -81,7 +81,7 @@ echo "" >> $log
 if [[ -e $datestampfile ]]; then
     read afterdate < $datestampfile
     # Go back one day to include the run date in the argument given to
-    # microarchiver's --after-date (or else we miss the day of the run itself).
+    # pubarchiver's --after-date (or else we miss the day of the run itself).
     afterdate=$(date -d "$afterdate -1 days" +"%Y-%m-%d")
 else
     # We've never run, or someone reset the date stamp.
@@ -89,26 +89,26 @@ else
     afterdate="1900-01-01"
 fi
 
-# Run microarchiver separately on past failures, leaving the results unpackaged
+# Run pubarchiver separately on past failures, leaving the results unpackaged
 # so that we can add to them the results of today's run.
 rerun_count=0
 if [[ -f $failurefile ]]; then
-    echo "=== Running microarchiver on past failures ===" >> $log
+    echo "=== Running pubarchiver on past failures ===" >> $log
     echo "" >> $log
     # Note the use of -Z to prevent zip'ing the final results.
-    run_microarchiver -s portico -Z -C -a $failurefile -o $outputdir -r $report \
+    run_pubarchiver -s portico -Z -C -a $failurefile -o $outputdir -r $report \
                       -f csv,html -t Past_failures_retried -@ $debuglog
     echo "" >> $log
 fi
 mv $outputdir/report.html $outputdir/rerun-report.html
 
-echo "=== Running microarchiver for new articles ===" >> $log
+echo "=== Running pubarchiver for new articles ===" >> $log
 echo "" >> $log
 this_report=$outputdir/latest-report.csv
 this_debuglog=$outputdir/latest-debug.log
 # This will add new articles to any existing ones from the past failures
 # code above, and this time will zip up the final result.
-run_microarchiver -s portico -C -d $afterdate -o $outputdir -r $this_report \
+run_pubarchiver -s portico -C -d $afterdate -o $outputdir -r $this_report \
                   -f csv,html -t $today -@ $this_debuglog
 
 # Combine separate report files, leave that, & delete the intermediate files.
