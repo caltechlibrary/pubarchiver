@@ -122,6 +122,8 @@ class Micropublication(JournalAdapter):
                 doi = ''
                 try:
                     doi   = field_text(element, 'doi')
+                    if not doi:
+                        doi = field_text(element, 'correctionDoi')
                     pdf   = field_text(element, 'pdf-url')
                     jats  = field_text(element, 'jats-url')
                     image = field_text(element, 'image-url')
