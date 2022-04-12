@@ -2,6 +2,11 @@
 
 ## Version 2.1.1
 
+This version supports parsing the `<correctionDoi>` field in the microPublication XML article list.
+
+
+## Version 2.1.1
+
 This version fixes a bug with the generation of zip files for PMC.
 
 
