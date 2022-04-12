@@ -12,7 +12,7 @@ repository-code: "https://github.com/caltechlibrary/pubarchiver"
 title: "PubArchiver: send journals to Portico and PMC"
 date-released: 2022-04-12
 version: "2.1.2"
-doi: 10.22002/20094
+doi: 10.22002/20100
 keywords: 
   - archiving
   - preservation
