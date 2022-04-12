@@ -6,7 +6,7 @@
   "codeRepository": "https://github.com/caltechlibrary/pubarchiver",
   "issueTracker": "https://github.com/caltechlibrary/pubarchiver/issues",
   "license": "https://data.caltech.edu/license",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "author": [
     {
       "@type": "Person",

@@ -23,7 +23,7 @@ file "LICENSE" for more information.
 #  |    by the Makefile. Manual changes to these values will be lost.      |
 #  ╰────────────────────── Notice ── Notice ── Notice ─────────────────────╯
 
-__version__     = '2.1.1'
+__version__     = '2.1.2'
 __description__ = 'Automation for archiving journals hosted by the Caltech Library'
 __url__         = 'https://github.com/caltechlibrary/pubarchiver'
 __author__      = 'Michael Hucka, Tom Morrell'
