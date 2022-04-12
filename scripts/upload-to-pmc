@@ -126,7 +126,7 @@ else
     echo $today > $datestampfile
 
     # Send email about the results.
-    grep -F "Total articles" $log | \
+    grep -F "Total articles" $log | sed 's/ left after filtering//g' | \
         mail -s "PMC upload results for $today" -a $report -a $log $EMAIL_SUCCESS
 
     # Post the report to Slack.
