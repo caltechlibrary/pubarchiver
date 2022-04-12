@@ -474,18 +474,31 @@ class MainBody(object):
         # error description if there is an error.
         saved_files = []
         for article in article_list:
+            # Prep a message in case we must report a problem.
+            if article.doi:
+                identifier = ' ' + article.doi
+            elif article.date:
+                identifier = ' from ' + article.date
+                if article.title:
+                    identifier += ' with title "' + article.title + '"'
+            elif article.title:
+                identifier = ' with title "' + article.title + '"'
+            else:
+                identifier = ''
+            skipping_preface = 'Skipping article' + identifier + ' because of '
+
             # Start by testing that we have all the data we will need.
             if not article.doi:
-                warn('Skipping article with missing DOI: ' + article.title)
+                warn(skipping_preface + 'missing DOI')
                 article.status = 'missing-doi'
                 continue
             if not article.pdf:
-                warn('Skipping article with missing PDF URL: ' + article.doi)
+                warn(skipping_preface + 'missing PDF URL')
                 article.status = 'missing-pdf'
                 continue
             if self.journal.uses_jats and not article.jats:
                 # We need JATS for PMC.
-                warn('Skipping article with missing JATS URL: ' + article.doi)
+                warn(skipping_preface + 'missing JATS URL')
                 article.status = 'missing-jats'
                 continue
             xmldict = self.journal.article_metadata(article)
@@ -543,7 +556,7 @@ class MainBody(object):
         if not download_file(article.jats, jats_file):
             warn(f'Could not download JATS file for {article.doi}')
             article.status = 'failed-jats-download'
-        if self.do_validate:
+        if self.do_validate and article.status != 'failed-jats-download':
             if not valid_xml(jats_file, self._dtd):
                 warn(f'Failed to validate JATS for article {article.doi}')
                 article.status = 'failed-jats-validation'
