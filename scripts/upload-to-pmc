@@ -94,7 +94,8 @@ echo "" >> $log
 # This will get all articles since the last successful run.  If there were
 # any failures, they will be tried again as a result of this, because we
 # don't upload and don't update the last-run date if there are any failures.
-run_pubarchiver -s pmc -C -d $afterdate -o $outputdir -r $report -@ $debuglog
+run_pubarchiver -j micropublication -d pmc -C -a $afterdate -o $outputdir \
+                -r $report -@ $debuglog
 
 # Did we have validation failures?  Notify someone specifically about that.
 lines=$(egrep 'validation|missing|failed' $report | wc -l)

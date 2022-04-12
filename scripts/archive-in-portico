@@ -96,8 +96,9 @@ if [[ -f $failurefile ]]; then
     echo "=== Running pubarchiver on past failures ===" >> $log
     echo "" >> $log
     # Note the use of -Z to prevent zip'ing the final results.
-    run_pubarchiver -s portico -Z -C -a $failurefile -o $outputdir -r $report \
-                      -f csv,html -t Past_failures_retried -@ $debuglog
+    run_pubarchiver -j micropublication -d portico -Z -C -f $failurefile \
+                     -o $outputdir -r $report -s csv,html \
+                     -t Past_failures_retried -@ $debuglog
     echo "" >> $log
 fi
 mv $outputdir/report.html $outputdir/rerun-report.html
@@ -108,8 +109,8 @@ this_report=$outputdir/latest-report.csv
 this_debuglog=$outputdir/latest-debug.log
 # This will add new articles to any existing ones from the past failures
 # code above, and this time will zip up the final result.
-run_pubarchiver -s portico -C -d $afterdate -o $outputdir -r $this_report \
-                  -f csv,html -t $today -@ $this_debuglog
+run_pubarchiver -j micropublication -d portico -C -a $afterdate -o $outputdir \
+                -r $this_report -s csv,html -t $today -@ $this_debuglog
 
 # Combine separate report files, leave that, & delete the intermediate files.
 tail -n +2 $this_report >> $report
@@ -139,7 +140,7 @@ echo $today > $datestampfile
 # Mail the report ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 grep -F "Total articles" $log | \
-    sed 's/Total //g;1 s/articles/Past failures retried/;2 s/articles/New &/' | \
+    sed 's/Total //g;1 s/articles left after filtering/Past failures retried/;2 s/ left after filtering//g;2 s/articles/New &/' | \
     mail -s "Portico archiving results for $today" \
          -a $outputdir/latest-report.html -a $outputdir/rerun-report.html \
          -a $log $EMAIL_SUCCESS
