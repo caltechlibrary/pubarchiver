@@ -128,7 +128,7 @@ if [[ $lines -gt 1 ]]; then
     archivefile=$outputdir/micropublication-org.zip
     echo "" >> $log
     echo "=== FTP'ing file using curl ===" >> $log
-    curl -T $archivefile ftp://ftp.portico.org \
+    curl -k -T $archivefile sftp://ftp.portico.org \
         --user $PORTICO_USER:$PORTICO_PASS >> $log 2>&1
 fi
 
