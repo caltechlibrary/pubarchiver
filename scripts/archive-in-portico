@@ -141,8 +141,8 @@ echo $today > $datestampfile
 grep -F "Total articles" $log | \
     sed 's/Total //g;1 s/articles left after filtering/Past failures retried/;2 s/ left after filtering//g;2 s/articles/New &/' | \
     mail -s "Portico archiving results for $today" \
-         -a $outputdir/latest-report.html -a $outputdir/rerun-report.html \
-         -a $log $EMAIL_SUCCESS
+         -A $outputdir/latest-report.html -A $outputdir/rerun-report.html \
+         -A $log $EMAIL_SUCCESS
 
 
 # Post the report to Slack ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
