@@ -8,6 +8,10 @@
 #
 # Principles:
 #
+#  0. The Python environment and the location of pubarchiver and the "slack"
+#     CLI utility are configured in the account running this program. (Mainly
+#     this means "pubarchiver" and "slack" are commands in the $PATH.)
+#
 #  1. The frequency of archives is set by the cron schedule, not in here.
 #
 #  2. The local output directory where files are saved is set by environment
@@ -57,15 +61,10 @@ report=$outputdir/report.csv
 debuglog=$outputdir/debug.log
 
 
-# Set up Python environment ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Define helper functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-CWD="$(cd -P -- "$(dirname -- "$mainscript")" && pwd -P)"
-source $CWD/env/bin/activate
-
-
-# Read helper functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-source $CWD/helpers.sh
+scriptdir="$(cd -P -- "$(dirname -- "$mainscript")" && pwd -P)"
+source $scriptdir/helpers.sh
 
 
 # Do the real work ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
