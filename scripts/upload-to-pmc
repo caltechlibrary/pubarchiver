@@ -101,7 +101,7 @@ lines=$(egrep 'validation|missing|failed' $report | wc -l)
 if [[ $lines -gt 0 ]]; then
     echo "The attached run log may provide clues about the errors." | \
     mail -s "PMC upload stopped $today due to errors in $lines articles" \
-         -a $report -a $log $EMAIL_FAILURE
+         -A $report -A $log $EMAIL_FAILURE
 
     run_slack chat send --channel $SLACK_CHANNEL --color "#ff0000" \
           --title "Error: did not upload micropublication.org to PMC" \
