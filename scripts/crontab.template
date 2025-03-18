@@ -1,9 +1,9 @@
 # -*- mode: sh -*-
 # =============================================================================
 # @file    crontab
-# @brief   Crontab file for running microarchiver for micropublication.org
+# @brief   Crontab file for running pubarchiver for micropublication.org
 # @author  Michael Hucka <mhucka@library.caltech.edu>
-# @website https://github.com/caltechlibrary/microarchiver
+# @website https://github.com/caltechlibrary/pubarchiver
 # =============================================================================
 
 # Environment variables used by cron.  (See man page for crontab(5).)
@@ -11,7 +11,7 @@
 
 MAILTO=CHANGEME
 
-# Environment variables used by the microarchiver scripts.
+# Environment variables used by the pubarchiver scripts.
 # .............................................................................
 
 EMAIL_SUCCESS="CHANGEME"
@@ -31,7 +31,7 @@ PMC_PASS=CHANGEME
 SLACK_CHANNEL=CHANGEME
 SLACK_CLI_TOKEN=CHANGEME
 
-# Schedule for microarchiver runs.  (Sourcing the user's .profile via the
+# Schedule for pubarchiver runs.  (Sourcing the user's .profile via the
 # ". $HOME/.profile" at the beginning is to get the user's $PATH.)
 # .............................................................................
 
