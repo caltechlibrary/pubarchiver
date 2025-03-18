@@ -1,7 +1,7 @@
-Scripts fro microarchiver
+Scripts for pubarchiver
 =========================
 
-These are the Bash scripts we use for running `microarchiver` at the Caltech Library.
+These are the Bash scripts we use for running `pubarchiver` at the Caltech Library.
 
 On our servers, the scripts are invoked using crontab entries based on the text in the file [`crontab.template`](crontab.template).  (The values listed as `CHANGEME` need to be adjusted for the specific computer installation being used.)
 
@@ -9,7 +9,7 @@ The actual scripts are [`archive-in-portico`](archive-in-portico) and [`upload-t
 
 The scripts assume that certain things are installed on the computer and are in the user's shell command search $path:
 
-* `microarchiver`
+* `pubarchiver`
 * `curl`
 * (optional) [`slack-cli`](https://github.com/rockymadden/slack-cli)
 * Common Linux/Unix programs such as `sed`, `grep`, `mail`, etc.
@@ -22,5 +22,5 @@ The scripts also depend on a Python `virtualenv` environment to be set up in the
 python3 -m pip install virtualenv --user
 virtualenv env
 source env/bin/activate
-python3 -m pip install microarchiver
+python3 -m pip install pubarchiver
 ```
