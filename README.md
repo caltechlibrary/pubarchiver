@@ -243,7 +243,7 @@ PubArchiver makes use of numerous open-source packages, without which it would h
 * [recordclass](https://github.com/intellimath/recordclass) &ndash; a mutable version of Python named tuples
 * [setuptools](https://github.com/pypa/setuptools) &ndash; library for `setup.py`
 * [sidetrack](https://github.com/caltechlibrary/sidetrack) &ndash; simple debug logging/tracing package
-* [slack-cli](https://github.com/rockymadden/slack-cli) &ndash; a command-line interface to Slack written in [Bash](https://www.gnu.org/software/bash/)
+* [slack-cli](https://github.com/rockymadden/slack-cli) &ndash; a command-line interface to Slack written in [Bash](https://www.gnu.org/software/bash/) ([caltechlibrary modified version](https://github.com/caltechlibrary/slack-cli/tree/files.upload-deprecation))
 * [urllib3](https://urllib3.readthedocs.io/en/latest/) &ndash; a powerful HTTP library for Python
 * [xmltodict](https://github.com/martinblech/xmltodict) &ndash; a module to make working with XML feel like working with JSON
 
