@@ -19,6 +19,21 @@ jobs:
         pip install -r requirements.txt
         pip install -e .
 
-    - name: Run PubArchiver
+    - name: Read the date stamp from the previous run
+      run: |
+        if [[ -f ".github/state/archive-in-portico/last-run-date" ]]; then
+          LAST_RUN_DATE=$(cat .github/state/archive-in-portico/last-run-date)
+          # Go back one day to include the run date itself
+          AFTER_DATE=$(date -d "$LAST_RUN_DATE -1 days" +"%Y-%m-%d")
+          echo "AFTER_DATE=$AFTER_DATE" >> "$GITHUB_ENV"
+        else
+          # We've never run, or someone reset the date stamp.
+          # Use a fake date that basically signifies "since forever".
+          echo "AFTER_DATE=1900-01-01" >> "$GITHUB_ENV"
+        fi
+
+    - name: Review environment
       run: |
         pubarchiver -V
+        # print all environment variables for debugging
+        printenv
