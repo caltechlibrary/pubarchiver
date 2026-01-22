@@ -31,10 +31,10 @@ fi
 # Determine color based on failures
 if [[ $SKIPPED_COUNT -gt 0 ]]; then
     COLOR="#ff0000"
-    TITLE="Portico archiving completed with failures"
+    TITLE="Portico run for micropublications.org completed with failures."
 else
     COLOR="#00ff00"
-    TITLE="Portico archiving completed successfully"
+    TITLE="Portico run for micropublications.org completed successfully."
 fi
 
 TEXT="Run completed on $(date +%Y-%m-%d). Articles skipped: $SKIPPED_COUNT"
