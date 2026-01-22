@@ -136,8 +136,10 @@ jobs:
     - name: Send email report
       if: always()
       env:
-        EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
         EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
+        EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
+        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
       run: |
         bash .github/scripts/mailgun.sh "${{ env.ARTIFACT_DIR }}"
 
