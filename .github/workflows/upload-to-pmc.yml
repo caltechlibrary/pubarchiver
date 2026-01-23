@@ -97,7 +97,7 @@ jobs:
               -T "{$(echo $ARCHIVEFILES | tr ' ' ',')}" \
               "${{ env.PMC_FTP_ADDRESS }}" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
             # Discard the zip files directory after successful upload
-            rm -rf "$ARTIFACT_DIR"/micropublication-org"
+            rm -rf "${ARTIFACT_DIR}/micropublication-org"
           fi
         fi
         echo "$TODAY" > "$STATE_DIR/last-run-date"
