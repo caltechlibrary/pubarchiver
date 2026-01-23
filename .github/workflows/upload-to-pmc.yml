@@ -106,16 +106,18 @@ jobs:
     - name: Upload to PMC FTP
       if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' }}
       run: |
-        set -uo pipefail
+        set -u
         CURL_STATUS=0
         if [[ ${TOTAL_LINES:-0} -gt 1 && ${COMPLETE_COUNT:-0} -gt 0 ]]; then
           ARCHIVEFILES=$(echo "$ARTIFACT_DIR"/micropublication-org/*.zip)
           if ls $ARCHIVEFILES >/dev/null 2>&1; then
             echo "=== FTP'ing file to PMC ===" | tee -a "$ARTIFACT_DIR/run.log"
+            set +e
             curl --retry 5 --user ${{ secrets.PMC_USER }}:${{ secrets.PMC_PASS }} \
               -T "{$(echo $ARCHIVEFILES | tr ' ' ',')}" \
               "${{ env.PMC_FTP_ADDRESS }}" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
-            CURL_STATUS=$?
+            CURL_STATUS=${PIPESTATUS[0]}
+            set -e
             if [[ $CURL_STATUS -eq 0 ]]; then
               rm -rf "${ARTIFACT_DIR}/micropublication-org"
             fi
