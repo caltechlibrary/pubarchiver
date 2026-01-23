@@ -77,32 +77,53 @@ jobs:
 
     - name: Run pubarchiver for new articles
       run: |
+        set -uo pipefail
         TODAY=$(date +%Y-%m-%d)
         echo "=== Running pubarchiver for new articles ===" | tee "$ARTIFACT_DIR/run.log"
         pubarchiver -j micropublication -d pmc -C -a "$AFTER_DATE" \
                     -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report.csv" \
                     -s csv,html -t "$TODAY" -@ "$ARTIFACT_DIR/debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+        status=${PIPESTATUS[0]}
+        echo "PUBARCHIVER_STATUS=$status" >> "$GITHUB_ENV"
         echo "TODAY=$TODAY" >> "$GITHUB_ENV"
 
-    - name: Upload to PMC FTP
+    - name: Evaluate report and counts
       run: |
+        set -euo pipefail
+        REPORT="$ARTIFACT_DIR/report.csv"
+        VALIDATION_ERRORS=0
+        COMPLETE_COUNT=0
+        TOTAL_LINES=0
+        if [[ -f "$REPORT" ]]; then
+          VALIDATION_ERRORS=$(grep -Eci "validation|missing|failed" "$REPORT" || true)
+          COMPLETE_COUNT=$(grep -c "complete" "$REPORT" || true)
+          TOTAL_LINES=$(wc -l < "$REPORT")
+        fi
+        echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> "$GITHUB_ENV"
+        echo "COMPLETE_COUNT=$COMPLETE_COUNT" >> "$GITHUB_ENV"
+        echo "TOTAL_LINES=$TOTAL_LINES" >> "$GITHUB_ENV"
+
+    - name: Upload to PMC FTP
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' }}
+      run: |
+        set -euo pipefail
         STATE_DIR=".github/state/upload-to-pmc"
         mkdir -p "$STATE_DIR"
-        LINES=$(wc -l < "$ARTIFACT_DIR/report.csv")
-        if [[ $LINES -gt 1 ]]; then
+        if [[ ${TOTAL_LINES:-0} -gt 1 && ${COMPLETE_COUNT:-0} -gt 0 ]]; then
           ARCHIVEFILES=$(echo "$ARTIFACT_DIR"/micropublication-org/*.zip)
           if ls $ARCHIVEFILES >/dev/null 2>&1; then
             echo "=== FTP'ing file to PMC ===" | tee -a "$ARTIFACT_DIR/run.log"
-            curl --retry 5 --user ${{ secrets.PMC_USER }}:${{ secrets.PMC_PASS }} \
+            if curl --retry 5 --user ${{ secrets.PMC_USER }}:${{ secrets.PMC_PASS }} \
               -T "{$(echo $ARCHIVEFILES | tr ' ' ',')}" \
-              "${{ env.PMC_FTP_ADDRESS }}" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
-            # Discard the zip files directory after successful upload
-            rm -rf "${ARTIFACT_DIR}/micropublication-org"
+              "${{ env.PMC_FTP_ADDRESS }}" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"; then
+              rm -rf "${ARTIFACT_DIR}/micropublication-org"
+            fi
           fi
         fi
         echo "$TODAY" > "$STATE_DIR/last-run-date"
 
     - name: Commit updated state files
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' }}
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -121,6 +142,18 @@ jobs:
       run: |
         bash .github/scripts/mailgun.sh "${{ env.ARTIFACT_DIR }}"
 
+    - name: Fail if pubarchiver errored
+      if: ${{ env.PUBARCHIVER_STATUS != '0' }}
+      run: |
+        echo "pubarchiver exited with status ${PUBARCHIVER_STATUS}" >&2
+        exit 1
+
+    - name: Fail if validation errors found
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS != '0' }}
+      run: |
+        echo "Validation or missing/failed entries detected: ${VALIDATION_ERRORS}" >&2
+        exit 1
+
     - name: Install slack-cli
       run: |
         git clone --depth 1 https://github.com/caltechlibrary/slack-cli "$RUNNER_TEMP/slack-cli"
@@ -133,7 +166,7 @@ jobs:
         SLACK_CLI_TOKEN: ${{ secrets.SLACK_CLI_TOKEN }}
         RUN_NAME: "PMC upload for micropublications.org"
       run: |
-        bash .github/scripts/slack.sh "${{ env.ARTIFACT_DIR }}"
+          bash .github/scripts/slack.sh "${{ env.ARTIFACT_DIR }}"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v6

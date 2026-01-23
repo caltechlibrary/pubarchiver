@@ -24,10 +24,10 @@ if [[ -z "${SLACK_CHANNEL:-}" ]]; then
     exit 0
 fi
 
-# Count skipped/failed articles
+# Count skipped/failed/validation issues
 SKIPPED_COUNT=0
 if [[ -f "$REPORT_CSV" ]]; then
-    SKIPPED_COUNT=$(grep -c "missing," "$REPORT_CSV" || true)
+    SKIPPED_COUNT=$(grep -Eci "missing|validation|failed" "$REPORT_CSV" || true)
 fi
 
 # Determine color based on failures

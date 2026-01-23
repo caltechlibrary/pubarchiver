@@ -16,7 +16,7 @@ RUN_NAME="${RUN_NAME:-}"
 RUN_DATE="$(date +%Y-%m-%d)"
 
 # Determine subject and recipient based on failures
-if [[ -f "$REPORT_CSV" ]] && grep -q "missing," "$REPORT_CSV"; then
+if [[ -f "$REPORT_CSV" ]] && grep -Eq "missing|validation|failed" "$REPORT_CSV"; then
     EMAIL_TO="${EMAIL_FAILURE:-}"
     SUBJECT="${RUN_NAME} completed with failures"
 else
