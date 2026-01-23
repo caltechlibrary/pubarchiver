@@ -51,6 +51,7 @@ CURL_CMD="$CURL_CMD -F text='${RUN_NAME} completed. See attached reports and log
 
 # Add attachments if they exist
 [[ -f "$LOG_FILE" ]] && CURL_CMD="$CURL_CMD -F attachment=@$LOG_FILE"
+[[ -f "$REPORT_CSV" ]] && CURL_CMD="$CURL_CMD -F attachment=@$REPORT_CSV"
 [[ -f "$REPORT_HTML" ]] && CURL_CMD="$CURL_CMD -F attachment=@$REPORT_HTML"
 [[ -f "$RERUN_REPORT_HTML" ]] && CURL_CMD="$CURL_CMD -F attachment=@$RERUN_REPORT_HTML"
 

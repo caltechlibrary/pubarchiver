@@ -56,4 +56,26 @@ slack chat send \
 }
 
 echo "Slack message posted to $SLACK_CHANNEL"
+
+# Upload files based on success/failure
+LOG_FILE="${ARTIFACT_DIR}/run.log"
+
+if [[ $PUBARCHIVER_STATUS != '0' ]] || [[ $VALIDATION_ERRORS != '0' ]] || [[ $CURL_STATUS != '0' ]]; then
+    # On failure, upload the log file
+    if [[ -f "$LOG_FILE" ]]; then
+        slack file upload --channels "$SLACK_CHANNEL" --file "$LOG_FILE" \
+            --comment "Here is the run log:" || {
+            echo "Failed to upload log file to Slack" >&2
+        }
+    fi
+else
+    # On success, upload the report
+    if [[ -f "$REPORT_CSV" ]]; then
+        slack file upload --channels "$SLACK_CHANNEL" --file "$REPORT_CSV" \
+            --comment "Here is the record of what was uploaded:" || {
+            echo "Failed to upload report to Slack" >&2
+        }
+    fi
+fi
+
 exit 0
