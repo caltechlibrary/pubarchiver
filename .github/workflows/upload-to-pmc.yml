@@ -192,6 +192,7 @@ jobs:
         bash .github/scripts/slack.sh "${{ env.ARTIFACT_DIR }}"
 
     - name: Upload artifact
+      if: always()
       uses: actions/upload-artifact@v6
       with:
         path: ${{ env.ARTIFACT_DIR }}
