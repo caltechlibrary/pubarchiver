@@ -14,11 +14,20 @@ RERUN_REPORT_HTML="${ARTIFACT_DIR}/rerun-report.html"
 LOG_FILE="${ARTIFACT_DIR}/run.log"
 RUN_NAME="${RUN_NAME:-}"
 RUN_DATE="$(date +%Y-%m-%d)"
+PUBARCHIVER_STATUS="${PUBARCHIVER_STATUS:-0}"
+VALIDATION_ERRORS="${VALIDATION_ERRORS:-0}"
+CURL_STATUS="${CURL_STATUS:-0}"
 
 # Determine subject and recipient based on failures
-if [[ -f "$REPORT_CSV" ]] && grep -Eq "missing|validation|failed" "$REPORT_CSV"; then
+if [[ $PUBARCHIVER_STATUS != '0' ]] || [[ $VALIDATION_ERRORS != '0' ]] || [[ $CURL_STATUS != '0' ]]; then
     EMAIL_TO="${EMAIL_FAILURE:-}"
-    SUBJECT="${RUN_NAME} completed with failures"
+    if [[ $PUBARCHIVER_STATUS != '0' ]]; then
+        SUBJECT="${RUN_NAME} failed: pubarchiver error"
+    elif [[ $VALIDATION_ERRORS != '0' ]]; then
+        SUBJECT="${RUN_NAME} failed: ${VALIDATION_ERRORS} articles with validation errors"
+    else
+        SUBJECT="${RUN_NAME} failed: FTP upload error"
+    fi
 else
     EMAIL_TO="${EMAIL_SUCCESS:-}"
     SUBJECT="${RUN_NAME} results for ${RUN_DATE}"

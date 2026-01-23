@@ -11,6 +11,9 @@ ARTIFACT_DIR="$1"
 REPORT_CSV="${ARTIFACT_DIR}/report.csv"
 RUN_NAME="${RUN_NAME:-}"
 RUN_DATE="$(date +%Y-%m-%d)"
+PUBARCHIVER_STATUS="${PUBARCHIVER_STATUS:-0}"
+VALIDATION_ERRORS="${VALIDATION_ERRORS:-0}"
+CURL_STATUS="${CURL_STATUS:-0}"
 
 # Check if slack CLI is available
 if ! command -v slack &>/dev/null; then
@@ -24,22 +27,24 @@ if [[ -z "${SLACK_CHANNEL:-}" ]]; then
     exit 0
 fi
 
-# Count skipped/failed/validation issues
-SKIPPED_COUNT=0
-if [[ -f "$REPORT_CSV" ]]; then
-    SKIPPED_COUNT=$(grep -Eci "missing|validation|failed" "$REPORT_CSV" || true)
-fi
-
-# Determine color based on failures
-if [[ $SKIPPED_COUNT -gt 0 ]]; then
+# Determine overall status
+if [[ $PUBARCHIVER_STATUS != '0' ]]; then
     COLOR="#ff0000"
-    TITLE="${RUN_NAME} completed with failures."
+    TITLE="${RUN_NAME} failed: pubarchiver exited with status ${PUBARCHIVER_STATUS}."
+    TEXT="Check logs for details."
+elif [[ $VALIDATION_ERRORS != '0' ]]; then
+    COLOR="#ff0000"
+    TITLE="${RUN_NAME} failed: ${VALIDATION_ERRORS} articles had validation/processing errors."
+    TEXT="Run completed on ${RUN_DATE}. Articles skipped: ${VALIDATION_ERRORS}"
+elif [[ $CURL_STATUS != '0' ]]; then
+    COLOR="#ff0000"
+    TITLE="${RUN_NAME} failed: FTP upload to PMC failed with status ${CURL_STATUS}."
+    TEXT="Archives were not uploaded. Will retry on next run."
 else
     COLOR="#00ff00"
     TITLE="${RUN_NAME} completed successfully."
+    TEXT="Run completed on ${RUN_DATE}. Archives uploaded to PMC."
 fi
-
-TEXT="Run completed on ${RUN_DATE}. Articles skipped: ${SKIPPED_COUNT}"
 
 slack chat send \
     --channel "$SLACK_CHANNEL" \
