@@ -90,14 +90,14 @@ jobs:
         mkdir -p "$STATE_DIR"
         LINES=$(wc -l < "$ARTIFACT_DIR/report.csv")
         if [[ $LINES -gt 1 ]]; then
-          ARCHIVES=$(echo "$ARTIFACT_DIR"/micropublication-org/*.zip)
-          if ls $ARCHIVES >/dev/null 2>&1; then
+          ARCHIVEFILES=$(echo "$ARTIFACT_DIR"/micropublication-org/*.zip)
+          if ls $ARCHIVEFILES >/dev/null 2>&1; then
             echo "=== FTP'ing file to PMC ===" | tee -a "$ARTIFACT_DIR/run.log"
             curl --retry 5 --user ${{ secrets.PMC_USER }}:${{ secrets.PMC_PASS }} \
-              -T "{$(echo $ARCHIVES | tr ' ' ',')}" \
+              -T "{$(echo $ARCHIVEFILES | tr ' ' ',')}" \
               "${{ env.PMC_FTP_ADDRESS }}" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
-          else
-            echo "No archive files found to upload." | tee -a "$ARTIFACT_DIR/run.log"
+            # Discard the zip file after successful upload
+            rm -f "$ARCHIVEFILES"
           fi
         fi
         echo "$TODAY" > "$STATE_DIR/last-run-date"
