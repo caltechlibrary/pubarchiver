@@ -12,14 +12,16 @@ REPORT_CSV="${ARTIFACT_DIR}/report.csv"
 REPORT_HTML="${ARTIFACT_DIR}/report.html"
 RERUN_REPORT_HTML="${ARTIFACT_DIR}/rerun-report.html"
 LOG_FILE="${ARTIFACT_DIR}/run.log"
+RUN_NAME="${RUN_NAME:-}"
+RUN_DATE="$(date +%Y-%m-%d)"
 
 # Determine subject and recipient based on failures
 if [[ -f "$REPORT_CSV" ]] && grep -q "missing," "$REPORT_CSV"; then
     EMAIL_TO="${EMAIL_FAILURE:-}"
-    SUBJECT="Portico archiving completed with failures"
+    SUBJECT="${RUN_NAME} completed with failures"
 else
     EMAIL_TO="${EMAIL_SUCCESS:-}"
-    SUBJECT="Portico archiving results for $(date +%Y-%m-%d)"
+    SUBJECT="${RUN_NAME} results for ${RUN_DATE}"
 fi
 
 # Ensure we have an email address
@@ -36,7 +38,7 @@ CURL_CMD="curl -s --user \"api:${MAILGUN_API_KEY}\" \
   -F subject=\"$SUBJECT\""
 
 # Add text body
-CURL_CMD="$CURL_CMD -F text='Archive run completed. See attached reports and logs.'"
+CURL_CMD="$CURL_CMD -F text='${RUN_NAME} completed. See attached reports and logs.'"
 
 # Add attachments if they exist
 [[ -f "$LOG_FILE" ]] && CURL_CMD="$CURL_CMD -F attachment=@$LOG_FILE"

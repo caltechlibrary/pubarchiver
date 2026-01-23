@@ -140,6 +140,7 @@ jobs:
         EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
         MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
         MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
+        RUN_NAME: "Portico archiving"
       run: |
         bash .github/scripts/mailgun.sh "${{ env.ARTIFACT_DIR }}"
 
@@ -153,6 +154,7 @@ jobs:
       env:
         SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
         SLACK_CLI_TOKEN: ${{ secrets.SLACK_CLI_TOKEN }}
+        RUN_NAME: "Portico run for micropublications.org"
       run: |
         bash .github/scripts/slack.sh "${{ env.ARTIFACT_DIR }}"
 

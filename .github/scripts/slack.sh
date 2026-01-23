@@ -9,6 +9,8 @@ fi
 
 ARTIFACT_DIR="$1"
 REPORT_CSV="${ARTIFACT_DIR}/report.csv"
+RUN_NAME="${RUN_NAME:-}"
+RUN_DATE="$(date +%Y-%m-%d)"
 
 # Check if slack CLI is available
 if ! command -v slack &>/dev/null; then
@@ -31,13 +33,13 @@ fi
 # Determine color based on failures
 if [[ $SKIPPED_COUNT -gt 0 ]]; then
     COLOR="#ff0000"
-    TITLE="Portico run for micropublications.org completed with failures."
+    TITLE="${RUN_NAME} completed with failures."
 else
     COLOR="#00ff00"
-    TITLE="Portico run for micropublications.org completed successfully."
+    TITLE="${RUN_NAME} completed successfully."
 fi
 
-TEXT="Run completed on $(date +%Y-%m-%d). Articles skipped: $SKIPPED_COUNT"
+TEXT="Run completed on ${RUN_DATE}. Articles skipped: ${SKIPPED_COUNT}"
 
 slack chat send \
     --channel "$SLACK_CHANNEL" \
