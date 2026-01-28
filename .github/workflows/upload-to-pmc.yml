@@ -1,0 +1,199 @@
+name: Upload to PMC
+
+# Required configuration
+# vars:
+#   PMC_FTP_ADDRESS     # FTP/SFTP endpoint for PMC uploads (e.g., ftp://ftp-private.ncbi.nlm.nih.gov/)
+#   EMAIL_SUCCESS       # comma-separated recipients for success mail
+#   EMAIL_FAILURE       # comma-separated recipients for failure mail
+#   MAILGUN_DOMAIN      # Mailgun domain (used by .github/scripts/mailgun.sh)
+#   SLACK_CHANNEL       # Slack channel ID for notifications (used by .github/scripts/slack.sh)
+# secrets:
+#   PMC_USER            # PMC FTP username
+#   PMC_PASS            # PMC FTP password
+#   MAILGUN_API_KEY     # Mailgun API key (used by .github/scripts/mailgun.sh)
+#   SLACK_CLI_TOKEN     # Slack CLI token (used by .github/scripts/slack.sh)
+
+on: workflow_dispatch
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    env:
+      PMC_FTP_ADDRESS: ${{ vars.PMC_FTP_ADDRESS || 'ftp://ftp-private.ncbi.nlm.nih.gov/' }}
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Validate required config
+      env:
+        PMC_FTP_ADDRESS: ${{ env.PMC_FTP_ADDRESS }}
+        EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
+        EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
+        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
+        SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
+        PMC_USER: ${{ secrets.PMC_USER }}
+        PMC_PASS: ${{ secrets.PMC_PASS }}
+        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+        SLACK_CLI_TOKEN: ${{ secrets.SLACK_CLI_TOKEN }}
+      run: |
+        missing=()
+        for v in PMC_FTP_ADDRESS EMAIL_SUCCESS EMAIL_FAILURE MAILGUN_DOMAIN SLACK_CHANNEL PMC_USER PMC_PASS MAILGUN_API_KEY SLACK_CLI_TOKEN; do
+          if [[ -z "${!v:-}" ]]; then
+            missing+=("$v")
+          fi
+        done
+        if (( ${#missing[@]} > 0 )); then
+          echo "Missing required configuration: ${missing[*]}" >&2
+          exit 1
+        fi
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -e .
+
+    - name: Read the date stamp from the previous run
+      run: |
+        STATE_DIR=".github/state/upload-to-pmc"
+        if [[ -f "${STATE_DIR}/last-run-date" ]]; then
+          LAST_RUN_DATE=$(cat "${STATE_DIR}/last-run-date")
+          AFTER_DATE=$(date -d "$LAST_RUN_DATE -1 days" +"%Y-%m-%d")
+          echo "AFTER_DATE=$AFTER_DATE" >> "$GITHUB_ENV"
+        else
+          echo "AFTER_DATE=1900-01-01" >> "$GITHUB_ENV"
+        fi
+
+    - name: Create artifact directory
+      run: |
+        NOW=$(date +%Y-%m-%d-%H%M)
+        ARTIFACT_DIR="$RUNNER_TEMP/$NOW"
+        mkdir -p "$ARTIFACT_DIR"
+        echo "ARTIFACT_DIR=$ARTIFACT_DIR" >> "$GITHUB_ENV"
+
+    - name: Run pubarchiver for new articles
+      run: |
+        set -uo pipefail
+        TODAY=$(date +%Y-%m-%d)
+        echo "=== Running pubarchiver for new articles ===" | tee "$ARTIFACT_DIR/run.log"
+        pubarchiver -j micropublication -d pmc -C -a "$AFTER_DATE" \
+                    -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report.csv" \
+                    -s csv,html -t "$TODAY" -@ "$ARTIFACT_DIR/debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+        status=${PIPESTATUS[0]}
+        echo "PUBARCHIVER_STATUS=$status" >> "$GITHUB_ENV"
+        echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+
+    - name: Evaluate report and counts
+      run: |
+        set -euo pipefail
+        REPORT="$ARTIFACT_DIR/report.csv"
+        VALIDATION_ERRORS=0
+        COMPLETE_COUNT=0
+        TOTAL_LINES=0
+        if [[ -f "$REPORT" ]]; then
+          VALIDATION_ERRORS=$(grep -Eci "validation|missing|failed" "$REPORT" || true)
+          COMPLETE_COUNT=$(grep -c "complete" "$REPORT" || true)
+          TOTAL_LINES=$(wc -l < "$REPORT")
+        fi
+        echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> "$GITHUB_ENV"
+        echo "COMPLETE_COUNT=$COMPLETE_COUNT" >> "$GITHUB_ENV"
+        echo "TOTAL_LINES=$TOTAL_LINES" >> "$GITHUB_ENV"
+
+    - name: Upload to PMC FTP
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' }}
+      run: |
+        set -u
+        CURL_STATUS=0
+        if [[ ${TOTAL_LINES:-0} -gt 1 && ${COMPLETE_COUNT:-0} -gt 0 ]]; then
+          ARCHIVEFILES=$(echo "$ARTIFACT_DIR"/micropublication-org/*.zip)
+          if ls $ARCHIVEFILES >/dev/null 2>&1; then
+            echo "=== FTP'ing file to PMC ===" | tee -a "$ARTIFACT_DIR/run.log"
+            set +e
+            curl --retry 5 --user ${{ secrets.PMC_USER }}:${{ secrets.PMC_PASS }} \
+              -T "{$(echo $ARCHIVEFILES | tr ' ' ',')}" \
+              "${{ env.PMC_FTP_ADDRESS }}" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+            CURL_STATUS=${PIPESTATUS[0]}
+            set -e
+            if [[ $CURL_STATUS -eq 0 ]]; then
+              rm -rf "${ARTIFACT_DIR}/micropublication-org"
+            fi
+          fi
+        fi
+        echo "CURL_STATUS=$CURL_STATUS" >> "$GITHUB_ENV"
+
+    - name: Update state files
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS == '0' }}
+      run: |
+        STATE_DIR=".github/state/upload-to-pmc"
+        mkdir -p "$STATE_DIR"
+        echo "$TODAY" > "$STATE_DIR/last-run-date"
+
+    - name: Commit updated state files
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS == '0' }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add .github/state/upload-to-pmc/last-run-date
+        git commit -m "Update upload-to-pmc state files"
+        git push origin HEAD:${{ github.ref }}
+
+    - name: Send email report
+      if: always()
+      env:
+        EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
+        EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
+        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
+        RUN_NAME: "PMC upload"
+        PUBARCHIVER_STATUS: ${{ env.PUBARCHIVER_STATUS }}
+        VALIDATION_ERRORS: ${{ env.VALIDATION_ERRORS }}
+        CURL_STATUS: ${{ env.CURL_STATUS }}
+      run: |
+        bash .github/scripts/mailgun.sh "${{ env.ARTIFACT_DIR }}"
+
+    - name: Fail if pubarchiver errored
+      if: ${{ env.PUBARCHIVER_STATUS != '0' }}
+      run: |
+        echo "pubarchiver exited with status ${PUBARCHIVER_STATUS}" >&2
+        exit 1
+
+    - name: Fail if validation errors found
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS != '0' }}
+      run: |
+        echo "Validation or missing/failed entries detected: ${VALIDATION_ERRORS}" >&2
+        exit 1
+
+    - name: Fail if curl upload failed
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS != '0' }}
+      run: |
+        echo "Curl FTP upload to PMC failed with status ${CURL_STATUS}" >&2
+        exit 1
+
+    - name: Install slack-cli
+      if: always()
+      run: |
+        git clone --depth 1 https://github.com/caltechlibrary/slack-cli "$RUNNER_TEMP/slack-cli"
+        echo "$RUNNER_TEMP/slack-cli/src" >> "$GITHUB_PATH"
+
+    - name: Post to Slack
+      if: always()
+      env:
+        SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
+        SLACK_CLI_TOKEN: ${{ secrets.SLACK_CLI_TOKEN }}
+        RUN_NAME: "PMC upload for micropublications.org"
+        PUBARCHIVER_STATUS: ${{ env.PUBARCHIVER_STATUS }}
+        VALIDATION_ERRORS: ${{ env.VALIDATION_ERRORS }}
+        CURL_STATUS: ${{ env.CURL_STATUS }}
+      run: |
+        bash .github/scripts/slack.sh "${{ env.ARTIFACT_DIR }}"
+
+    - name: Upload artifact
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        path: ${{ env.ARTIFACT_DIR }}
+        compression-level: 9

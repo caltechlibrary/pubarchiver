@@ -1,0 +1,165 @@
+name: Archive in Portico
+
+# Required configuration
+# vars:
+#   PORTICO_FTP_ADDRESS   # SFTP endpoint for Portico uploads (e.g., sftp://ftp.portico.org)
+#   EMAIL_SUCCESS         # comma-separated recipients for success mail
+#   EMAIL_FAILURE         # comma-separated recipients for failure mail
+#   MAILGUN_DOMAIN        # Mailgun domain (used by .github/scripts/mailgun.sh)
+#   SLACK_CHANNEL         # Slack channel ID for notifications (used by .github/scripts/slack.sh)
+# secrets:
+#   PORTICO_USER          # Portico SFTP username
+#   PORTICO_PASS          # Portico SFTP password
+#   MAILGUN_API_KEY       # Mailgun API key (used by .github/scripts/mailgun.sh)
+#   SLACK_CLI_TOKEN       # Slack CLI token (used by .github/scripts/slack.sh)
+
+on: workflow_dispatch
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Validate required config
+      env:
+        PORTICO_FTP_ADDRESS: ${{ vars.PORTICO_FTP_ADDRESS }}
+        EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
+        EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
+        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
+        SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
+        PORTICO_USER: ${{ secrets.PORTICO_USER }}
+        PORTICO_PASS: ${{ secrets.PORTICO_PASS }}
+        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+        SLACK_CLI_TOKEN: ${{ secrets.SLACK_CLI_TOKEN }}
+      run: |
+        missing=()
+        for v in PORTICO_FTP_ADDRESS EMAIL_SUCCESS EMAIL_FAILURE MAILGUN_DOMAIN SLACK_CHANNEL PORTICO_USER PORTICO_PASS MAILGUN_API_KEY SLACK_CLI_TOKEN; do
+          if [[ -z "${!v:-}" ]]; then
+            missing+=("$v")
+          fi
+        done
+        if (( ${#missing[@]} > 0 )); then
+          echo "Missing required configuration: ${missing[*]}" >&2
+          exit 1
+        fi
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      # No worries about global installs when using a GitHub-hosted runner.
+      run: |
+        pip install -r requirements.txt
+        pip install -e .
+
+    - name: Read the date stamp from the previous run
+      run: |
+        if [[ -f ".github/state/archive-in-portico/last-run-date" ]]; then
+          LAST_RUN_DATE=$(cat .github/state/archive-in-portico/last-run-date)
+          # Go back one day to include the run date itself
+          AFTER_DATE=$(date -d "$LAST_RUN_DATE -1 days" +"%Y-%m-%d")
+          echo "AFTER_DATE=$AFTER_DATE" >> "$GITHUB_ENV"
+        else
+          # We've never run, or someone reset the date stamp.
+          # Use a fake date that basically signifies "since forever".
+          echo "AFTER_DATE=1900-01-01" >> "$GITHUB_ENV"
+        fi
+
+    - name: Create artifact directory
+      run: |
+        NOW=$(date +%Y-%m-%d-%H%M)
+        ARTIFACT_DIR="$RUNNER_TEMP/$NOW"
+        mkdir -p "$ARTIFACT_DIR"
+        echo "ARTIFACT_DIR=$ARTIFACT_DIR" >> "$GITHUB_ENV"
+
+    - name: Run pubarchiver for past failures
+      run: |
+        FAILURES_FILE=".github/state/archive-in-portico/last-failures"
+        if [[ -f "$FAILURES_FILE" ]] && [[ -s "$FAILURES_FILE" ]]; then
+          echo "=== Running pubarchiver on past failures ===" | tee "$ARTIFACT_DIR/run.log"
+          # Note the use of -Z to prevent zip'ing the final results.
+          pubarchiver -j micropublication -d portico -Z -C -f "$FAILURES_FILE" \
+                      -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report.csv" -s csv,html \
+                      -t "Past_failures_retried" -@ "$ARTIFACT_DIR/debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+          [[ -f "$ARTIFACT_DIR/report.html" ]] && mv "$ARTIFACT_DIR/report.html" "$ARTIFACT_DIR/rerun-report.html"
+        fi
+
+    - name: Run pubarchiver for new articles
+      run: |
+        TODAY=$(date +%Y-%m-%d)
+        echo "" | tee -a "$ARTIFACT_DIR/run.log"
+        echo "=== Running pubarchiver for new articles ===" | tee -a "$ARTIFACT_DIR/run.log"
+        pubarchiver -j micropublication -d portico -C -a "${{ env.AFTER_DATE }}" \
+                    -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/latest-report.csv" \
+                    -s csv,html -t "$TODAY" -@ "$ARTIFACT_DIR/latest-debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+        # Combine reports
+        tail -n +2 "$ARTIFACT_DIR/latest-report.csv" >> "$ARTIFACT_DIR/report.csv"
+        tail "$ARTIFACT_DIR/latest-debug.log" >> "$ARTIFACT_DIR/debug.log"
+        rm -f "$ARTIFACT_DIR/latest-report.csv" "$ARTIFACT_DIR/latest-debug.log"
+        # Write state files directly to state directory
+        STATE_DIR=".github/state/archive-in-portico"
+        mkdir -p "$STATE_DIR"
+        grep -i "missing," "$ARTIFACT_DIR/report.csv" | cut -f2 -d',' > "$STATE_DIR/last-failures" || true
+        echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+
+    - name: Upload to Portico FTP
+      run: |
+        # Note #1: the file redirection is to avoid wc printing the file name.
+        # Note #2: the -gt 1 is to skip the header line when counting the lines.
+        LINES=$(wc -l < "$ARTIFACT_DIR/report.csv")
+        if [[ $LINES -gt 1 ]]; then
+          ARCHIVEFILE="$ARTIFACT_DIR/micropublication-org.zip"
+          if [[ -f "$ARCHIVEFILE" ]]; then
+            echo "=== FTP'ing file to Portico ===" | tee -a "$ARTIFACT_DIR/run.log"
+            curl -k -T "$ARCHIVEFILE" ${{ vars.PORTICO_FTP_ADDRESS }} \
+              --user ${{ secrets.PORTICO_USER }}:${{ secrets.PORTICO_PASS }} 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+            # Discard the zip file after successful upload
+            rm -f "$ARCHIVEFILE"
+          fi
+        fi
+        # If we get this far, write out a date stamp file to indicate that things
+        # ran successfully and to give the next run a starting point.
+        echo "$TODAY" > ".github/state/archive-in-portico/last-run-date"
+
+    - name: Commit updated state files
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add .github/state/archive-in-portico/last-failures .github/state/archive-in-portico/last-run-date
+        git commit -m "Update archive-in-portico state files"
+        git push origin HEAD:${{ github.ref }}
+
+    - name: Send email report
+      if: always()
+      env:
+        EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
+        EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
+        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
+        RUN_NAME: "Portico archiving"
+      run: |
+        bash .github/scripts/mailgun.sh "${{ env.ARTIFACT_DIR }}"
+
+    - name: Install slack-cli
+      run: |
+        git clone --depth 1 https://github.com/caltechlibrary/slack-cli "$RUNNER_TEMP/slack-cli"
+        echo "$RUNNER_TEMP/slack-cli/src" >> "$GITHUB_PATH"
+
+    - name: Post to Slack
+      if: always()
+      env:
+        SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
+        SLACK_CLI_TOKEN: ${{ secrets.SLACK_CLI_TOKEN }}
+        RUN_NAME: "Portico run for micropublications.org"
+      run: |
+        bash .github/scripts/slack.sh "${{ env.ARTIFACT_DIR }}"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v6
+      with:
+        path: ${{ env.ARTIFACT_DIR }}
+        compression-level: 9
