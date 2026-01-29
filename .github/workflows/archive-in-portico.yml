@@ -106,26 +106,48 @@ jobs:
         grep -i "missing," "$ARTIFACT_DIR/report.csv" | cut -f2 -d',' > "$STATE_DIR/last-failures" || true
         echo "TODAY=$TODAY" >> "$GITHUB_ENV"
 
+    - name: Evaluate report and failures
+      run: |
+        set -euo pipefail
+        REPORT="$ARTIFACT_DIR/report.csv"
+        VALIDATION_ERRORS=0
+        if [[ -f "$REPORT" ]]; then
+          VALIDATION_ERRORS=$(grep -Eci "validation|missing|failed" "$REPORT" || true)
+        fi
+        echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> "$GITHUB_ENV"
+
     - name: Upload to Portico FTP
       run: |
         # Note #1: the file redirection is to avoid wc printing the file name.
         # Note #2: the -gt 1 is to skip the header line when counting the lines.
+        set -u
+        CURL_STATUS=0
         LINES=$(wc -l < "$ARTIFACT_DIR/report.csv")
         if [[ $LINES -gt 1 ]]; then
           ARCHIVEFILE="$ARTIFACT_DIR/micropublication-org.zip"
           if [[ -f "$ARCHIVEFILE" ]]; then
             echo "=== FTP'ing file to Portico ===" | tee -a "$ARTIFACT_DIR/run.log"
+            set +e
             curl -k -T "$ARCHIVEFILE" ${{ vars.PORTICO_FTP_ADDRESS }} \
               --user ${{ secrets.PORTICO_USER }}:${{ secrets.PORTICO_PASS }} 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
-            # Discard the zip file after successful upload
+            CURL_STATUS=${PIPESTATUS[0]}
+            set -e
+            # Discard the zip file.
             rm -f "$ARCHIVEFILE"
           fi
         fi
-        # If we get this far, write out a date stamp file to indicate that things
-        # ran successfully and to give the next run a starting point.
-        echo "$TODAY" > ".github/state/archive-in-portico/last-run-date"
+        echo "CURL_STATUS=$CURL_STATUS" >> "$GITHUB_ENV"
+
+    - name: Update state files
+      if: ${{ env.VALIDATION_ERRORS == '0' && env.CURL_STATUS == '0' }}
+      run: |
+        STATE_DIR=".github/state/archive-in-portico"
+        mkdir -p "$STATE_DIR"
+        grep -i "missing," "$ARTIFACT_DIR/report.csv" | cut -f2 -d',' > "$STATE_DIR/last-failures" || true
+        echo "$TODAY" > "$STATE_DIR/last-run-date"
 
     - name: Commit updated state files
+      if: ${{ env.VALIDATION_ERRORS == '0' && env.CURL_STATUS == '0' }}
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -141,10 +163,13 @@ jobs:
         MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
         MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
         RUN_NAME: "Portico archiving"
+        VALIDATION_ERRORS: ${{ env.VALIDATION_ERRORS }}
+        CURL_STATUS: ${{ env.CURL_STATUS }}
       run: |
         bash .github/scripts/mailgun.sh "${{ env.ARTIFACT_DIR }}"
 
     - name: Install slack-cli
+      if: always()
       run: |
         git clone --depth 1 https://github.com/caltechlibrary/slack-cli "$RUNNER_TEMP/slack-cli"
         echo "$RUNNER_TEMP/slack-cli/src" >> "$GITHUB_PATH"
@@ -155,10 +180,13 @@ jobs:
         SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
         SLACK_CLI_TOKEN: ${{ secrets.SLACK_CLI_TOKEN }}
         RUN_NAME: "Portico run for micropublications.org"
+        VALIDATION_ERRORS: ${{ env.VALIDATION_ERRORS }}
+        CURL_STATUS: ${{ env.CURL_STATUS }}
       run: |
         bash .github/scripts/slack.sh "${{ env.ARTIFACT_DIR }}"
 
     - name: Upload artifact
+      if: always()
       uses: actions/upload-artifact@v6
       with:
         path: ${{ env.ARTIFACT_DIR }}
