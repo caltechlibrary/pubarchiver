@@ -38,12 +38,12 @@ elif [[ $VALIDATION_ERRORS != '0' ]]; then
     TEXT="Run completed on ${RUN_DATE}. Articles skipped: ${VALIDATION_ERRORS}"
 elif [[ $CURL_STATUS != '0' ]]; then
     COLOR="#ff0000"
-    TITLE="${RUN_NAME} failed: FTP upload to PMC failed with status ${CURL_STATUS}."
-    TEXT="Archives were not uploaded. Will retry on next run."
+    TITLE="${RUN_NAME} failed: FTP upload failed with status ${CURL_STATUS}."
+    TEXT="Articles were not uploaded. Will retry on next run."
 else
     COLOR="#00ff00"
     TITLE="${RUN_NAME} completed successfully."
-    TEXT="Run completed on ${RUN_DATE}. Archives uploaded to PMC."
+    TEXT="Run completed on ${RUN_DATE}. Articles were uploaded successfully."
 fi
 
 slack chat send \
