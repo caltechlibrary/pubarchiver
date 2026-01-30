@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       datestamp:
-        description: 'Optional date stamp in YYYY-MM-DD format to override the previous run date'
+        description: 'YYYY-MM-DD to override last run date'
         required: false
         type: string
 
