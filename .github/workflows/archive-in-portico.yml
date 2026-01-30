@@ -96,6 +96,8 @@ jobs:
         pubarchiver -j micropublication -d portico -C -a "${{ env.AFTER_DATE }}" \
                     -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/latest-report.csv" \
                     -s csv,html -t "$TODAY" -@ "$ARTIFACT_DIR/latest-debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+        status=${PIPESTATUS[0]}
+        echo "PUBARCHIVER_STATUS=$status" >> "$GITHUB_ENV"
         # Combine reports
         tail -n +2 "$ARTIFACT_DIR/latest-report.csv" >> "$ARTIFACT_DIR/report.csv"
         tail "$ARTIFACT_DIR/latest-debug.log" >> "$ARTIFACT_DIR/debug.log"
@@ -117,6 +119,7 @@ jobs:
         echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> "$GITHUB_ENV"
 
     - name: Upload to Portico FTP
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' }}
       run: |
         # Note #1: the file redirection is to avoid wc printing the file name.
         # Note #2: the -gt 1 is to skip the header line when counting the lines.
@@ -139,7 +142,7 @@ jobs:
         echo "CURL_STATUS=$CURL_STATUS" >> "$GITHUB_ENV"
 
     - name: Update state files
-      if: ${{ env.VALIDATION_ERRORS == '0' && env.CURL_STATUS == '0' }}
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS == '0' }}
       run: |
         STATE_DIR=".github/state/archive-in-portico"
         mkdir -p "$STATE_DIR"
@@ -147,7 +150,7 @@ jobs:
         echo "$TODAY" > "$STATE_DIR/last-run-date"
 
     - name: Commit updated state files
-      if: ${{ env.VALIDATION_ERRORS == '0' && env.CURL_STATUS == '0' }}
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS == '0' }}
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -191,3 +194,21 @@ jobs:
       with:
         path: ${{ env.ARTIFACT_DIR }}
         compression-level: 9
+
+    - name: Fail if pubarchiver errored
+      if: ${{ env.PUBARCHIVER_STATUS != '0' }}
+      run: |
+        echo "pubarchiver exited with status ${PUBARCHIVER_STATUS}" >&2
+        exit 1
+
+    - name: Fail if validation errors found
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS != '0' }}
+      run: |
+        echo "Validation or missing/failed entries detected: ${VALIDATION_ERRORS}" >&2
+        exit 1
+
+    - name: Fail if curl upload failed
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS != '0' }}
+      run: |
+        echo "Curl FTP upload to Portico failed with status ${CURL_STATUS}" >&2
+        exit 1
