@@ -42,7 +42,7 @@ fi
 # Build curl command with attachments
 CURL_CMD="curl -s --user \"api:${MAILGUN_API_KEY}\" \
   https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages \
-  -F from='Caltech Library <no-reply@${MAILGUN_DOMAIN}>' \
+  -F from='PubArchiver <no-reply@${MAILGUN_DOMAIN}>' \
   -F to=\"$EMAIL_TO\" \
   -F subject=\"$SUBJECT\""
 
