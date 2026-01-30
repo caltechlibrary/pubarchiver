@@ -13,7 +13,13 @@ name: Upload to PMC
 #   MAILGUN_API_KEY     # Mailgun API key (used by .github/scripts/mailgun.sh)
 #   SLACK_CLI_TOKEN     # Slack CLI token (used by .github/scripts/slack.sh)
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      datestamp:
+        description: 'Optional date stamp in YYYY-MM-DD format to override the previous run date'
+        required: false
+        type: string
 
 jobs:
   upload:
@@ -59,14 +65,32 @@ jobs:
 
     - name: Read the date stamp from the previous run
       run: |
-        STATE_DIR=".github/state/upload-to-pmc"
-        if [[ -f "${STATE_DIR}/last-run-date" ]]; then
-          LAST_RUN_DATE=$(cat "${STATE_DIR}/last-run-date")
-          AFTER_DATE=$(date -d "$LAST_RUN_DATE -1 days" +"%Y-%m-%d")
-          echo "AFTER_DATE=$AFTER_DATE" >> "$GITHUB_ENV"
+        # Check if a datestamp was provided as input
+        if [[ -n "${{ github.event.inputs.datestamp }}" ]]; then
+          # Validate the date format (YYYY-MM-DD)
+          if [[ "${{ github.event.inputs.datestamp }}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+            AFTER_DATE="${{ github.event.inputs.datestamp }}"
+            echo "Using provided date stamp: $AFTER_DATE"
+          else
+            echo "Warning: datestamp '${{ github.event.inputs.datestamp }}' is not in YYYY-MM-DD format. Falling back to previous run date."
+            STATE_DIR=".github/state/upload-to-pmc"
+            if [[ -f "${STATE_DIR}/last-run-date" ]]; then
+              LAST_RUN_DATE=$(cat "${STATE_DIR}/last-run-date")
+              AFTER_DATE=$(date -d "$LAST_RUN_DATE -1 days" +"%Y-%m-%d")
+            else
+              AFTER_DATE=1900-01-01
+            fi
+          fi
         else
-          echo "AFTER_DATE=1900-01-01" >> "$GITHUB_ENV"
+          STATE_DIR=".github/state/upload-to-pmc"
+          if [[ -f "${STATE_DIR}/last-run-date" ]]; then
+            LAST_RUN_DATE=$(cat "${STATE_DIR}/last-run-date")
+            AFTER_DATE=$(date -d "$LAST_RUN_DATE -1 days" +"%Y-%m-%d")
+          else
+            AFTER_DATE=1900-01-01
+          fi
         fi
+        echo "AFTER_DATE=$AFTER_DATE" >> "$GITHUB_ENV"
 
     - name: Create artifact directory
       run: |
