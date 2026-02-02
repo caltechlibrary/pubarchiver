@@ -15,7 +15,7 @@ name: Upload to PMC
 
 on:
   schedule:
-    - cron: "30 20 * * *"
+    - cron: "50 23 * * *"
   workflow_dispatch:
     inputs:
       datestamp:
