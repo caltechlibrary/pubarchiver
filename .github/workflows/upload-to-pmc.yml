@@ -163,6 +163,7 @@ jobs:
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
+        git pull origin ${{ github.ref }}
         git add .github/state/upload-to-pmc/last-run-date
         git commit -m "🤖 update upload-to-pmc state files"
         git push origin HEAD:${{ github.ref }}

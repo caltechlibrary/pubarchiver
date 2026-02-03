@@ -15,7 +15,7 @@ name: Archive in Portico
 
 on:
   schedule:
-    - cron: "15 1 * * 6"
+    - cron: "30 1 * * *"
   workflow_dispatch:
     inputs:
       datestamp:
@@ -178,6 +178,7 @@ jobs:
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
+        git pull origin ${{ github.ref }}
         git add .github/state/archive-in-portico/last-failures .github/state/archive-in-portico/last-run-date
         git commit -m "🤖 update archive-in-portico state files"
         git push origin HEAD:${{ github.ref }}
