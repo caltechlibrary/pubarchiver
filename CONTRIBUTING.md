@@ -17,5 +17,3 @@ Please feel free to contact the author directly, or even better, jump right in a
     $ git commit -m "A brief summary of the commit
     > 
     > A paragraph describing what changed and its impact."
-
-
