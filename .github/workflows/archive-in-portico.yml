@@ -15,7 +15,7 @@ name: Archive in Portico
 
 on:
   schedule:
-    - cron: "45 0 * * *"
+    - cron: "15 1 * * 6"
   workflow_dispatch:
     inputs:
       datestamp:
