@@ -107,10 +107,16 @@ jobs:
           echo "=== Running pubarchiver on past failures ===" | tee "$ARTIFACT_DIR/run.log"
           # Note the use of -Z to prevent zip'ing the final results.
           pubarchiver -j micropublication -d portico -Z -C -f "$FAILURES_FILE" \
-                      -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report.csv" -s csv,html \
-                      -t "Past_failures_retried" -@ "$ARTIFACT_DIR/debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+                      -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report" -s csv,html \
+                      -t "Past failures retried" -@ "$ARTIFACT_DIR/debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
           [[ -f "$ARTIFACT_DIR/report.html" ]] && mv "$ARTIFACT_DIR/report.html" "$ARTIFACT_DIR/rerun-report.html"
         fi
+        RETRY_REPORT="$ARTIFACT_DIR/report.csv"
+        RETRY_COUNT=0
+        if [[ -f "$RETRY_REPORT" ]]; then
+          RETRY_COUNT=$(($(wc -l < "$RETRY_REPORT") - 1))
+        fi
+        echo "RETRY_COUNT=$RETRY_COUNT" >> "$GITHUB_ENV"
 
     - name: Run pubarchiver for new articles
       run: |
@@ -118,10 +124,17 @@ jobs:
         echo "" | tee -a "$ARTIFACT_DIR/run.log"
         echo "=== Running pubarchiver for new articles ===" | tee -a "$ARTIFACT_DIR/run.log"
         pubarchiver -j micropublication -d portico -C -a "${{ env.AFTER_DATE }}" \
-                    -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/latest-report.csv" \
+                    -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/latest-report" \
                     -s csv,html -t "$TODAY" -@ "$ARTIFACT_DIR/latest-debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
         status=${PIPESTATUS[0]}
         echo "PUBARCHIVER_STATUS=$status" >> "$GITHUB_ENV"
+        [[ -f "$ARTIFACT_DIR/latest-report.html" ]] && mv "$ARTIFACT_DIR/latest-report.html" "$ARTIFACT_DIR/report.html"
+        LATEST_REPORT="$ARTIFACT_DIR/latest-report.csv"
+        NEW_COUNT=0
+        if [[ -f "$LATEST_REPORT" ]]; then
+          NEW_COUNT=$(($(wc -l < "$LATEST_REPORT") - 1))
+        fi
+        echo "NEW_COUNT=$NEW_COUNT" >> "$GITHUB_ENV"
         # Combine reports
         tail -n +2 "$ARTIFACT_DIR/latest-report.csv" >> "$ARTIFACT_DIR/report.csv"
         tail "$ARTIFACT_DIR/latest-debug.log" >> "$ARTIFACT_DIR/debug.log"
@@ -132,15 +145,21 @@ jobs:
         grep -i "missing," "$ARTIFACT_DIR/report.csv" | cut -f2 -d',' > "$STATE_DIR/last-failures" || true
         echo "TODAY=$TODAY" >> "$GITHUB_ENV"
 
-    - name: Evaluate report and failures
+    - name: Evaluate report and counts
       run: |
         set -euo pipefail
         REPORT="$ARTIFACT_DIR/report.csv"
         VALIDATION_ERRORS=0
+        COMPLETE_COUNT=0
+        TOTAL_LINES=0
         if [[ -f "$REPORT" ]]; then
           VALIDATION_ERRORS=$(grep -Eci "validation|missing|failed" "$REPORT" || true)
+          COMPLETE_COUNT=$(grep -c "complete" "$REPORT" || true)
+          TOTAL_LINES=$(wc -l < "$REPORT")
         fi
         echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> "$GITHUB_ENV"
+        echo "COMPLETE_COUNT=$COMPLETE_COUNT" >> "$GITHUB_ENV"
+        echo "TOTAL_LINES=$TOTAL_LINES" >> "$GITHUB_ENV"
 
     - name: Upload to Portico FTP
       if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' }}
@@ -183,16 +202,52 @@ jobs:
         git commit -m "🤖 update archive-in-portico state files"
         git push origin HEAD:${{ github.ref }}
 
-    - name: Send email report
+    - name: Set email variables
       if: always()
       env:
         EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
         EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
-        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
-        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
-        RUN_NAME: "Portico archiving"
+        COMPLETE_COUNT: ${{ env.COMPLETE_COUNT }}
+        TOTAL_LINES: ${{ env.TOTAL_LINES }}
+        TODAY: ${{ env.TODAY }}
+        PUBARCHIVER_STATUS: ${{ env.PUBARCHIVER_STATUS }}
         VALIDATION_ERRORS: ${{ env.VALIDATION_ERRORS }}
         CURL_STATUS: ${{ env.CURL_STATUS }}
+      run: |
+        if [[ $PUBARCHIVER_STATUS != '0' ]] || [[ $VALIDATION_ERRORS != '0' ]] || [[ $CURL_STATUS != '0' ]]; then
+          EMAIL_TO="${EMAIL_FAILURE:-}"
+          if [[ $PUBARCHIVER_STATUS != '0' ]]; then
+            SUBJECT="Portico upload failed: pubarchiver error"
+          elif [[ $VALIDATION_ERRORS != '0' ]]; then
+            SUBJECT="Portico upload failed: ${VALIDATION_ERRORS} articles with validation errors"
+          else
+            SUBJECT="Portico upload failed: FTP upload error"
+          fi
+        else
+          EMAIL_TO="${EMAIL_SUCCESS:-}"
+          SUBJECT="Portico archiving: ${COMPLETE_COUNT} total articles on ${TODAY}"
+        fi
+        if [[ $TOTAL_LINES -le 1 ]]; then
+          BODY="No new articles were uploaded to Portico."
+          rm -f "$ARTIFACT_DIR/report*"
+        else
+          BODY="Past failures retried: ${RETRY_COUNT}"
+          BODY+=$'\n'"New articles: ${NEW_COUNT}"
+          BODY+=$'\n\n'"$(cat "$ARTIFACT_DIR/report.csv")"
+          rm -f "$ARTIFACT_DIR/report.csv"
+        fi
+        echo "EMAIL_TO=$EMAIL_TO" >> "$GITHUB_ENV"
+        echo "EMAIL_SUBJECT=$SUBJECT" >> "$GITHUB_ENV"
+        echo "EMAIL_BODY_B64=$(echo "$BODY" | base64 -w 0)" >> "$GITHUB_ENV"
+
+    - name: Send email report
+      if: always()
+      env:
+        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
+        EMAIL_TO: ${{ env.EMAIL_TO }}
+        EMAIL_SUBJECT:  ${{ env.EMAIL_SUBJECT }}
+        EMAIL_BODY_B64: ${{ env.EMAIL_BODY_B64 }}
       run: |
         bash .github/scripts/mailgun.sh "${{ env.ARTIFACT_DIR }}"
 

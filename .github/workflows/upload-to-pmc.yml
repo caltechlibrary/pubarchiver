@@ -107,7 +107,7 @@ jobs:
         TODAY=$(date +%Y-%m-%d)
         echo "=== Running pubarchiver for new articles ===" | tee "$ARTIFACT_DIR/run.log"
         pubarchiver -j micropublication -d pmc -C -a "$AFTER_DATE" \
-                    -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report.csv" \
+                    -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report" \
                     -s csv,html -t "$TODAY" -@ "$ARTIFACT_DIR/debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
         status=${PIPESTATUS[0]}
         echo "PUBARCHIVER_STATUS=$status" >> "$GITHUB_ENV"
@@ -168,37 +168,52 @@ jobs:
         git commit -m "🤖 update upload-to-pmc state files"
         git push origin HEAD:${{ github.ref }}
 
-    - name: Send email report
+    - name: Set email variables
       if: always()
       env:
         EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
         EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
-        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
-        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
-        RUN_NAME: "PMC upload"
+        COMPLETE_COUNT: ${{ env.COMPLETE_COUNT }}
+        TOTAL_LINES: ${{ env.TOTAL_LINES }}
+        TODAY: ${{ env.TODAY }}
         PUBARCHIVER_STATUS: ${{ env.PUBARCHIVER_STATUS }}
         VALIDATION_ERRORS: ${{ env.VALIDATION_ERRORS }}
         CURL_STATUS: ${{ env.CURL_STATUS }}
       run: |
+        if [[ $PUBARCHIVER_STATUS != '0' ]] || [[ $VALIDATION_ERRORS != '0' ]] || [[ $CURL_STATUS != '0' ]]; then
+          EMAIL_TO="${EMAIL_FAILURE:-}"
+          if [[ $PUBARCHIVER_STATUS != '0' ]]; then
+            SUBJECT="PMC upload failed: pubarchiver error"
+          elif [[ $VALIDATION_ERRORS != '0' ]]; then
+            SUBJECT="PMC upload failed: ${VALIDATION_ERRORS} articles with validation errors"
+          else
+            SUBJECT="PMC upload failed: FTP upload error"
+          fi
+        else
+          EMAIL_TO="${EMAIL_SUCCESS:-}"
+          SUBJECT="PMC upload: ${COMPLETE_COUNT} total articles on ${TODAY}"
+        fi
+        if [[ $TOTAL_LINES -le 1 ]]; then
+          BODY="No new articles were uploaded to PMC."
+          rm -f "$ARTIFACT_DIR/report*"
+        else
+          BODY="$(cat "$ARTIFACT_DIR/report.csv")"
+          rm -f "$ARTIFACT_DIR/report.csv"
+        fi
+        echo "EMAIL_TO=$EMAIL_TO" >> "$GITHUB_ENV"
+        echo "EMAIL_SUBJECT=$SUBJECT" >> "$GITHUB_ENV"
+        echo "EMAIL_BODY_B64=$(echo "$BODY" | base64 -w 0)" >> "$GITHUB_ENV"
+
+    - name: Send email report
+      if: always()
+      env:
+        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
+        EMAIL_TO: ${{ env.EMAIL_TO }}
+        EMAIL_SUBJECT:  ${{ env.EMAIL_SUBJECT }}
+        EMAIL_BODY_B64: ${{ env.EMAIL_BODY_B64 }}
+      run: |
         bash .github/scripts/mailgun.sh "${{ env.ARTIFACT_DIR }}"
-
-    - name: Fail if pubarchiver errored
-      if: ${{ env.PUBARCHIVER_STATUS != '0' }}
-      run: |
-        echo "pubarchiver exited with status ${PUBARCHIVER_STATUS}" >&2
-        exit 1
-
-    - name: Fail if validation errors found
-      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS != '0' }}
-      run: |
-        echo "Validation or missing/failed entries detected: ${VALIDATION_ERRORS}" >&2
-        exit 1
-
-    - name: Fail if curl upload failed
-      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS != '0' }}
-      run: |
-        echo "Curl FTP upload to PMC failed with status ${CURL_STATUS}" >&2
-        exit 1
 
     - name: Install slack-cli
       if: always()
@@ -224,3 +239,21 @@ jobs:
       with:
         path: ${{ env.ARTIFACT_DIR }}
         compression-level: 9
+
+    - name: Fail if pubarchiver errored
+      if: ${{ env.PUBARCHIVER_STATUS != '0' }}
+      run: |
+        echo "pubarchiver exited with status ${PUBARCHIVER_STATUS}" >&2
+        exit 1
+
+    - name: Fail if validation errors found
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS != '0' }}
+      run: |
+        echo "Validation or missing/failed entries detected: ${VALIDATION_ERRORS}" >&2
+        exit 1
+
+    - name: Fail if curl upload failed
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS != '0' }}
+      run: |
+        echo "Curl FTP upload to PMC failed with status ${CURL_STATUS}" >&2
+        exit 1
