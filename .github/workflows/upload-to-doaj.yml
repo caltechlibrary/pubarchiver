@@ -4,13 +4,16 @@ name: Upload to DOAJ
 # Access Journals (DOAJ) through its article API.
 #
 # pubarchiver writes one DOAJ JSON file per article published since the last
-# successful run, and this workflow POSTs each one to
-# https://doaj.org/api/articles. DOAJ replaces an article it already has with
-# the same DOI, so sending an article again is harmless.
+# run, and this workflow POSTs each one to https://doaj.org/api/articles.
+# DOAJ replaces an article it already has with the same DOI, so sending an
+# article again is harmless.
 #
 # Unlike the PMC upload, every valid article is sent even when others fail.
-# The last-run date advances only when every article was written and sent, so
-# failed articles are retried on the next run.
+# The DOIs of articles that could not be written or that DOAJ rejected go in
+# .github/state/upload-to-doaj/last-failures, and the next run tries those
+# again along with the new articles. The last-run date advances whenever
+# pubarchiver itself ran, so one article that keeps failing does not make
+# every later run start over from the same date.
 #
 # With no last-run date, the run covers every published article. Run it by
 # hand with "Dry run" first: that writes the JSON and saves it as the run's
@@ -120,18 +123,30 @@ jobs:
       run: |
         set -uo pipefail
         TODAY=$(date +%Y-%m-%d)
-        echo "=== Writing DOAJ metadata for articles after $AFTER_DATE ===" | tee "$ARTIFACT_DIR/run.log"
+        echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+        # pubarchiver exits with 100 + the number of failed articles when
+        # some articles failed; those are counted from the report later.
+        failed_to_run() { (( $1 != 0 && $1 < 100 )); }
+        PUBARCHIVER_STATUS=0
+        if [[ -s "$STATE_DIR/last-failures" ]]; then
+          echo "=== Writing DOAJ metadata for past failures ===" | tee "$ARTIFACT_DIR/run.log"
+          pubarchiver -j micropublication -d doaj -C -f "$STATE_DIR/last-failures" \
+                      -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/retry-report" -s csv \
+                      -t "Past failures retried" -@ "$ARTIFACT_DIR/retry-debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+          status=${PIPESTATUS[0]}
+          failed_to_run "$status" && PUBARCHIVER_STATUS=$status
+        fi
+        echo "=== Writing DOAJ metadata for articles after $AFTER_DATE ===" | tee -a "$ARTIFACT_DIR/run.log"
         pubarchiver -j micropublication -d doaj -C -a "$AFTER_DATE" \
                     -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report" \
                     -s csv,html -t "$TODAY" -@ "$ARTIFACT_DIR/debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
         status=${PIPESTATUS[0]}
-        # pubarchiver exits with 100 + the number of failed articles when
-        # some articles failed; those are counted from the report below.
-        if (( status >= 100 )); then
-          status=0
+        failed_to_run "$status" && PUBARCHIVER_STATUS=$status
+        if [[ -f "$ARTIFACT_DIR/retry-report.csv" ]]; then
+          tail -n +2 "$ARTIFACT_DIR/retry-report.csv" >> "$ARTIFACT_DIR/report.csv"
+          rm -f "$ARTIFACT_DIR/retry-report.csv"
         fi
-        echo "PUBARCHIVER_STATUS=$status" >> "$GITHUB_ENV"
-        echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+        echo "PUBARCHIVER_STATUS=$PUBARCHIVER_STATUS" >> "$GITHUB_ENV"
 
     - name: Evaluate report and counts
       run: |
@@ -204,19 +219,27 @@ jobs:
         echo "UPLOAD_FAILURES=$failed" >> "$GITHUB_ENV"
 
     - name: Update state files
-      if: ${{ env.DRY_RUN != 'true' && env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.UPLOAD_FAILURES == '0' }}
+      if: ${{ env.DRY_RUN != 'true' && env.PUBARCHIVER_STATUS == '0' }}
       run: |
         mkdir -p "$STATE_DIR"
+        # Articles that were not written, plus articles DOAJ rejected. An
+        # incomplete entry in microPublication's list is retried too, since
+        # the article may not be ready yet.
+        {
+          grep -Ei '^(missing|failed|incomplete)' "$ARTIFACT_DIR/report.csv" | cut -d, -f2 || true
+          grep '^failed,' "$ARTIFACT_DIR/doaj-results.csv" | cut -d, -f2 || true
+        } | sort -u > "$STATE_DIR/last-failures"
         echo "$TODAY" > "$STATE_DIR/last-run-date"
+        echo "Articles to retry next run: $(wc -l < "$STATE_DIR/last-failures")"
 
     - name: Commit updated state files
-      if: ${{ env.DRY_RUN != 'true' && env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.UPLOAD_FAILURES == '0' }}
+      if: ${{ env.DRY_RUN != 'true' && env.PUBARCHIVER_STATUS == '0' }}
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git pull origin ${{ github.ref }}
-        git add "$STATE_DIR/last-run-date"
-        git commit -m "🤖 update upload-to-doaj state files"
+        git add "$STATE_DIR/last-run-date" "$STATE_DIR/last-failures"
+        git diff --cached --quiet || git commit -m "🤖 update upload-to-doaj state files"
         git push origin HEAD:${{ github.ref }}
 
     - name: Set email variables
@@ -288,5 +311,6 @@ jobs:
     - name: Fail if any article was not sent
       if: ${{ env.PUBARCHIVER_STATUS == '0' && (env.VALIDATION_ERRORS != '0' || env.UPLOAD_FAILURES != '0') }}
       run: |
-        echo "Articles not written: ${VALIDATION_ERRORS}; rejected by DOAJ: ${UPLOAD_FAILURES}" >&2
+        echo "Articles not written: ${VALIDATION_ERRORS}; rejected by DOAJ: ${UPLOAD_FAILURES}." >&2
+        echo "They are listed in $STATE_DIR/last-failures and will be retried on the next run." >&2
         exit 1
