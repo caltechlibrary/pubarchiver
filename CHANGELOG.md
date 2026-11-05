@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-05
+
 ### Added
 
 - A “Release” workflow in GitHub Actions. Run it from the Actions page with a patch, minor, or major bump: it updates the version everywhere it is stored, builds the package, installs the wheel in a clean environment and runs it, commits, and opens a draft GitHub release. A dry run, the default, does everything but commit and create the release.
@@ -228,7 +230,8 @@ This version removes an unnecessary dependency on wxPython.  A GUI interface was
 * Updates to the documentation (top-level `README.md` file) and internal help strings.
 * Minor other internal changes.
 
-[Unreleased]: https://github.com/caltechlibrary/pubarchiver/compare/v2.1.2...HEAD
+[Unreleased]: https://github.com/caltechlibrary/pubarchiver/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/caltechlibrary/pubarchiver/compare/v2.1.2...v2.2.0
 [2.1.2]: https://github.com/caltechlibrary/pubarchiver/compare/v2.1.1...v2.1.2
 [2.1.1]: https://github.com/caltechlibrary/pubarchiver/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/caltechlibrary/pubarchiver/compare/fa9307a...v2.1.0

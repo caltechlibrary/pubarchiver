@@ -21,7 +21,7 @@ file "LICENSE" for more information.
 # __version__ is updated by the Release workflow, which runs
 # dev/bump_version.py. Keep the other values in step with setup.cfg by hand.
 
-__version__     = '2.1.2'
+__version__     = '2.2.0'
 __description__ = 'Automation for archiving journals hosted by the Caltech Library'
 __url__         = 'https://github.com/caltechlibrary/pubarchiver'
 __author__      = 'Michael Hucka, Tom Morrell, Tommy Keswick'
