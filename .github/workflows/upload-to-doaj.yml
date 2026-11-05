@@ -17,11 +17,13 @@ name: Upload to DOAJ
 #
 # .github/state/upload-to-doaj/sent records a fingerprint (SHA-256) of the
 # metadata last sent for each article, and an article whose metadata is
-# unchanged is not sent again. Once a week, and on a manual run with "Resync",
-# the workflow writes the metadata for every article and resends only those
-# that changed. That is how DOAJ gets abstracts and ORCID iDs added to
-# microPublication's JATS later, or any other correction; DOAJ updates an
-# article when it receives one with the same DOI or full-text URL.
+# unchanged is not sent again. A manual run with "Resync" writes the metadata
+# for every article and resends only those that changed, which is how
+# abstracts, ORCID iDs, or other corrections added to microPublication's JATS
+# later reach DOAJ. DOAJ replaces its record for an article when it receives
+# one with the same DOI or full-text URL, so a resync overwrites what DOAJ
+# has. Run it as a dry run first: the results list each article it would
+# overwrite as "dry-run-updated", and the artifact holds the new JSON.
 #
 # With no last-run date, the run covers every published article. Run it by
 # hand with "Dry run" first: that writes the JSON and saves it as the run's
@@ -41,7 +43,6 @@ name: Upload to DOAJ
 on:
   schedule:
     - cron: "45 8 * * *"     # daily: new articles and past failures
-    - cron: "15 10 * * 0"    # Sundays: resync every article
   workflow_dispatch:
     inputs:
       datestamp:
@@ -49,7 +50,7 @@ on:
         required: false
         type: string
       resync:
-        description: 'Resync: check every article and resend those whose metadata changed'
+        description: 'Resync: check every article and resend those whose metadata changed (overwrites DOAJ records; dry run first)'
         required: false
         type: boolean
         default: false
@@ -74,7 +75,8 @@ jobs:
       STATE_DIR: .github/state/upload-to-doaj
       # Scheduled runs have no inputs, so they are never dry runs.
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
-      RESYNC: ${{ (github.event.schedule == '15 10 * * 0' || (github.event_name == 'workflow_dispatch' && inputs.resync)) && 'true' || 'false' }}
+      # Only a manual run resyncs.
+      RESYNC: ${{ github.event_name == 'workflow_dispatch' && inputs.resync && 'true' || 'false' }}
 
     steps:
     - uses: actions/checkout@v6
