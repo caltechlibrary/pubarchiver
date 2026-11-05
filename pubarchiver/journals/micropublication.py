@@ -21,6 +21,7 @@ from   commonpy.network_utils import net
 from   crossref.restful import Works, Etiquette
 from   lxml import etree
 from   os import path
+import re
 
 if __debug__:
     from sidetrack import log
@@ -35,6 +36,8 @@ from   pubarchiver.journals.base import JournalAdapter
 # .............................................................................
 
 _DATACITE_API_URL = 'https://api.datacite.org/dois/'
+
+_ORCID_REGEX = re.compile(r'(\d{4}-\d{4}-\d{4}-\d{3}[\dX])$')
 
 
 # Main class.
@@ -236,29 +239,84 @@ class Micropublication(JournalAdapter):
         }
 
 
+    def doaj_record(self, article):
+        '''Return the article's metadata as a DOAJ incoming article, ready
+        to send to DOAJ's article API, or None if neither Crossref nor
+        DataCite has a record for the article.
+
+        The format is DOAJ's IncomingArticleDO, documented at
+        https://doaj.github.io/doaj-docs/master/data_models/IncomingAPIArticle
+        Fields that DOAJ fills in from its journal record (journal title,
+        publisher, country, language, and subject) are left out.
+
+        Authors and affiliations come from the JATS, which has affiliations
+        for every article; DataCite has none for older articles.  ORCID iDs
+        come from the DOI registration, matched by family name, because the
+        JATS has none.
+        '''
+        record = self.bibliographic_record(article)
+        if not record:
+            return None
+        jats = self._jats_root(article)
+        year, month = article.date.split('-')[:2]
+
+        bibjson = {
+            'title': record['title'] or article.title,
+            'identifier': [
+                {'type': 'doi',   'id': article.doi},
+                {'type': 'eissn', 'id': self.issn},
+            ],
+            'year':  year,
+            'month': str(int(month)),
+        }
+        authors = doaj_authors(jats_authors(jats), record['authors'])
+        if authors:
+            bibjson['author'] = authors
+        abstract = jats_abstract(jats) or record['abstract']
+        if abstract:
+            bibjson['abstract'] = abstract
+        keywords = jats_keywords(jats)
+        if keywords:
+            # DOAJ's documentation allows at most 6 keywords.
+            bibjson['keywords'] = keywords[:6]
+        url = article.url or record['url']
+        if url:
+            bibjson['link'] = [{'type': 'fulltext', 'url': url, 'content_type': 'HTML'}]
+        journal = {}
+        volume = jats_text(jats, './/article-meta/volume')
+        if volume:
+            journal['volume'] = volume
+        if record['issue']:
+            journal['number'] = record['issue']
+        if journal:
+            bibjson['journal'] = journal
+        return {'bibjson': bibjson}
+
+
     def _jats_abstract(self, article):
         '''Return the plain text of the abstract in the article's JATS file,
         or an empty string if it can't be obtained.'''
+        return jats_abstract(self._jats_root(article))
+
+
+    def _jats_root(self, article):
+        '''Return the parsed JATS file for the article, or None if it can't
+        be obtained.'''
         if not article.jats:
-            return ''
+            return None
         (response, error) = net('get', article.jats)
         if error or not response or not response.content:
             if __debug__: log(f'could not get JATS for {article.doi}: {str(error)}')
-            warn(f'Could not get abstract from JATS for {article.doi}')
-            return ''
+            warn(f'Could not get JATS for {article.doi}')
+            return None
         try:
             parser = etree.XMLParser(load_dtd = False, no_network = True,
                                      resolve_entities = False)
-            root = etree.fromstring(response.content, parser)
+            return etree.fromstring(response.content, parser)
         except Exception as ex:
             if __debug__: log(f'could not parse JATS for {article.doi}: {str(ex)}')
-            warn(f'Could not get abstract from JATS for {article.doi}')
-            return ''
-        abstract = root.find('.//article-meta/abstract')
-        if abstract is None:
-            if __debug__: log(f'JATS for {article.doi} has no abstract')
-            return ''
-        return ' '.join(''.join(abstract.itertext()).split())
+            warn(f'Could not parse JATS for {article.doi}')
+            return None
 
 
     def articles_from(self, doi_file):
@@ -295,6 +353,7 @@ class Micropublication(JournalAdapter):
                     jats  = field_text(element, 'jats-url')
                     image = field_text(element, 'image-url')
                     title = field_text(element, 'article-title')
+                    url   = field_text(element, 'micropublication-permalink')
                     date  = element.find('date-published')
                     if date is not None:
                         year  = (date.find('year').text or '').strip()
@@ -306,7 +365,8 @@ class Micropublication(JournalAdapter):
                     basename = tail_of_doi(doi)
                     status = 'complete' if all([pdf, jats, doi, title, date]) else 'incomplete'
                     articles.append(Article(self.issn, doi, date, title,
-                                            basename, pdf, jats, image, status))
+                                            basename, pdf, jats, image, status,
+                                            url))
                     if __debug__: log(f'parsed {doi}')
                 except Exception as ex:
                     if doi:
@@ -383,6 +443,105 @@ def plain_text(text):
     if not text:
         return ''
     return ' '.join(BeautifulSoup(text, features = 'lxml').get_text().split())
+
+
+def jats_text(root, xpath):
+    '''Return the whitespace-normalized text of the first element matching
+    xpath in a parsed JATS file, or '' if there is none.'''
+    if root is None:
+        return ''
+    element = root.find(xpath)
+    if element is None:
+        return ''
+    return ' '.join(''.join(element.itertext()).split())
+
+
+def jats_abstract(root):
+    '''Return the plain text of the abstract in a parsed JATS file.'''
+    return jats_text(root, './/article-meta/abstract')
+
+
+def jats_keywords(root):
+    '''Return keywords for a parsed JATS file.  microPublication's JATS has
+    no <kwd> elements; its "subject" and "species" categories serve instead.'''
+    if root is None:
+        return []
+    keywords = [' '.join(''.join(k.itertext()).split())
+                for k in root.findall('.//article-meta//kwd')]
+    for group in root.findall('.//article-meta/article-categories/subj-group'):
+        if group.get('subj-group-type') in ['subject', 'species']:
+            keywords += [' '.join(''.join(s.itertext()).split())
+                         for s in group.findall('subject')]
+    return [k for k in dict.fromkeys(keywords) if k]
+
+
+def jats_authors(root):
+    '''Return the authors in a parsed JATS file as dicts with the keys
+    'given', 'family', 'name', and 'affiliation', where the affiliation is
+    the author's first one, without its label.'''
+    if root is None:
+        return []
+    affiliations = {}
+    for aff in root.findall('.//article-meta//aff'):
+        label = aff.findtext('label') or ''
+        text  = ' '.join(''.join(aff.itertext()).split())
+        if label and text.startswith(label.strip()):
+            text = text[len(label.strip()):].strip()
+        affiliations[aff.get('id')] = text
+    authors = []
+    for contrib in root.findall('.//article-meta//contrib[@contrib-type="author"]'):
+        name = contrib.find('name')
+        rids = [x.get('rid') for x in contrib.findall('xref[@ref-type="aff"]')]
+        affiliation = next((affiliations[r] for r in rids if affiliations.get(r)), '')
+        if name is not None:
+            authors.append({
+                'given':       ' '.join((name.findtext('given-names') or '').split()),
+                'family':      ' '.join((name.findtext('surname') or '').split()),
+                'name':        '',
+                'affiliation': affiliation,
+            })
+        else:
+            collab = ' '.join(''.join(contrib.itertext()).split())
+            if collab:
+                authors.append({'given': '', 'family': '', 'name': collab,
+                                'affiliation': affiliation})
+    return authors
+
+
+def doaj_authors(jats_authors, registry_authors):
+    '''Return DOAJ author records.  Authors and affiliations come from the
+    JATS when it has any authors, otherwise from the DOI registration.
+    ORCID iDs come from the DOI registration, matched by family name, and
+    are left out unless they have the form DOAJ requires,
+    https://orcid.org/0000-0000-0000-0000.'''
+    orcids = {}
+    for author in registry_authors:
+        orcid = doaj_orcid(author.get('orcid', ''))
+        if orcid and author.get('family'):
+            orcids[author['family'].casefold()] = orcid
+    result = []
+    for author in jats_authors or registry_authors:
+        if author['family']:
+            name = f"{author['given']} {author['family']}".strip()
+        else:
+            name = author['name']
+        if not name:
+            continue
+        entry = {'name': name}
+        if author['affiliation']:
+            entry['affiliation'] = author['affiliation']
+        orcid = doaj_orcid(author.get('orcid', '')) or orcids.get(author['family'].casefold())
+        if orcid:
+            entry['orcid_id'] = orcid
+        result.append(entry)
+    return result
+
+
+def doaj_orcid(value):
+    '''Return an ORCID iD in the form https://orcid.org/0000-0000-0000-0000,
+    or '' if value is not an ORCID iD.'''
+    match = _ORCID_REGEX.search(value or '')
+    return f'https://orcid.org/{match.group(1)}' if match else ''
 
 
 def first(items):

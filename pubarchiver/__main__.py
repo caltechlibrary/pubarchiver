@@ -32,6 +32,7 @@ import json as jsonlib
 from   lxml import etree
 import os
 import os.path as path
+import re
 from   PIL import Image, ImageFile
 import plac
 import shutil
@@ -71,6 +72,15 @@ _INTERNAL_DTD_DIR = 'JATS-Archiving-1-2-MathML3-DTD'
 _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
 '''Name of the root DTD file for JATS.'''
 
+_DESTINATIONS = {'portico': 'Portico', 'pmc': 'PMC', 'doaj': 'DOAJ'}
+'''Values accepted by the -d option, and the names printed for them.'''
+
+_DOI_REGEX = re.compile(r'^10\.\d{4,9}/\S+$')
+'''Form of a DOI that DOAJ accepts.'''
+
+_ORCID_URL_REGEX = re.compile(r'^https://orcid\.org/\d{4}-\d{4}-\d{4}-\d{3}[\dX]$')
+'''Form of an ORCID iD that DOAJ accepts.'''
+
 _HTML_REPORT_TOP = '''<html>
     <style>
       html  {{ font-family: "Helvetica", sans-serif     }}
@@ -108,7 +118,7 @@ _HTML_REPORT_BOTTOM = '''
 @plac.annotations(
     after_date = ('only keep articles published after date "A"',              'option', 'a'),
     no_color   = ('do not colorize output printed to the terminal',           'flag',   'C'),
-    dest       = ('assume destination "portico" or "pmc" (default: portico)', 'option', 'd'),
+    dest       = ('destination "portico", "pmc", or "doaj" (default: portico)', 'option', 'd'),
     doi_file   = ('retrieve the articles whose DOIs are found in file "F"',   'option', 'f'),
     journal    = ('work with journal "J" (required)',                         'option', 'j'),
     list_dois  = ("list all known DOIs from the journal & exit",              'flag',   'l'),
@@ -167,9 +177,15 @@ Controlling the output
 
 The value supplied after the option -d (or /d on Windows) can be used to
 select the destination where the publication archive is intended to be sent
-after PubArchiver has done its work.  The possible alternatives are "portico"
-and "pmc"; Portico is assumed to be the default destination.  This option
-changes the structure and content of the archive created by PubArchiver.
+after PubArchiver has done its work.  The possible alternatives are "portico",
+"pmc", and "doaj"; Portico is assumed to be the default destination.  This
+option changes the structure and content of the archive created by PubArchiver.
+
+For "doaj", PubArchiver writes only metadata: one JSON file per article, named
+after the DOI, in the format accepted by the article API of the Directory of
+Open Access Journals.  It downloads no PDF or image files, and the -Z option
+has no effect.  Articles whose metadata DOAJ would reject are not written, and
+are reported with the status "failed-doaj-validation".
 
 PubArchiver will write its output to the directory indicated by the value of
 the option -o (or /o on Windows). If no -o is given, the output will be written
@@ -297,8 +313,17 @@ Command-line options summary
                 warn(f'Failed to get list of articles from {handler.name}')
             exit(0)
 
+        destination = 'portico' if dest == 'D' else dest.lower()
+        if destination not in _DESTINATIONS:
+            alert(f'Unrecognized destination "{dest}". Use one of: '
+                  + ', '.join(_DESTINATIONS) + '.')
+            exit(1)
+        if destination == 'doaj' and not hasattr(handler, 'doaj_record'):
+            alert(f'PubArchiver cannot produce DOAJ metadata for {handler.name}.')
+            exit(1)
+
         body = MainBody(journal       = handler,
-                        dest          = 'pmc' if dest.lower() == 'pmc' else 'portico',
+                        dest          = destination,
                         doi_file      = doi_file if doi_file != 'F' else None,
                         output_dir    = '.'   if output_dir == 'O' else output_dir,
                         after         = None  if after_date == 'A' else after_date,
@@ -355,7 +380,7 @@ class MainBody(object):
             articles = [x for x in articles if parsed_datetime(x.date) > self.after]
 
         inform(f'Total articles left after filtering: {humanize.intcomma(len(articles))}.')
-        inform(f'Destination format: {"PMC" if self.dest == "pmc" else "Portico"}')
+        inform(f'Destination format: {_DESTINATIONS[self.dest]}')
         if self.preview:
             self._print_articles(articles)
             return
@@ -501,6 +526,16 @@ class MainBody(object):
                 warn(skipping_preface + 'missing JATS URL')
                 article.status = 'missing-jats'
                 continue
+            if dest_service == 'doaj':
+                record = self.journal.doaj_record(article)
+                if not record:
+                    warn(f'Skipping article with no metadata in '
+                         f'{self.journal.metadata_source}: {article.doi}')
+                    article.status = 'missing-metadata'
+                    continue
+                self._save_article_doaj(dest_dir, article, record)
+                saved_files.append(article)
+                continue
             xmldict = self.journal.article_metadata(article)
             if not xmldict:
                 warn(f'Skipping article with no metadata in '
@@ -516,7 +551,7 @@ class MainBody(object):
             saved_files.append(article)
 
         # After we've downloaded everything, maybe zip it all up together.
-        if zip_articles and dest_service != 'pmc':
+        if zip_articles and dest_service == 'portico':
             final_file = self.output_dir + '.zip'
             inform(f'Creating ZIP archive file "{final_file}"')
             comments = zip_comments(len(article_list), self.journal.name)
@@ -525,6 +560,20 @@ class MainBody(object):
             verify_archive(final_file, 'zip')
             if __debug__: log(f'deleting directory {self.output_dir}')
             shutil.rmtree(self.output_dir)
+
+
+    def _save_article_doaj(self, dest_dir, article, record):
+        problems = doaj_problems(record)
+        if problems:
+            warn(f'DOAJ record for {article.doi} is not valid: ' + '; '.join(problems))
+            article.status = 'failed-doaj-validation'
+            return
+        json_file = doaj_filename(article, dest_dir)
+        inform('Writing ' + article.doi)
+        if __debug__: log(f'writing DOAJ JSON to {json_file}')
+        with open(json_file, 'w', encoding = 'utf8') as f:
+            jsonlib.dump(record, f, indent = 2, ensure_ascii = False)
+            f.write('\n')
 
 
     def _save_article_portico(self, dest_dir, article, xmldict):
@@ -678,6 +727,37 @@ def pdf_filename(article, article_dir = ''):
 def xml_filename(article, article_dir = ''):
     filename = article.basename + '.xml'
     return path.join(article_dir, filename)
+
+
+def doaj_filename(article, dest_dir = ''):
+    return path.join(dest_dir, article.basename + '.json')
+
+
+def doaj_problems(record):
+    '''Return a list of reasons DOAJ would reject the record, checked the
+    way DOAJ's article API checks incoming articles.  An empty list means
+    the record passes.'''
+    problems = []
+    bibjson = record.get('bibjson', {})
+    if not bibjson.get('title'):
+        problems.append('no title')
+    identifiers = bibjson.get('identifier', [])
+    types = [i.get('type') for i in identifiers]
+    if 'eissn' not in types and 'pissn' not in types:
+        problems.append('no eISSN or print ISSN')
+    for ident in identifiers:
+        if ident.get('type') == 'doi' and not _DOI_REGEX.match(ident.get('id', '')):
+            problems.append(f'malformed DOI "{ident.get("id")}"')
+    for author in bibjson.get('author', []):
+        if not author.get('name'):
+            problems.append('an author with no name')
+        orcid = author.get('orcid_id')
+        if orcid and not _ORCID_URL_REGEX.match(orcid):
+            problems.append(f'malformed ORCID iD "{orcid}"')
+    for link in bibjson.get('link', []):
+        if link.get('type') != 'fulltext' or not link.get('url', '').startswith(('http://', 'https://')):
+            problems.append(f'unusable link {link}')
+    return problems
 
 
 def pmc_basename(article):

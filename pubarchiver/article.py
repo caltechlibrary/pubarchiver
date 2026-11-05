@@ -16,7 +16,8 @@ file "LICENSE" for more information.
 
 from   recordclass import recordclass
 
-Article = recordclass('Article', 'issn doi date title basename pdf jats image status')
+Article = recordclass('Article', 'issn doi date title basename pdf jats image status url',
+                      defaults = ('',))
 '''
 Record class used internally to communicate information about articles in the
 article list.  The value of the "status" field can be as follows, and will
@@ -26,4 +27,7 @@ micropublication.org and writing out information for portico:
   'complete'   -- the info in the XML article list is complete
   'incomplete' -- something is missing in the XML article list entry
   'failed'     -- failed to download the article from the server
+
+The "url" field is the URL of the article's landing page on the journal
+website, or '' if the journal's article list does not give one.
 '''

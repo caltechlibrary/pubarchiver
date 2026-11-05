@@ -1,7 +1,7 @@
 PubArchiver<img width="12%" align="right" src="https://github.com/caltechlibrary/pubarchiver/blob/main/.graphics/pubarchiver-logo.png?raw=true">
 =======
 
-A program that creates archives of articles from specific journal sites (currently [microPublication](https://www.micropublication.org) and [Prompt](https://thepromptjournal.com/index.php/prompt)) for sending to [Portico](https://www.portico.org) and [PMC](https://www.ncbi.nlm.nih.gov/pmc/).
+A program that creates archives of articles from specific journal sites (currently [microPublication](https://www.micropublication.org) and [Prompt](https://thepromptjournal.com/index.php/prompt)) for sending to [Portico](https://www.portico.org) and [PMC](https://www.ncbi.nlm.nih.gov/pmc/), and article metadata for the [Directory of Open Access Journals](https://doaj.org) (DOAJ).
 
 *Authors*:      [Michael Hucka](http://github.com/mhucka), [Tom Morrell](https://github.com/tmorrell)<br>
 *Repository*:   [https://github.com/caltechlibrary/pubarchiver](https://github.com/caltechlibrary/pubarchiver)<br>
@@ -112,7 +112,9 @@ If given the option `--preview` (or `-p` for short), `pubarchiver` will _only_ p
 
 ### _Selecting the archive format and archive output location_
 
-The value supplied after the option `--dest` (or `-d` for short) can be used to tell `pubarchiver` the intended destination where the archive will be sent.  The option changes the structure and content of the archive created by `pubarchiver`. The possible alternatives are `portico` and `pmc`. Portico is assumed to be the default destination if no `--dest` option is given. 
+The value supplied after the option `--dest` (or `-d` for short) can be used to tell `pubarchiver` the intended destination where the archive will be sent.  The option changes the structure and content of the archive created by `pubarchiver`. The possible alternatives are `portico`, `pmc`, and `doaj`. Portico is assumed to be the default destination if no `--dest` option is given.
+
+With `--dest doaj`, `pubarchiver` writes only metadata: one JSON file per article, named after the DOI, in the format accepted by [DOAJ’s article API](https://doaj.org/api/docs). It downloads no PDF or image files, and `--no-zip` has no effect. An article whose metadata DOAJ would reject is not written, and is reported with the status `failed-doaj-validation`. DOAJ output is available for microPublication.org. 
 
 By default, `pubarchiver` will write its output to a new subdirectory it creates in the directory from which `pubarchiver` is being run. The option `--output-dir` (or `/o` on Windows) can be used to select a different location. For example,
 
@@ -178,7 +180,7 @@ The following table summarizes all the command line options available. (Note: on
 |---------|-------------------|----------------------|---------|--|
 | `-a`_A_ | `--after-date`_A_ | Only get articles published after date _A_ | Get all articles | ⬥ |
 | `-C`    | `--no-color`      | Don't color-code info messages | Color-code terminal output |
-| `-d`_D_ | `--dest`_D_       | Destination for archive: Portico or PMC | Portico | |
+| `-d`_D_ | `--dest`_D_       | Destination: Portico, PMC, or DOAJ | Portico | |
 | `-f`_F_ | `--doi-file`_F_   | Only get articles whose DOIs are in file _F_ | Get all articles | |
 | `-j`_J_ | `--journal`_J_    | Work with journal _J_ | | ★ |
 | `-l`    | `--list-dois`     | Print a list of all known DOIs & exit | Do other actions instead | |

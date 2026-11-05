@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `--dest doaj` writes microPublication.org article metadata as JSON for the article API of the [Directory of Open Access Journals](https://doaj.org) (DOAJ): one file per article, checked against the rules DOAJ applies to incoming articles. Authors and affiliations come from the article’s JATS, ORCID iDs and the issue number from its DOI registration, and keywords from its JATS subject and species categories.
+- An “Upload to DOAJ” workflow that runs daily, writes DOAJ metadata for articles published since its last successful run, and sends each article to DOAJ. It sends every valid article even when others fail, and retries the failures on the next run. A manual run can be a dry run, which sends nothing and notifies no one.
+
 ### Changed
 
 - An article with no bibliographic metadata is reported as `missing-metadata`, whichever source the journal uses.
+- The Slack message for a failed upload no longer says “FTP”, so it fits the DOAJ upload too.
 
 ### Fixed
 
