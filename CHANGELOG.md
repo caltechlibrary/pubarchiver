@@ -7,14 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A “Release” workflow in GitHub Actions. Run it from the Actions page with a patch, minor, or major bump: it updates the version everywhere it is stored, builds the package, installs the wheel in a clean environment and runs it, commits, and opens a draft GitHub release. A dry run, the default, does everything but commit and create the release.
+- A “Publish to PyPI” workflow. Publishing a GitHub release builds the package and uploads it to PyPI with Trusted Publishing, after a reviewer approves it in the `pypi` environment.
+- `dev/bump_version.py`, which writes a new version into `setup.cfg`, `pubarchiver/__init__.py`, `codemeta.json`, and `CITATION.cff`, and moves the `[Unreleased]` entries in this file under the new version.
+- Tommy Keswick as an author and maintainer in `codemeta.json`, `CITATION.cff`, and the package metadata.
+
 ### Changed
 
 - microPublication.org article metadata comes from Crossref, where microPublication registers its DOIs, instead of DataCite. An article without a Crossref record is reported as `missing-crossref`.
 - The abstract in microPublication.org Portico XML files comes from the article’s JATS file, as plain text, because microPublication’s Crossref records have no abstract.
 
+### Removed
+
+- The `Makefile`. Its release and PyPI steps are replaced by the Release and Publish to PyPI workflows.
+
 ### Fixed
 
 - microPublication.org articles whose DOIs are not registered with DataCite are no longer skipped as `missing-datacite`.
+- A wheel built with `python -m build` declared no dependencies, because `requirements.txt`, which `setup.py` reads them from, was not in the source distribution. `MANIFEST.in` now includes it.
+- `CITATION.cff` gives the DOI as `10.22002/D1.20100`, which resolves, and lists all three authors, with Michael Hucka’s name spelled correctly.
 
 
 ## [2.1.2] - 2022-04-12
