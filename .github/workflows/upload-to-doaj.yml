@@ -1,0 +1,351 @@
+name: Upload to DOAJ
+
+# Sends microPublication Biology article metadata to the Directory of Open
+# Access Journals (DOAJ) through its article API.
+#
+# pubarchiver writes one DOAJ JSON file per article published since the last
+# run, and this workflow POSTs each one to https://doaj.org/api/articles.
+# DOAJ replaces an article it already has with the same DOI, so sending an
+# article again is harmless.
+#
+# Unlike the PMC upload, every valid article is sent even when others fail.
+# The DOIs of articles that could not be written or that DOAJ rejected go in
+# .github/state/upload-to-doaj/last-failures, and the next run tries those
+# again along with the new articles. The last-run date advances whenever
+# pubarchiver itself ran, so one article that keeps failing does not make
+# every later run start over from the same date.
+#
+# .github/state/upload-to-doaj/sent records a fingerprint (SHA-256) of the
+# metadata last sent for each article, and an article whose metadata is
+# unchanged is not sent again. A manual run with "Resync" writes the metadata
+# for every article and resends only those that changed, which is how
+# abstracts, ORCID iDs, or other corrections added to microPublication's JATS
+# later reach DOAJ. DOAJ replaces its record for an article when it receives
+# one with the same DOI or full-text URL, so a resync overwrites what DOAJ
+# has. Run it as a dry run first: the results list each article it would
+# overwrite as "dry-run-updated", and the artifact holds the new JSON.
+#
+# With no last-run date, the run covers every published article. Run it by
+# hand with "Dry run" first: that writes the JSON and saves it as the run's
+# artifact without sending anything or notifying anyone.
+#
+# Required configuration
+# vars:
+#   EMAIL_SUCCESS       # comma-separated recipients for success mail
+#   EMAIL_FAILURE       # comma-separated recipients for failure mail
+#   MAILGUN_DOMAIN      # Mailgun domain (used by .github/scripts/mailgun.sh)
+#   SLACK_CHANNEL       # Slack channel ID for notifications (used by .github/scripts/slack.sh)
+# secrets:
+#   DOAJ_API_KEY        # DOAJ API key for the microPublication Biology account
+#   MAILGUN_API_KEY     # Mailgun API key (used by .github/scripts/mailgun.sh)
+#   SLACK_CLI_TOKEN     # Slack CLI token (used by .github/scripts/slack.sh)
+
+on:
+  schedule:
+    - cron: "45 8 * * *"     # daily: new articles and past failures
+  workflow_dispatch:
+    inputs:
+      datestamp:
+        description: 'YYYY-MM-DD to override last run date'
+        required: false
+        type: string
+      resync:
+        description: 'Resync: check every article and resend those whose metadata changed (overwrites DOAJ records; dry run first)'
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Dry run: write the JSON but send nothing to DOAJ and notify no one'
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: upload-to-doaj
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: write
+    env:
+      DOAJ_API_URL: https://doaj.org/api/articles
+      STATE_DIR: .github/state/upload-to-doaj
+      # Scheduled runs have no inputs, so they are never dry runs.
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+      # Only a manual run resyncs.
+      RESYNC: ${{ github.event_name == 'workflow_dispatch' && inputs.resync && 'true' || 'false' }}
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Validate required config
+      env:
+        EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
+        EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
+        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
+        SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
+        DOAJ_API_KEY: ${{ secrets.DOAJ_API_KEY }}
+        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+        SLACK_CLI_TOKEN: ${{ secrets.SLACK_CLI_TOKEN }}
+      run: |
+        required=(DOAJ_API_KEY)
+        if [[ $DRY_RUN != 'true' ]]; then
+          required+=(EMAIL_SUCCESS EMAIL_FAILURE MAILGUN_DOMAIN SLACK_CHANNEL MAILGUN_API_KEY SLACK_CLI_TOKEN)
+        fi
+        missing=()
+        for v in "${required[@]}"; do
+          if [[ -z "${!v:-}" ]]; then
+            missing+=("$v")
+          fi
+        done
+        if (( ${#missing[@]} > 0 )); then
+          echo "Missing required configuration: ${missing[*]}" >&2
+          exit 1
+        fi
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -e .
+
+    - name: Read the date stamp from the previous run
+      env:
+        DATESTAMP: ${{ github.event.inputs.datestamp }}
+      run: |
+        if [[ $RESYNC == 'true' ]]; then
+          AFTER_DATE=1900-01-01
+        elif [[ -n "${DATESTAMP:-}" ]]; then
+          AFTER_DATE="$DATESTAMP"
+        elif [[ -f "${STATE_DIR}/last-run-date" ]]; then
+          LAST_RUN_DATE=$(cat "${STATE_DIR}/last-run-date")
+          AFTER_DATE=$(date -d "$LAST_RUN_DATE -1 days" +"%Y-%m-%d")
+        else
+          AFTER_DATE=1900-01-01
+        fi
+        echo "AFTER_DATE=$AFTER_DATE" >> "$GITHUB_ENV"
+
+    - name: Create artifact directory
+      run: |
+        ARTIFACT_DIR="$RUNNER_TEMP/$(date +%Y-%m-%d-%H%M)"
+        mkdir -p "$ARTIFACT_DIR"
+        echo "ARTIFACT_DIR=$ARTIFACT_DIR" >> "$GITHUB_ENV"
+
+    - name: Run pubarchiver to write DOAJ metadata
+      run: |
+        set -uo pipefail
+        TODAY=$(date +%Y-%m-%d)
+        echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+        # pubarchiver exits with 100 + the number of failed articles when
+        # some articles failed; those are counted from the report later.
+        failed_to_run() { (( $1 != 0 && $1 < 100 )); }
+        PUBARCHIVER_STATUS=0
+        if [[ -s "$STATE_DIR/last-failures" ]]; then
+          echo "=== Writing DOAJ metadata for past failures ===" | tee "$ARTIFACT_DIR/run.log"
+          pubarchiver -j micropublication -d doaj -C -f "$STATE_DIR/last-failures" \
+                      -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/retry-report" -s csv \
+                      -t "Past failures retried" -@ "$ARTIFACT_DIR/retry-debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+          status=${PIPESTATUS[0]}
+          failed_to_run "$status" && PUBARCHIVER_STATUS=$status
+        fi
+        echo "=== Writing DOAJ metadata for articles after $AFTER_DATE ===" | tee -a "$ARTIFACT_DIR/run.log"
+        pubarchiver -j micropublication -d doaj -C -a "$AFTER_DATE" \
+                    -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report" \
+                    -s csv,html -t "$TODAY" -@ "$ARTIFACT_DIR/debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+        status=${PIPESTATUS[0]}
+        failed_to_run "$status" && PUBARCHIVER_STATUS=$status
+        if [[ -f "$ARTIFACT_DIR/retry-report.csv" ]]; then
+          tail -n +2 "$ARTIFACT_DIR/retry-report.csv" >> "$ARTIFACT_DIR/report.csv"
+          rm -f "$ARTIFACT_DIR/retry-report.csv"
+        fi
+        echo "PUBARCHIVER_STATUS=$PUBARCHIVER_STATUS" >> "$GITHUB_ENV"
+
+    - name: Evaluate report and counts
+      run: |
+        set -euo pipefail
+        REPORT="$ARTIFACT_DIR/report.csv"
+        VALIDATION_ERRORS=0
+        COMPLETE_COUNT=0
+        TOTAL_LINES=0
+        if [[ -f "$REPORT" ]]; then
+          VALIDATION_ERRORS=$(grep -Eci "validation|missing|failed" "$REPORT" || true)
+          COMPLETE_COUNT=$(grep -c "^complete," "$REPORT" || true)
+          TOTAL_LINES=$(wc -l < "$REPORT")
+        fi
+        echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> "$GITHUB_ENV"
+        echo "COMPLETE_COUNT=$COMPLETE_COUNT" >> "$GITHUB_ENV"
+        echo "TOTAL_LINES=$TOTAL_LINES" >> "$GITHUB_ENV"
+
+    - name: Send articles to DOAJ
+      if: ${{ env.PUBARCHIVER_STATUS == '0' }}
+      env:
+        DOAJ_API_KEY: ${{ secrets.DOAJ_API_KEY }}
+      run: |
+        set -uo pipefail
+        RESULTS="$ARTIFACT_DIR/doaj-results.csv"
+        UPDATES="$ARTIFACT_DIR/sent-updates.txt"
+        echo "Result,DOI,HTTP status,DOAJ id or error" > "$RESULTS"
+        : > "$UPDATES"
+        touch "$STATE_DIR/sent" 2>/dev/null || true
+        shopt -s nullglob
+        files=("$ARTIFACT_DIR"/micropublication-org/*.json)
+        sent=0
+        failed=0
+        unchanged=0
+        echo "=== Checking ${#files[@]} articles against what was last sent to DOAJ ===" | tee -a "$ARTIFACT_DIR/run.log"
+        for file in "${files[@]}"; do
+          doi=$(jq -r '.bibjson.identifier[] | select(.type == "doi") | .id' "$file")
+          hash=$(jq -cS . "$file" | sha256sum | cut -c1-64)
+          previous=$(awk -v doi="$doi" '$1 == doi { print $2 }' "$STATE_DIR/sent" 2>/dev/null)
+          if [[ $previous == "$hash" ]]; then
+            unchanged=$((unchanged + 1))
+            continue
+          fi
+          result=$([[ -z $previous ]] && echo sent || echo updated)
+          if [[ $DRY_RUN == 'true' ]]; then
+            echo "dry-run-$result,$doi,," >> "$RESULTS"
+            continue
+          fi
+          # DOAJ allows 2 requests a second. Retry rate limiting and server
+          # errors with a growing delay; anything else is final.
+          for attempt in 1 2 3 4; do
+            code=$(curl -sS -o "$RUNNER_TEMP/response.json" -w '%{http_code}' \
+                        -X POST -H 'Content-Type: application/json' \
+                        --data-binary "@$file" \
+                        "${DOAJ_API_URL}?api_key=${DOAJ_API_KEY}" 2>> "$ARTIFACT_DIR/run.log")
+            if [[ $code == 429 || $code == 5* || $code == 000 ]]; then
+              sleep $(( attempt * 5 ))
+              continue
+            fi
+            break
+          done
+          if [[ $code == 201 ]]; then
+            id=$(jq -r '.id // ""' "$RUNNER_TEMP/response.json" 2>/dev/null)
+            echo "$result,$doi,$code,$id" >> "$RESULTS"
+            echo "$doi $hash" >> "$UPDATES"
+            sent=$((sent + 1))
+          else
+            error=$(jq -r '.error // .message // empty' "$RUNNER_TEMP/response.json" 2>/dev/null \
+                    | tr -d '\n,' | cut -c1-200)
+            echo "failed,$doi,$code,${error:-no response body}" >> "$RESULTS"
+            echo "DOAJ rejected $doi with HTTP $code: ${error:-no response body}" | tee -a "$ARTIFACT_DIR/run.log"
+            failed=$((failed + 1))
+          fi
+          sleep 1
+        done
+        if [[ $DRY_RUN == 'true' ]]; then
+          echo "=== Dry run: $(($(wc -l < "$RESULTS") - 1)) would be sent, $unchanged unchanged ===" | tee -a "$ARTIFACT_DIR/run.log"
+        else
+          echo "=== Sent $sent, unchanged $unchanged, failed $failed ===" | tee -a "$ARTIFACT_DIR/run.log"
+        fi
+        rm -f "$RUNNER_TEMP/response.json"
+        echo "SENT_COUNT=$sent" >> "$GITHUB_ENV"
+        echo "UNCHANGED_COUNT=$unchanged" >> "$GITHUB_ENV"
+        echo "UPLOAD_FAILURES=$failed" >> "$GITHUB_ENV"
+
+    - name: Update state files
+      if: ${{ env.DRY_RUN != 'true' && env.PUBARCHIVER_STATUS == '0' }}
+      run: |
+        mkdir -p "$STATE_DIR"
+        # Articles that were not written, plus articles DOAJ rejected. An
+        # incomplete entry in microPublication's list is retried too, since
+        # the article may not be ready yet.
+        {
+          grep -Ei '^(missing|failed|incomplete)' "$ARTIFACT_DIR/report.csv" | cut -d, -f2 || true
+          grep '^failed,' "$ARTIFACT_DIR/doaj-results.csv" | cut -d, -f2 || true
+        } | sort -u > "$STATE_DIR/last-failures"
+        # Record what was sent: the new fingerprints replace the old ones.
+        cat "$ARTIFACT_DIR/sent-updates.txt" "$STATE_DIR/sent" 2>/dev/null \
+          | awk '!seen[$1]++' | sort > "$RUNNER_TEMP/sent" && mv "$RUNNER_TEMP/sent" "$STATE_DIR/sent"
+        echo "$TODAY" > "$STATE_DIR/last-run-date"
+        echo "Articles to retry next run: $(wc -l < "$STATE_DIR/last-failures")"
+
+    - name: Commit updated state files
+      if: ${{ env.DRY_RUN != 'true' && env.PUBARCHIVER_STATUS == '0' }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git pull origin ${{ github.ref }}
+        git add "$STATE_DIR/last-run-date" "$STATE_DIR/last-failures" "$STATE_DIR/sent"
+        git diff --cached --quiet || git commit -m "🤖 update upload-to-doaj state files"
+        git push origin HEAD:${{ github.ref }}
+
+    - name: Set email variables
+      if: ${{ always() && env.DRY_RUN != 'true' }}
+      env:
+        EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
+        EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
+      run: |
+        if [[ ${PUBARCHIVER_STATUS:-1} != '0' ]] || [[ ${VALIDATION_ERRORS:-0} != '0' ]] || [[ ${UPLOAD_FAILURES:-0} != '0' ]]; then
+          EMAIL_TO="${EMAIL_FAILURE:-}"
+          if [[ ${PUBARCHIVER_STATUS:-1} != '0' ]]; then
+            SUBJECT="DOAJ upload failed: pubarchiver error"
+          else
+            SUBJECT="DOAJ upload: ${SENT_COUNT:-0} sent, $(( ${VALIDATION_ERRORS:-0} + ${UPLOAD_FAILURES:-0} )) failed on ${TODAY:-}"
+          fi
+        else
+          EMAIL_TO="${EMAIL_SUCCESS:-}"
+          SUBJECT="DOAJ upload: ${SENT_COUNT:-0} articles on ${TODAY:-}"
+        fi
+        BODY="Sent to DOAJ: ${SENT_COUNT:-0}. Unchanged since last sent: ${UNCHANGED_COUNT:-0}."
+        BODY="$BODY Not written: ${VALIDATION_ERRORS:-0}. Rejected by DOAJ: ${UPLOAD_FAILURES:-0}."
+        if [[ -f "$ARTIFACT_DIR/doaj-results.csv" ]] && (( $(wc -l < "$ARTIFACT_DIR/doaj-results.csv") > 1 )); then
+          BODY="$BODY"$'\n\n'"$(cat "$ARTIFACT_DIR/doaj-results.csv")"
+        fi
+        if [[ -f "$ARTIFACT_DIR/report.csv" ]] && grep -qEv '^(Status|complete),' "$ARTIFACT_DIR/report.csv"; then
+          BODY="$BODY"$'\n\nNot written:\n'"$(grep -Ev '^(Status|complete),' "$ARTIFACT_DIR/report.csv")"
+        fi
+        echo "EMAIL_TO=$EMAIL_TO" >> "$GITHUB_ENV"
+        echo "EMAIL_SUBJECT=$SUBJECT" >> "$GITHUB_ENV"
+        echo "EMAIL_BODY_B64=$(echo "$BODY" | base64 -w 0)" >> "$GITHUB_ENV"
+
+    - name: Send email report
+      if: ${{ always() && env.DRY_RUN != 'true' }}
+      env:
+        MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+        MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
+      run: |
+        bash .github/scripts/mailgun.sh "$ARTIFACT_DIR"
+
+    - name: Install slack-cli
+      if: ${{ always() && env.DRY_RUN != 'true' }}
+      run: |
+        git clone --depth 1 https://github.com/caltechlibrary/slack-cli "$RUNNER_TEMP/slack-cli"
+        echo "$RUNNER_TEMP/slack-cli/src" >> "$GITHUB_PATH"
+
+    - name: Post to Slack
+      if: ${{ always() && env.DRY_RUN != 'true' }}
+      env:
+        SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
+        SLACK_CLI_TOKEN: ${{ secrets.SLACK_CLI_TOKEN }}
+        RUN_NAME: "DOAJ upload for micropublication.org"
+        CURL_STATUS: ${{ env.UPLOAD_FAILURES }}
+      run: |
+        bash .github/scripts/slack.sh "$ARTIFACT_DIR"
+
+    - name: Upload artifact
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        path: ${{ env.ARTIFACT_DIR }}
+        compression-level: 9
+
+    - name: Fail if pubarchiver errored
+      if: ${{ env.PUBARCHIVER_STATUS != '0' }}
+      run: |
+        echo "pubarchiver exited with status ${PUBARCHIVER_STATUS}" >&2
+        exit 1
+
+    - name: Fail if any article was not sent
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && (env.VALIDATION_ERRORS != '0' || env.UPLOAD_FAILURES != '0') }}
+      run: |
+        echo "Articles not written: ${VALIDATION_ERRORS}; rejected by DOAJ: ${UPLOAD_FAILURES}." >&2
+        echo "They are listed in $STATE_DIR/last-failures and will be retried on the next run." >&2
+        exit 1

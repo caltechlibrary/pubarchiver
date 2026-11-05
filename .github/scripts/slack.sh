@@ -38,7 +38,7 @@ elif [[ $VALIDATION_ERRORS != '0' ]]; then
     TEXT="Run completed on ${RUN_DATE}. Articles skipped: ${VALIDATION_ERRORS}"
 elif [[ $CURL_STATUS != '0' ]]; then
     COLOR="#ff0000"
-    TITLE="${RUN_NAME} failed: FTP upload failed with status ${CURL_STATUS}."
+    TITLE="${RUN_NAME} failed: upload failed (status ${CURL_STATUS})."
     TEXT="Articles were not uploaded. Will retry on next run."
 else
     COLOR="#00ff00"

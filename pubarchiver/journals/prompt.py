@@ -100,7 +100,9 @@ class Prompt(JournalAdapter):
         return [article for article in all_articles if article.doi in requested_dois]
 
 
-    def article_metadata(self, article):
+    def article_metadata(self, article, record = None):
+        '''Return the article's metadata, from Crossref.  `record` is
+        unused; it exists for compatibility with other journal handlers.'''
         try:
             works   = Works(etiquette = Prompt.etiquette)
             if __debug__: log(f'asking Crossref for data about {article.doi}')

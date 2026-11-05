@@ -32,6 +32,7 @@ import json as jsonlib
 from   lxml import etree
 import os
 import os.path as path
+import re
 from   PIL import Image, ImageFile
 import plac
 import shutil
@@ -71,6 +72,15 @@ _INTERNAL_DTD_DIR = 'JATS-Archiving-1-2-MathML3-DTD'
 _JATS_DTD_FILENAME = 'JATS-archivearticle1-mathml3.dtd'
 '''Name of the root DTD file for JATS.'''
 
+_DESTINATIONS = {'portico': 'Portico', 'pmc': 'PMC', 'doaj': 'DOAJ'}
+'''Values accepted by the -d option, and the names printed for them.'''
+
+_DOI_REGEX = re.compile(r'^10\.\d{4,9}/\S+$')
+'''Form of a DOI that DOAJ accepts.'''
+
+_ORCID_URL_REGEX = re.compile(r'^https://orcid\.org/\d{4}-\d{4}-\d{4}-\d{3}[\dX]$')
+'''Form of an ORCID iD that DOAJ accepts.'''
+
 _HTML_REPORT_TOP = '''<html>
     <style>
       html  {{ font-family: "Helvetica", sans-serif     }}
@@ -108,7 +118,7 @@ _HTML_REPORT_BOTTOM = '''
 @plac.annotations(
     after_date = ('only keep articles published after date "A"',              'option', 'a'),
     no_color   = ('do not colorize output printed to the terminal',           'flag',   'C'),
-    dest       = ('assume destination "portico" or "pmc" (default: portico)', 'option', 'd'),
+    dest       = ('destination "portico", "pmc", or "doaj" (default: portico)', 'option', 'd'),
     doi_file   = ('retrieve the articles whose DOIs are found in file "F"',   'option', 'f'),
     journal    = ('work with journal "J" (required)',                         'option', 'j'),
     list_dois  = ("list all known DOIs from the journal & exit",              'flag',   'l'),
@@ -137,8 +147,8 @@ journals, you can use a value of "list" to the -j option:
   pubarchiver -j list
 
 Without any additional options, PubArchiver will contact the journal website
-and Crossref or DataCite, and create an archive containing articles and their
-metadata for all articles published to date by the journal.  The options
+(and, for some journals, Crossref), and create an archive containing articles
+and their metadata for all articles published to date by the journal.  The options
 below can be used to select articles and influence other PubArchiver behaviors.
 
 Selecting a subset of articles
@@ -167,9 +177,15 @@ Controlling the output
 
 The value supplied after the option -d (or /d on Windows) can be used to
 select the destination where the publication archive is intended to be sent
-after PubArchiver has done its work.  The possible alternatives are "portico"
-and "pmc"; Portico is assumed to be the default destination.  This option
-changes the structure and content of the archive created by PubArchiver.
+after PubArchiver has done its work.  The possible alternatives are "portico",
+"pmc", and "doaj"; Portico is assumed to be the default destination.  This
+option changes the structure and content of the archive created by PubArchiver.
+
+For "doaj", PubArchiver writes only metadata: one JSON file per article, named
+after the DOI, in the format accepted by the article API of the Directory of
+Open Access Journals.  It downloads no PDF or image files, and the -Z option
+has no effect.  Articles whose metadata DOAJ would reject are not written, and
+are reported with the status "failed-doaj-validation".
 
 PubArchiver will write its output to the directory indicated by the value of
 the option -o (or /o on Windows). If no -o is given, the output will be written
@@ -297,8 +313,20 @@ Command-line options summary
                 warn(f'Failed to get list of articles from {handler.name}')
             exit(0)
 
+        destination = 'portico' if dest == 'D' else dest.lower()
+        if destination not in _DESTINATIONS:
+            alert(f'Unrecognized destination "{dest}". Use one of: '
+                  + ', '.join(_DESTINATIONS) + '.')
+            exit(1)
+        if destination == 'doaj' and not hasattr(handler, 'doaj_record'):
+            alert(f'PubArchiver cannot produce DOAJ metadata for {handler.name}.')
+            exit(1)
+        if destination == 'pmc' and not hasattr(handler, 'bibliographic_record'):
+            alert(f'PubArchiver cannot produce PMC packages for {handler.name}.')
+            exit(1)
+
         body = MainBody(journal       = handler,
-                        dest          = 'pmc' if dest.lower() == 'pmc' else 'portico',
+                        dest          = destination,
                         doi_file      = doi_file if doi_file != 'F' else None,
                         output_dir    = '.'   if output_dir == 'O' else output_dir,
                         after         = None  if after_date == 'A' else after_date,
@@ -355,7 +383,7 @@ class MainBody(object):
             articles = [x for x in articles if parsed_datetime(x.date) > self.after]
 
         inform(f'Total articles left after filtering: {humanize.intcomma(len(articles))}.')
-        inform(f'Destination format: {"PMC" if self.dest == "pmc" else "Portico"}')
+        inform(f'Destination format: {_DESTINATIONS[self.dest]}')
         if self.preview:
             self._print_articles(articles)
             return
@@ -501,22 +529,42 @@ class MainBody(object):
                 warn(skipping_preface + 'missing JATS URL')
                 article.status = 'missing-jats'
                 continue
-            xmldict = self.journal.article_metadata(article)
+            # Journals with a bibliographic_record() read each article's
+            # metadata once here, and everything written about the article,
+            # including the volume in file names, comes from it.
+            record = None
+            if hasattr(self.journal, 'bibliographic_record'):
+                record = self.journal.bibliographic_record(article)
+                if not record:
+                    warn(f'Skipping article with no metadata in '
+                         f'{self.journal.metadata_source}: {article.doi}')
+                    article.status = 'missing-metadata'
+                    continue
+            if dest_service == 'doaj':
+                doaj = self.journal.doaj_record(article, record)
+                if not doaj:
+                    warn(f'Skipping article with no metadata in '
+                         f'{self.journal.metadata_source}: {article.doi}')
+                    article.status = 'missing-metadata'
+                    continue
+                self._save_article_doaj(dest_dir, article, doaj)
+                saved_files.append(article)
+                continue
+            if dest_service == 'pmc':
+                self._save_article_pmc(dest_dir, article, record, zip_articles)
+                saved_files.append(article)
+                continue
+            xmldict = self.journal.article_metadata(article, record)
             if not xmldict:
                 warn(f'Skipping article with no metadata in '
                      f'{self.journal.metadata_source}: {article.doi}')
                 article.status = 'missing-metadata'
                 continue
-
-            # Looks good. Carry on.
-            if dest_service == 'pmc':
-                self._save_article_pmc(dest_dir, article, xmldict, zip_articles)
-            else:
-                self._save_article_portico(dest_dir, article, xmldict)
+            self._save_article_portico(dest_dir, article, xmldict, record)
             saved_files.append(article)
 
         # After we've downloaded everything, maybe zip it all up together.
-        if zip_articles and dest_service != 'pmc':
+        if zip_articles and dest_service == 'portico':
             final_file = self.output_dir + '.zip'
             inform(f'Creating ZIP archive file "{final_file}"')
             comments = zip_comments(len(article_list), self.journal.name)
@@ -527,7 +575,21 @@ class MainBody(object):
             shutil.rmtree(self.output_dir)
 
 
-    def _save_article_portico(self, dest_dir, article, xmldict):
+    def _save_article_doaj(self, dest_dir, article, record):
+        problems = doaj_problems(record)
+        if problems:
+            warn(f'DOAJ record for {article.doi} is not valid: ' + '; '.join(problems))
+            article.status = 'failed-doaj-validation'
+            return
+        json_file = doaj_filename(article, dest_dir)
+        inform('Writing ' + article.doi)
+        if __debug__: log(f'writing DOAJ JSON to {json_file}')
+        with open(json_file, 'w', encoding = 'utf8') as f:
+            jsonlib.dump(record, f, indent = 2, ensure_ascii = False)
+            f.write('\n')
+
+
+    def _save_article_portico(self, dest_dir, article, xmldict, record):
         article_dir = path.join(dest_dir, article.basename)
         jats_dir    = path.join(article_dir, 'jats')
         try:
@@ -552,7 +614,7 @@ class MainBody(object):
             # Nothing more to do.
             return
 
-        jats_file = jats_filename(article, jats_dir)
+        jats_file = jats_filename(article, record, jats_dir)
         if __debug__: log(f'downloading JATS XML to {jats_file}')
         if not download_file(article.jats, jats_file):
             warn(f'Could not download JATS file for {article.doi}')
@@ -567,7 +629,7 @@ class MainBody(object):
         # We need to store the image with the name that appears in the
         # JATS file. That requires a little extra work to extract.
         image_extension = filename_extension(article.image)
-        image_file = image_filename(article, jats_dir, ext = image_extension)
+        image_file = image_filename(article, record, jats_dir, ext = image_extension)
         if article.image:
             if __debug__: log(f'downloading image file to {image_file}')
             if download_file(article.image, image_file):
@@ -577,7 +639,7 @@ class MainBody(object):
                         converted = converted.convert('RGB')
                         if __debug__: log(f'converting image to TIFF format')
                         tiff_name = filename_basename(image_file) + '.tif'
-                        comments = tiff_comments(article, self.journal.name)
+                        comments = tiff_comments(article, record, self.journal.name)
                         # Using save() means only the 1st frame of a multiframe
                         # image will be saved.
                         converted.save(tiff_name, compression = None,
@@ -597,18 +659,18 @@ class MainBody(object):
             if __debug__: log(f'{article.doi} has no image (going on without it')
 
 
-    def _save_article_pmc(self, dest_dir, article, xml, zip_articles):
+    def _save_article_pmc(self, dest_dir, article, record, zip_articles):
         inform('Writing ' + article.doi)
         to_archive = []
 
-        pdf_file = pmc_pdf_filename(article, dest_dir)
+        pdf_file = pmc_pdf_filename(article, record, dest_dir)
         if __debug__: log(f'downloading PDF to {pdf_file}')
         if not download_file(article.pdf, pdf_file):
             warn(f'Could not download PDF file for {article.doi}')
             article.status = 'failed-pdf-download'
         to_archive.append(pdf_file)
 
-        jats_file = jats_filename(article, dest_dir)
+        jats_file = jats_filename(article, record, dest_dir)
         if __debug__: log(f'downloading JATS XML to {jats_file}')
         if not download_file(article.jats, jats_file):
             warn(f'Could not download JATS file for {article.doi}')
@@ -624,7 +686,7 @@ class MainBody(object):
         # We need to store the image with the name that appears in the
         # JATS file. That requires a little extra work to extract.
         image_extension = filename_extension(article.image)
-        image_file = image_filename(article, dest_dir, ext = image_extension)
+        image_file = image_filename(article, record, dest_dir, ext = image_extension)
         if article.image:
             if __debug__: log(f'downloading image file to {image_file}')
             if download_file(article.image, image_file):
@@ -635,7 +697,7 @@ class MainBody(object):
                     tiff_file = filename_basename(image_file) + '.tif'
                     # Using save() means that only the 1st frame of a
                     # multiframe image will be saved.
-                    desc = tiff_comments(article, self.journal.name)
+                    desc = tiff_comments(article, record, self.journal.name)
                     converted_img.save(tiff_file, dpi = _TIFF_DPI,
                                        compression = None, description = desc)
                     to_archive.append(tiff_file)
@@ -651,7 +713,7 @@ class MainBody(object):
         # Finally, put the files into their own zip archive.
         if zip_articles:
             if not article.status.startswith('failed'):
-                zip_file = pmc_zip_filename(article, dest_dir)
+                zip_file = pmc_zip_filename(article, record, dest_dir)
                 inform(f'Creating ZIP archive file "{zip_file}"')
                 archive_files(zip_file, to_archive)
                 if __debug__: log(f'verifying ZIP file {zip_file}')
@@ -680,30 +742,64 @@ def xml_filename(article, article_dir = ''):
     return path.join(article_dir, filename)
 
 
-def pmc_basename(article):
-    issn_no_dash = article.issn.replace('-', '')
-    volume = str(parsed_datetime(article.date).year)
+def doaj_filename(article, dest_dir = ''):
+    return path.join(dest_dir, article.basename + '.json')
+
+
+def doaj_problems(record):
+    '''Return a list of reasons DOAJ would reject the record, checked the
+    way DOAJ's article API checks incoming articles.  An empty list means
+    the record passes.'''
+    problems = []
+    bibjson = record.get('bibjson', {})
+    if not bibjson.get('title'):
+        problems.append('no title')
+    identifiers = bibjson.get('identifier', [])
+    types = [i.get('type') for i in identifiers]
+    if 'eissn' not in types and 'pissn' not in types:
+        problems.append('no eISSN or print ISSN')
+    for ident in identifiers:
+        if ident.get('type') == 'doi' and not _DOI_REGEX.match(ident.get('id', '')):
+            problems.append(f'malformed DOI "{ident.get("id")}"')
+    for author in bibjson.get('author', []):
+        if not author.get('name'):
+            problems.append('an author with no name')
+        orcid = author.get('orcid_id')
+        if orcid and not _ORCID_URL_REGEX.match(orcid):
+            problems.append(f'malformed ORCID iD "{orcid}"')
+    for link in bibjson.get('link', []):
+        if link.get('type') != 'fulltext' or not link.get('url', '').startswith(('http://', 'https://')):
+            problems.append(f'unusable link {link}')
+    return problems
+
+
+def pmc_basename(article, record):
+    '''Return the base of PMC file names, ISSN-volume-article, from the
+    article's bibliographic record.  The JATS names its image the same way,
+    so the volume must be the JATS volume.'''
+    issn_no_dash = record['issn'].replace('-', '')
+    volume = record['volume'] or record['date'].split('-')[0]
     return issn_no_dash + '-' + volume + '-' + article.basename
 
 
-def jats_filename(article, jats_dir = ''):
-    filename = pmc_basename(article) + '.xml'
+def jats_filename(article, record, jats_dir = ''):
+    filename = pmc_basename(article, record) + '.xml'
     return path.join(jats_dir, filename)
 
 
-def pmc_pdf_filename(article, article_dir = ''):
-    filename = pmc_basename(article) + '.pdf'
+def pmc_pdf_filename(article, record, article_dir = ''):
+    filename = pmc_basename(article, record) + '.pdf'
     return path.join(article_dir, filename)
 
 
-def pmc_zip_filename(article, article_dir = ''):
-    filename = pmc_basename(article) + '.zip'
+def pmc_zip_filename(article, record, article_dir = ''):
+    filename = pmc_basename(article, record) + '.zip'
     return path.join(article_dir, filename)
 
 
-def image_filename(article, jats_dir = '', ext = '.png'):
+def image_filename(article, record, jats_dir = '', ext = '.png'):
     '''Extract the image file from the <graphic> element of the JATS file.'''
-    jats_file = jats_filename(article, jats_dir)
+    jats_file = jats_filename(article, record, jats_dir)
     with open(jats_file, 'r') as f:
         try:
             root = etree.parse(jats_file)
@@ -734,10 +830,10 @@ def image_without_alpha(img):
         return img
 
 
-def tiff_comments(article, name):
+def tiff_comments(article, record, name):
     text = f'Image converted from {article.image} on {str(date.today())}'
-    text += f' for article titled "{article.title}", DOI {article.doi},'
-    text += f' originally published on {article.date} in {name}.'
+    text += f' for article titled "{record["title"]}", DOI {record["doi"]},'
+    text += f' originally published on {record["date"]} in {name}.'
     return text
 
 
