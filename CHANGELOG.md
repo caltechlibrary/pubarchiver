@@ -14,14 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- microPublication.org article metadata comes from microPublication itself instead of Crossref: the title, authors, affiliations, abstract, keywords, volume, and publication date from the article’s JATS file, and the DOI and permalink from its article list. The JATS publication date can be earlier than the date in the article list, which still decides which articles a run selects. ORCID iDs are included when the JATS has them. The JATS of the earliest articles has no abstract, so their Portico XML files and DOAJ records have none.
+- microPublication.org article metadata comes from the article’s JATS file instead of Crossref: the DOI, ISSN, title, authors, affiliations, abstract, keywords, volume, and publication date. The article list only decides which articles a run selects and where their files and article pages are. An article is skipped as `missing-metadata` when its JATS can’t be read, lacks a DOI, title, or publication date, or gives a DOI different from the article list’s. The JATS publication date can be earlier than the date in the article list. ORCID iDs are included when the JATS has them. The JATS of the earliest articles has no abstract, so their Portico XML files and DOAJ records have none.
 - An article with no metadata is reported as `missing-metadata`, whichever source the journal uses.
 - The Slack message for a failed upload no longer says “FTP”, so it fits the DOAJ upload too.
 
 ### Fixed
 
 - microPublication.org articles published before November 2026, whose DOIs are registered with DataCite rather than Crossref, are no longer skipped as `missing-crossref`.
-- Titles in microPublication.org Portico XML files are correct. microPublication’s article list moves italicized words, such as species names, to the end of the title, and 2.2.0 used those titles.
+- Titles in microPublication.org Portico XML files and TIFF image comments are correct. microPublication’s article list moves italicized words, such as species names, to the end of the title, and 2.2.0 used those titles.
+- The volume in the names of microPublication.org PMC and Portico JATS, PDF, and ZIP files is the JATS volume, matching the name the JATS gives its image. For an article published at the turn of a year, the article list’s year can differ.
 - Reading microPublication.org’s article list no longer fails with `NameError` when the server answers 404 or 410.
 
 ## [2.2.0] - 2026-11-05

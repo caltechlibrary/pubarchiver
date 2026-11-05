@@ -68,29 +68,30 @@ class Micropublication(JournalAdapter):
             raise InternalError('Unexpected response from network call')
 
 
-    def article_metadata(self, article):
+    def article_metadata(self, article, record = None):
         '''Return a dict of metadata for the article, in the DataCite-style
         layout written to the Portico XML file, or None if the article's
-        JATS file can't be obtained.  The metadata comes from
-        bibliographic_record().
+        JATS file can't be obtained or lacks required metadata.  The
+        metadata comes from bibliographic_record(); pass its result as
+        `record` to avoid reading the JATS again.
         '''
-        record = self.bibliographic_record(article)
+        record = record or self.bibliographic_record(article)
         if not record:
             return None
 
-        date     = record['date'] or article.date
+        date     = record['date']
         year     = date.split('-')[0]
         resource = {
             '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
             'identifier': {
                 '@identifierType': 'DOI',
-                '#text': article.doi.upper(),
+                '#text': record['doi'].upper(),
             },
             'creators': {
                 'creator': creator_list(record['authors']),
             },
             'titles': {
-                'title': record['title'] or article.title,
+                'title': record['title'],
             },
             'publicationYear': year,
             'resourceType': {
@@ -109,7 +110,7 @@ class Micropublication(JournalAdapter):
             'volume':     volume_for_year(year),
             'file':       article.basename + '.pdf',
             'journal':    record['journal'],
-            'e-issn':     self.issn,
+            'e-issn':     record['issn'],
             'rightsList': {
                 'rights':    self.license_name,
                 'rightsURI': self.license_url,
@@ -120,18 +121,18 @@ class Micropublication(JournalAdapter):
 
     def bibliographic_record(self, article):
         '''Return the article's metadata from its JATS file, or None if the
-        file can't be obtained.
+        file can't be obtained or lacks a DOI, title, or publication date.
 
-        microPublication's JATS is the source of all article metadata other
-        than the DOI and permalink, which come from its article list.  The
-        title comes from the JATS because the article list's titles have
-        italicized words moved to the end.  The publication date comes from
-        the JATS too; it can differ from the article list's date, which
-        pubarchiver uses only to select articles by date.  The result is a
-        dict with these keys:
+        microPublication's JATS is the source of all article metadata.  The
+        article list is used only to select articles by date and to find
+        their files and article pages.  Its titles have italicized words
+        moved to the end, and its dates can differ from the JATS
+        publication date.  The result is a dict with these keys:
 
+            doi       DOI, which must match the article list's
+            issn      electronic ISSN
             title     article title, as plain text
-            date      publication date as YYYY-MM-DD, or ''
+            date      publication date as YYYY-MM-DD
             journal   journal title
             volume    volume, or ''
             abstract  plain text of the abstract, or ''; the JATS of the
@@ -146,9 +147,24 @@ class Micropublication(JournalAdapter):
         if root.find('.//article-meta') is None:
             warn(f'JATS for {article.doi} has no article metadata')
             return None
+        doi   = jats_text(root, './/article-meta/article-id[@pub-id-type="doi"]')
+        title = jats_text(root, './/article-meta/title-group/article-title')
+        date  = jats_pub_date(root)
+        missing = [name for name, value in [('DOI', doi), ('title', title),
+                                            ('publication date', date)]
+                   if not value]
+        if missing:
+            warn(f'JATS for {article.doi} has no ' + ', '.join(missing))
+            return None
+        if doi.lower() != article.doi.lower():
+            warn(f'JATS for {article.doi} gives a different DOI, {doi}')
+            return None
         return {
-            'title':    jats_text(root, './/article-meta/title-group/article-title'),
-            'date':     jats_pub_date(root),
+            'doi':      doi,
+            'issn':     (jats_text(root, './/journal-meta/issn[@pub-type="epub"]')
+                         or self.issn),
+            'title':    title,
+            'date':     date,
             'journal':  jats_text(root, './/journal-meta//journal-title') or self.journal_title,
             'volume':   jats_text(root, './/article-meta/volume'),
             'abstract': jats_abstract(root),
@@ -157,10 +173,14 @@ class Micropublication(JournalAdapter):
         }
 
 
-    def doaj_record(self, article):
+    def doaj_record(self, article, record = None):
         '''Return the article's metadata as a DOAJ incoming article, ready
         to send to DOAJ's article API, or None if the article's JATS file
-        can't be obtained.  The metadata comes from bibliographic_record().
+        can't be obtained or lacks required metadata.  The metadata comes
+        from bibliographic_record(); pass its result as `record` to avoid
+        reading the JATS again.  The full-text link is the article's page
+        on microPublication's site, from the article list, because the JATS
+        doesn't give it.
 
         The format is DOAJ's IncomingArticleDO, documented at
         https://doaj.github.io/doaj-docs/master/data_models/IncomingAPIArticle
@@ -171,16 +191,16 @@ class Micropublication(JournalAdapter):
         matches a resent article to its existing record by either one, so a
         different form creates a duplicate record instead of an update.
         '''
-        record = self.bibliographic_record(article)
+        record = record or self.bibliographic_record(article)
         if not record:
             return None
-        year, month = (record['date'] or article.date).split('-')[:2]
+        year, month = record['date'].split('-')[:2]
 
         bibjson = {
-            'title': record['title'] or article.title,
+            'title': record['title'],
             'identifier': [
-                {'type': 'doi',   'id': article.doi},
-                {'type': 'eissn', 'id': self.issn},
+                {'type': 'doi',   'id': record['doi']},
+                {'type': 'eissn', 'id': record['issn']},
             ],
             'year':  year,
             'month': str(int(month)),

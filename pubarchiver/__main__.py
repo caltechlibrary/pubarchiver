@@ -321,6 +321,9 @@ Command-line options summary
         if destination == 'doaj' and not hasattr(handler, 'doaj_record'):
             alert(f'PubArchiver cannot produce DOAJ metadata for {handler.name}.')
             exit(1)
+        if destination == 'pmc' and not hasattr(handler, 'bibliographic_record'):
+            alert(f'PubArchiver cannot produce PMC packages for {handler.name}.')
+            exit(1)
 
         body = MainBody(journal       = handler,
                         dest          = destination,
@@ -526,28 +529,38 @@ class MainBody(object):
                 warn(skipping_preface + 'missing JATS URL')
                 article.status = 'missing-jats'
                 continue
-            if dest_service == 'doaj':
-                record = self.journal.doaj_record(article)
+            # Journals with a bibliographic_record() read each article's
+            # metadata once here, and everything written about the article,
+            # including the volume in file names, comes from it.
+            record = None
+            if hasattr(self.journal, 'bibliographic_record'):
+                record = self.journal.bibliographic_record(article)
                 if not record:
                     warn(f'Skipping article with no metadata in '
                          f'{self.journal.metadata_source}: {article.doi}')
                     article.status = 'missing-metadata'
                     continue
-                self._save_article_doaj(dest_dir, article, record)
+            if dest_service == 'doaj':
+                doaj = self.journal.doaj_record(article, record)
+                if not doaj:
+                    warn(f'Skipping article with no metadata in '
+                         f'{self.journal.metadata_source}: {article.doi}')
+                    article.status = 'missing-metadata'
+                    continue
+                self._save_article_doaj(dest_dir, article, doaj)
                 saved_files.append(article)
                 continue
-            xmldict = self.journal.article_metadata(article)
+            if dest_service == 'pmc':
+                self._save_article_pmc(dest_dir, article, record, zip_articles)
+                saved_files.append(article)
+                continue
+            xmldict = self.journal.article_metadata(article, record)
             if not xmldict:
                 warn(f'Skipping article with no metadata in '
                      f'{self.journal.metadata_source}: {article.doi}')
                 article.status = 'missing-metadata'
                 continue
-
-            # Looks good. Carry on.
-            if dest_service == 'pmc':
-                self._save_article_pmc(dest_dir, article, xmldict, zip_articles)
-            else:
-                self._save_article_portico(dest_dir, article, xmldict)
+            self._save_article_portico(dest_dir, article, xmldict, record)
             saved_files.append(article)
 
         # After we've downloaded everything, maybe zip it all up together.
@@ -576,7 +589,7 @@ class MainBody(object):
             f.write('\n')
 
 
-    def _save_article_portico(self, dest_dir, article, xmldict):
+    def _save_article_portico(self, dest_dir, article, xmldict, record):
         article_dir = path.join(dest_dir, article.basename)
         jats_dir    = path.join(article_dir, 'jats')
         try:
@@ -601,7 +614,7 @@ class MainBody(object):
             # Nothing more to do.
             return
 
-        jats_file = jats_filename(article, jats_dir)
+        jats_file = jats_filename(article, record, jats_dir)
         if __debug__: log(f'downloading JATS XML to {jats_file}')
         if not download_file(article.jats, jats_file):
             warn(f'Could not download JATS file for {article.doi}')
@@ -616,7 +629,7 @@ class MainBody(object):
         # We need to store the image with the name that appears in the
         # JATS file. That requires a little extra work to extract.
         image_extension = filename_extension(article.image)
-        image_file = image_filename(article, jats_dir, ext = image_extension)
+        image_file = image_filename(article, record, jats_dir, ext = image_extension)
         if article.image:
             if __debug__: log(f'downloading image file to {image_file}')
             if download_file(article.image, image_file):
@@ -626,7 +639,7 @@ class MainBody(object):
                         converted = converted.convert('RGB')
                         if __debug__: log(f'converting image to TIFF format')
                         tiff_name = filename_basename(image_file) + '.tif'
-                        comments = tiff_comments(article, self.journal.name)
+                        comments = tiff_comments(article, record, self.journal.name)
                         # Using save() means only the 1st frame of a multiframe
                         # image will be saved.
                         converted.save(tiff_name, compression = None,
@@ -646,18 +659,18 @@ class MainBody(object):
             if __debug__: log(f'{article.doi} has no image (going on without it')
 
 
-    def _save_article_pmc(self, dest_dir, article, xml, zip_articles):
+    def _save_article_pmc(self, dest_dir, article, record, zip_articles):
         inform('Writing ' + article.doi)
         to_archive = []
 
-        pdf_file = pmc_pdf_filename(article, dest_dir)
+        pdf_file = pmc_pdf_filename(article, record, dest_dir)
         if __debug__: log(f'downloading PDF to {pdf_file}')
         if not download_file(article.pdf, pdf_file):
             warn(f'Could not download PDF file for {article.doi}')
             article.status = 'failed-pdf-download'
         to_archive.append(pdf_file)
 
-        jats_file = jats_filename(article, dest_dir)
+        jats_file = jats_filename(article, record, dest_dir)
         if __debug__: log(f'downloading JATS XML to {jats_file}')
         if not download_file(article.jats, jats_file):
             warn(f'Could not download JATS file for {article.doi}')
@@ -673,7 +686,7 @@ class MainBody(object):
         # We need to store the image with the name that appears in the
         # JATS file. That requires a little extra work to extract.
         image_extension = filename_extension(article.image)
-        image_file = image_filename(article, dest_dir, ext = image_extension)
+        image_file = image_filename(article, record, dest_dir, ext = image_extension)
         if article.image:
             if __debug__: log(f'downloading image file to {image_file}')
             if download_file(article.image, image_file):
@@ -684,7 +697,7 @@ class MainBody(object):
                     tiff_file = filename_basename(image_file) + '.tif'
                     # Using save() means that only the 1st frame of a
                     # multiframe image will be saved.
-                    desc = tiff_comments(article, self.journal.name)
+                    desc = tiff_comments(article, record, self.journal.name)
                     converted_img.save(tiff_file, dpi = _TIFF_DPI,
                                        compression = None, description = desc)
                     to_archive.append(tiff_file)
@@ -700,7 +713,7 @@ class MainBody(object):
         # Finally, put the files into their own zip archive.
         if zip_articles:
             if not article.status.startswith('failed'):
-                zip_file = pmc_zip_filename(article, dest_dir)
+                zip_file = pmc_zip_filename(article, record, dest_dir)
                 inform(f'Creating ZIP archive file "{zip_file}"')
                 archive_files(zip_file, to_archive)
                 if __debug__: log(f'verifying ZIP file {zip_file}')
@@ -760,30 +773,33 @@ def doaj_problems(record):
     return problems
 
 
-def pmc_basename(article):
-    issn_no_dash = article.issn.replace('-', '')
-    volume = str(parsed_datetime(article.date).year)
+def pmc_basename(article, record):
+    '''Return the base of PMC file names, ISSN-volume-article, from the
+    article's bibliographic record.  The JATS names its image the same way,
+    so the volume must be the JATS volume.'''
+    issn_no_dash = record['issn'].replace('-', '')
+    volume = record['volume'] or record['date'].split('-')[0]
     return issn_no_dash + '-' + volume + '-' + article.basename
 
 
-def jats_filename(article, jats_dir = ''):
-    filename = pmc_basename(article) + '.xml'
+def jats_filename(article, record, jats_dir = ''):
+    filename = pmc_basename(article, record) + '.xml'
     return path.join(jats_dir, filename)
 
 
-def pmc_pdf_filename(article, article_dir = ''):
-    filename = pmc_basename(article) + '.pdf'
+def pmc_pdf_filename(article, record, article_dir = ''):
+    filename = pmc_basename(article, record) + '.pdf'
     return path.join(article_dir, filename)
 
 
-def pmc_zip_filename(article, article_dir = ''):
-    filename = pmc_basename(article) + '.zip'
+def pmc_zip_filename(article, record, article_dir = ''):
+    filename = pmc_basename(article, record) + '.zip'
     return path.join(article_dir, filename)
 
 
-def image_filename(article, jats_dir = '', ext = '.png'):
+def image_filename(article, record, jats_dir = '', ext = '.png'):
     '''Extract the image file from the <graphic> element of the JATS file.'''
-    jats_file = jats_filename(article, jats_dir)
+    jats_file = jats_filename(article, record, jats_dir)
     with open(jats_file, 'r') as f:
         try:
             root = etree.parse(jats_file)
@@ -814,10 +830,10 @@ def image_without_alpha(img):
         return img
 
 
-def tiff_comments(article, name):
+def tiff_comments(article, record, name):
     text = f'Image converted from {article.image} on {str(date.today())}'
-    text += f' for article titled "{article.title}", DOI {article.doi},'
-    text += f' originally published on {article.date} in {name}.'
+    text += f' for article titled "{record["title"]}", DOI {record["doi"]},'
+    text += f' originally published on {record["date"]} in {name}.'
     return text
 
 
