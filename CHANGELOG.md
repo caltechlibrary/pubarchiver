@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- microPublication.org article metadata comes from Crossref, where microPublication registers its DOIs, instead of DataCite. An article without a Crossref record is reported as `missing-crossref`.
+- The abstract in microPublication.org Portico XML files comes from the article’s JATS file, as plain text, because microPublication’s Crossref records have no abstract.
+
+### Fixed
+
+- microPublication.org articles whose DOIs are not registered with DataCite are no longer skipped as `missing-datacite`.
+
+
 ## [2.1.2] - 2022-04-12
 
 This version supports parsing the `<correctionDoi>` field in the microPublication XML article list.
