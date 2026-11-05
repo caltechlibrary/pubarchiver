@@ -14,11 +14,11 @@ is open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
-from   bun import inform, warn, alert, alert_fatal
+from   bun import warn, alert, alert_fatal
 from   commonpy.exceptions import NoContent
 from   commonpy.network_utils import net
+import html
 from   lxml import etree
-from   os import path
 import re
 
 if __debug__:
@@ -362,14 +362,86 @@ def creator_list(authors):
 
 
 def jats_text(root, xpath):
-    '''Return the whitespace-normalized text of the first element matching
-    xpath in a parsed JATS file, or '' if there is none.'''
+    '''Return the plain text of the first element matching xpath in a
+    parsed JATS file, or '' if there is none.'''
     if root is None:
         return ''
-    element = root.find(xpath)
+    return plain_text(root.find(xpath))
+
+
+# microPublication's JATS is pretty-printed: within an element that contains
+# other elements, each child and each run of text starts on a new line,
+# indented by the same amount.  Those line breaks and indentation are not
+# part of the text.  Real spaces survive as a space before the line break or
+# an extra space after the indentation.  Pretty-printing also drops text
+# that was only whitespace, which leaves two kinds of trace: a line break
+# alone between two elements, and an empty element (<italic/>) that held a
+# space.  Joining the lines with spaces instead gives titles like
+# "( Tsg101 )" and "Mecp2 -heterozygous".
+
+_TRAILING_INDENT = re.compile(r'\n( *)$')
+_LINE_INDENT     = re.compile(r'\n( *)(?=\S)')
+
+def plain_text(element):
+    '''Return the text of a JATS element as one line of plain text, with
+    the line breaks and indentation of pretty-printing removed and
+    character references such as "&#x3B3;" decoded.  microPublication's
+    JATS escapes some characters twice, so they reach the parsed text as
+    character references.'''
     if element is None:
         return ''
-    return ' '.join(''.join(element.itertext()).split())
+    return clean_text(_render(element))
+
+
+def clean_text(text):
+    '''Decode character references in text, remove zero-width spaces, and
+    collapse whitespace.'''
+    text = html.unescape(text or '').replace('\u200b', '')
+    return ' '.join(text.split())
+
+
+def _render(element):
+    children = list(element)
+    if not children:
+        text = element.text or ''
+        if not text:
+            return ' '
+        if not text.startswith('\n'):
+            return text
+        indents = [len(i) for i in _LINE_INDENT.findall(text)]
+        return _unindent(text, min(indents) if indents else None)
+    texts = [element.text or ''] + [c.tail or '' for c in children[:-1]]
+    indents = [len(m.group(1)) for m in map(_TRAILING_INDENT.search, texts) if m]
+    width = min(indents) if indents else None
+    parts = [_text_piece(element.text, width, between = False)]
+    for i, child in enumerate(children):
+        parts.append(_render(child))
+        tail = _text_piece(child.tail, width, between = i + 1 < len(children))
+        # The space after an element that ends with another element, as in
+        # <italic>pk<sup>pk1</sup></italic> and, is lost in pretty-printing.
+        if _ends_with_element(child) and (child.tail or '').startswith('\n') \
+           and tail[:1].isalnum():
+            tail = ' ' + tail
+        parts.append(tail)
+    return ''.join(parts)
+
+
+def _text_piece(text, width, between):
+    text = text or ''
+    if '\n' in text and not text.strip():
+        return ' ' if between else ''
+    return _unindent(text, width)
+
+
+def _unindent(text, width):
+    if width is None:
+        return text
+    return re.sub(r'\n {0,%d}' % width, '', text)
+
+
+def _ends_with_element(element):
+    children = list(element)
+    return bool(children) and not (children[-1].tail or '').strip()
 
 
 def jats_pub_date(root):
@@ -389,8 +461,15 @@ def jats_pub_date(root):
 
 
 def jats_abstract(root):
-    '''Return the plain text of the abstract in a parsed JATS file.'''
-    return jats_text(root, './/article-meta/abstract')
+    '''Return the plain text of the abstract in a parsed JATS file, with
+    its paragraphs separated by spaces.'''
+    if root is None:
+        return ''
+    abstract = root.find('.//article-meta/abstract')
+    if abstract is None:
+        return ''
+    paragraphs = abstract.findall('.//p') or [abstract]
+    return ' '.join(text for text in map(plain_text, paragraphs) if text)
 
 
 def jats_keywords(root):
@@ -398,12 +477,10 @@ def jats_keywords(root):
     no <kwd> elements; its "subject" and "species" categories serve instead.'''
     if root is None:
         return []
-    keywords = [' '.join(''.join(k.itertext()).split())
-                for k in root.findall('.//article-meta//kwd')]
+    keywords = [plain_text(k) for k in root.findall('.//article-meta//kwd')]
     for group in root.findall('.//article-meta/article-categories/subj-group'):
         if group.get('subj-group-type') in ['subject', 'species']:
-            keywords += [' '.join(''.join(s.itertext()).split())
-                         for s in group.findall('subject')]
+            keywords += [plain_text(s) for s in group.findall('subject')]
     return [k for k in dict.fromkeys(keywords) if k]
 
 
@@ -416,7 +493,7 @@ def jats_authors(root):
     affiliations = {}
     for aff in root.findall('.//article-meta//aff'):
         label = aff.findtext('label') or ''
-        text  = ' '.join(''.join(aff.itertext()).split())
+        text  = plain_text(aff)
         if label and text.startswith(label.strip()):
             text = text[len(label.strip()):].strip()
         affiliations[aff.get('id')] = text
@@ -425,17 +502,17 @@ def jats_authors(root):
         name = contrib.find('name')
         rids = [x.get('rid') for x in contrib.findall('xref[@ref-type="aff"]')]
         affiliation = next((affiliations[r] for r in rids if affiliations.get(r)), '')
-        orcid = ' '.join((contrib.findtext('contrib-id[@contrib-id-type="orcid"]') or '').split())
+        orcid = clean_text(contrib.findtext('contrib-id[@contrib-id-type="orcid"]'))
         if name is not None:
             authors.append({
-                'given':       ' '.join((name.findtext('given-names') or '').split()),
-                'family':      ' '.join((name.findtext('surname') or '').split()),
+                'given':       plain_text(name.find('given-names')),
+                'family':      plain_text(name.find('surname')),
                 'name':        '',
                 'affiliation': affiliation,
                 'orcid':       orcid,
             })
         else:
-            collab = ' '.join(''.join(contrib.findtext('collab') or '').split())
+            collab = plain_text(contrib.find('collab'))
             if collab:
                 authors.append({'given': '', 'family': '', 'name': collab,
                                 'affiliation': affiliation, 'orcid': orcid})

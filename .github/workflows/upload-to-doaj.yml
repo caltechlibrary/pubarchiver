@@ -193,7 +193,9 @@ jobs:
         UPDATES="$ARTIFACT_DIR/sent-updates.txt"
         echo "Result,DOI,HTTP status,DOAJ id or error" > "$RESULTS"
         : > "$UPDATES"
-        touch "$STATE_DIR/sent" 2>/dev/null || true
+        # The first run has no state directory yet.
+        mkdir -p "$STATE_DIR"
+        touch "$STATE_DIR/sent"
         shopt -s nullglob
         files=("$ARTIFACT_DIR"/micropublication-org/*.json)
         sent=0
@@ -203,7 +205,7 @@ jobs:
         for file in "${files[@]}"; do
           doi=$(jq -r '.bibjson.identifier[] | select(.type == "doi") | .id' "$file")
           hash=$(jq -cS . "$file" | sha256sum | cut -c1-64)
-          previous=$(awk -v doi="$doi" '$1 == doi { print $2 }' "$STATE_DIR/sent" 2>/dev/null)
+          previous=$(awk -v doi="$doi" '$1 == doi { print $2 }' "$STATE_DIR/sent")
           if [[ $previous == "$hash" ]]; then
             unchanged=$((unchanged + 1))
             continue
@@ -254,6 +256,7 @@ jobs:
       if: ${{ env.DRY_RUN != 'true' && env.PUBARCHIVER_STATUS == '0' }}
       run: |
         mkdir -p "$STATE_DIR"
+        touch "$STATE_DIR/sent"
         # Articles that were not written, plus articles DOAJ rejected. An
         # incomplete entry in microPublication's list is retried too, since
         # the article may not be ready yet.
@@ -262,7 +265,7 @@ jobs:
           grep '^failed,' "$ARTIFACT_DIR/doaj-results.csv" | cut -d, -f2 || true
         } | sort -u > "$STATE_DIR/last-failures"
         # Record what was sent: the new fingerprints replace the old ones.
-        cat "$ARTIFACT_DIR/sent-updates.txt" "$STATE_DIR/sent" 2>/dev/null \
+        cat "$ARTIFACT_DIR/sent-updates.txt" "$STATE_DIR/sent" \
           | awk '!seen[$1]++' | sort > "$RUNNER_TEMP/sent" && mv "$RUNNER_TEMP/sent" "$STATE_DIR/sent"
         echo "$TODAY" > "$STATE_DIR/last-run-date"
         echo "Articles to retry next run: $(wc -l < "$STATE_DIR/last-failures")"
