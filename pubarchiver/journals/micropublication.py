@@ -14,12 +14,11 @@ is open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
-import base64
 from   bun import inform, warn, alert, alert_fatal
 from   commonpy.network_utils import net
+from   crossref.restful import Works, Etiquette
 from   lxml import etree
 from   os import path
-import xmltodict
 
 if __debug__:
     from sidetrack import log
@@ -30,12 +29,6 @@ from   pubarchiver.exceptions import *
 from   pubarchiver.journals.base import JournalAdapter
 
 
-# Constants.
-# .............................................................................
-
-_DATACITE_API_URL = 'https://api.datacite.org/dois/'
-
-
 # Main class.
 # .............................................................................
 
@@ -44,10 +37,15 @@ class Micropublication(JournalAdapter):
     issn             = '2578-9430'
     doi_prefix       = '10.17912'
     uses_jats        = True
-    metadata_source  = 'DataCite'
+    metadata_source  = 'Crossref'
     base_urls        = ['https://www.micropublication.org']
     article_list_url = 'https://portal.micropublication.org/api/export/archives.xml'
     archive_basename = 'micropublication-org'
+    license_name     = 'Creative Commons Attribution 4.0'
+    license_url      = 'https://creativecommons.org/licenses/by/4.0/legalcode'
+    etiquette        = Etiquette('PubArchiver', pubarchiver.__version__,
+                                 'https://github.com/caltechlibrary/pubarchiver',
+                                 'helpdesk@library.caltech.edu')
 
 
     def all_articles(self):
@@ -67,31 +65,89 @@ class Micropublication(JournalAdapter):
 
 
     def article_metadata(self, article):
-        (response, error) = net('get', _DATACITE_API_URL + article.doi)
-        if error:
-            if __debug__: log(f'error from datacite for {article.doi}: {str(error)}')
+        '''Return a dict of metadata for the article, in the DataCite-style
+        layout written to the Portico XML file, or None if Crossref has no
+        record for the article.
+
+        Bibliographic data comes from Crossref.  microPublication's Crossref
+        deposits carry no abstract, so the abstract comes from the article's
+        JATS file instead.
+        '''
+        try:
+            if __debug__: log(f'asking Crossref for data about {article.doi}')
+            data = Works(etiquette = self.etiquette).doi(article.doi)
+        except Exception as ex:
+            if __debug__: log(f'crossref API exception for {article.doi}: {str(ex)}')
+            warn(f'Failed to get data from Crossref for {article.doi}: {str(ex)}')
             return None
-        elif not response:
-            warn(f'Empty response from DataCite for {article.doi}')
+        if not data:
+            if __debug__: log(f'Crossref has no record for {article.doi}')
             return None
 
-        json = response.json()
-        xmldict = xmltodict.parse(base64.b64decode(json['data']['attributes']['xml']))
-        date = json['data']['attributes']['registered']
-        if 'dates' in xmldict['resource']:
-            xmldict['resource']['dates']['date']['#text'] = date
-        else:
-            xmldict['resource']['dates'] = {'date': article.date}
-        xmldict['resource']['volume']  = volume_for_year(xmldict['resource']['publicationYear'])
-        xmldict['resource']['file']    = article.basename + '.pdf'
-        xmldict['resource']['journal'] = xmldict['resource'].pop('publisher')
-        xmldict['resource']['e-issn']  = self.issn
-        xmldict['resource']["rightsList"] = [{
-            "rights": "Creative Commons Attribution 4.0",
-            "rightsURI": "https://creativecommons.org/licenses/by/4.0/legalcode"}]
-        xmldict['resource'].pop('@xmlns')
-        xmldict['resource'].pop('@xsi:schemaLocation')
-        return xmldict
+        year     = article.date.split('-')[0]
+        journal  = (data.get('container-title') or [self.name])[0]
+        resource = {
+            '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+            'identifier': {
+                '@identifierType': 'DOI',
+                '#text': article.doi.upper(),
+            },
+            'creators': {
+                'creator': creator_list(data.get('author', [])),
+            },
+            'titles': {
+                'title': article.title or (data.get('title') or [''])[0],
+            },
+            'publicationYear': year,
+            'resourceType': {
+                '@resourceTypeGeneral': 'JournalArticle',
+            },
+        }
+        abstract = self._jats_abstract(article)
+        if abstract:
+            resource['descriptions'] = {
+                'description': {
+                    '@descriptionType': 'Abstract',
+                    '#text': abstract,
+                }
+            }
+        resource.update({
+            'dates':      { 'date': article.date },
+            'volume':     volume_for_year(year),
+            'file':       article.basename + '.pdf',
+            'journal':    journal,
+            'e-issn':     self.issn,
+            'rightsList': {
+                'rights':    self.license_name,
+                'rightsURI': self.license_url,
+            },
+        })
+        return {'resource': resource}
+
+
+    def _jats_abstract(self, article):
+        '''Return the plain text of the abstract in the article's JATS file,
+        or an empty string if it can't be obtained.'''
+        if not article.jats:
+            return ''
+        (response, error) = net('get', article.jats)
+        if error or not response or not response.content:
+            if __debug__: log(f'could not get JATS for {article.doi}: {str(error)}')
+            warn(f'Could not get abstract from JATS for {article.doi}')
+            return ''
+        try:
+            parser = etree.XMLParser(load_dtd = False, no_network = True,
+                                     resolve_entities = False)
+            root = etree.fromstring(response.content, parser)
+        except Exception as ex:
+            if __debug__: log(f'could not parse JATS for {article.doi}: {str(ex)}')
+            warn(f'Could not get abstract from JATS for {article.doi}')
+            return ''
+        abstract = root.find('.//article-meta/abstract')
+        if abstract is None:
+            if __debug__: log(f'JATS for {article.doi} has no abstract')
+            return ''
+        return ' '.join(''.join(abstract.itertext()).split())
 
 
     def articles_from(self, doi_file):
@@ -188,6 +244,26 @@ def volume_for_year(year):
 def tail_of_doi(doi):
     slash = doi.rfind('/')
     return doi[slash + 1:]
+
+
+def creator_list(authors):
+    '''Convert Crossref author records to DataCite-style creator records.
+    Crossref gives organizational authors a single 'name' and no given or
+    family name.'''
+    creators = []
+    for author in authors:
+        given  = author.get('given', '')
+        family = author.get('family', '')
+        if family:
+            name = f'{family}, {given}' if given else family
+            creator = {'creatorName': name}
+            if given:
+                creator['givenName'] = given
+            creator['familyName'] = family
+        else:
+            creator = {'creatorName': author.get('name', '')}
+        creators.append(creator)
+    return creators
 
 
 def field_text(element, field):
