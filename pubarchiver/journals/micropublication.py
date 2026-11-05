@@ -14,7 +14,9 @@ is open-source software released under a 3-clause BSD license.  Please see the
 file "LICENSE" for more information.
 '''
 
+from   bs4 import BeautifulSoup
 from   bun import inform, warn, alert, alert_fatal
+from   commonpy.exceptions import NoContent
 from   commonpy.network_utils import net
 from   crossref.restful import Works, Etiquette
 from   lxml import etree
@@ -29,6 +31,12 @@ from   pubarchiver.exceptions import *
 from   pubarchiver.journals.base import JournalAdapter
 
 
+# Constants.
+# .............................................................................
+
+_DATACITE_API_URL = 'https://api.datacite.org/dois/'
+
+
 # Main class.
 # .............................................................................
 
@@ -37,10 +45,11 @@ class Micropublication(JournalAdapter):
     issn             = '2578-9430'
     doi_prefix       = '10.17912'
     uses_jats        = True
-    metadata_source  = 'Crossref'
+    metadata_source  = 'Crossref and DataCite'
     base_urls        = ['https://www.micropublication.org']
     article_list_url = 'https://portal.micropublication.org/api/export/archives.xml'
     archive_basename = 'micropublication-org'
+    journal_title    = 'microPublication Biology'
     license_name     = 'Creative Commons Attribution 4.0'
     license_url      = 'https://creativecommons.org/licenses/by/4.0/legalcode'
     etiquette        = Etiquette('PubArchiver', pubarchiver.__version__,
@@ -66,26 +75,21 @@ class Micropublication(JournalAdapter):
 
     def article_metadata(self, article):
         '''Return a dict of metadata for the article, in the DataCite-style
-        layout written to the Portico XML file, or None if Crossref has no
-        record for the article.
+        layout written to the Portico XML file, or None if neither Crossref
+        nor DataCite has a record for the article.
 
-        Bibliographic data comes from Crossref.  microPublication's Crossref
-        deposits carry no abstract, so the abstract comes from the article's
-        JATS file instead.
+        Bibliographic data comes from bibliographic_record().  The title
+        comes from there too, not from microPublication's article list, whose
+        titles have italicized words moved to the end.  The abstract
+        comes from the article's JATS file, because microPublication's
+        Crossref records have none, or from the DOI registration when the
+        JATS has no abstract, as in the earliest articles.
         '''
-        try:
-            if __debug__: log(f'asking Crossref for data about {article.doi}')
-            data = Works(etiquette = self.etiquette).doi(article.doi)
-        except Exception as ex:
-            if __debug__: log(f'crossref API exception for {article.doi}: {str(ex)}')
-            warn(f'Failed to get data from Crossref for {article.doi}: {str(ex)}')
-            return None
-        if not data:
-            if __debug__: log(f'Crossref has no record for {article.doi}')
+        record = self.bibliographic_record(article)
+        if not record:
             return None
 
         year     = article.date.split('-')[0]
-        journal  = (data.get('container-title') or [self.name])[0]
         resource = {
             '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
             'identifier': {
@@ -93,17 +97,17 @@ class Micropublication(JournalAdapter):
                 '#text': article.doi.upper(),
             },
             'creators': {
-                'creator': creator_list(data.get('author', [])),
+                'creator': creator_list(record['authors']),
             },
             'titles': {
-                'title': article.title or (data.get('title') or [''])[0],
+                'title': record['title'] or article.title,
             },
             'publicationYear': year,
             'resourceType': {
                 '@resourceTypeGeneral': 'JournalArticle',
             },
         }
-        abstract = self._jats_abstract(article)
+        abstract = self._jats_abstract(article) or record['abstract']
         if abstract:
             resource['descriptions'] = {
                 'description': {
@@ -115,7 +119,7 @@ class Micropublication(JournalAdapter):
             'dates':      { 'date': article.date },
             'volume':     volume_for_year(year),
             'file':       article.basename + '.pdf',
-            'journal':    journal,
+            'journal':     record['journal'],
             'e-issn':     self.issn,
             'rightsList': {
                 'rights':    self.license_name,
@@ -123,6 +127,113 @@ class Micropublication(JournalAdapter):
             },
         })
         return {'resource': resource}
+
+
+    def bibliographic_record(self, article):
+        '''Return the article's bibliographic data from its DOI registration,
+        or None if no registry has a record for it.
+
+        microPublication's older DOIs are registered with DataCite and its
+        newer ones with Crossref, and each registry has no record of the
+        other's DOIs, so Crossref is asked first and DataCite second.  The
+        result has the same layout whichever registry supplied it:
+
+            source    'Crossref' or 'DataCite'
+            title     article title, as plain text
+            journal   journal title
+            url       URL of the article's landing page
+            issue     issue number, or ''
+            abstract  plain text of the abstract, or ''
+            authors   list of dicts with the keys 'given', 'family', 'name',
+                      'affiliation', and 'orcid'; any may be ''
+        '''
+        record = self._crossref_record(article) or self._datacite_record(article)
+        if not record:
+            if __debug__: log(f'neither Crossref nor DataCite has {article.doi}')
+        return record
+
+
+    def _crossref_record(self, article):
+        try:
+            if __debug__: log(f'asking Crossref for data about {article.doi}')
+            data = Works(etiquette = self.etiquette).doi(article.doi)
+        except Exception as ex:
+            if __debug__: log(f'crossref API exception for {article.doi}: {str(ex)}')
+            warn(f'Failed to get data from Crossref for {article.doi}: {str(ex)}')
+            return None
+        if not data:
+            if __debug__: log(f'Crossref has no record for {article.doi}')
+            return None
+
+        authors = []
+        for author in data.get('author', []):
+            affiliations = author.get('affiliation') or [{}]
+            authors.append({
+                'given':       author.get('given', ''),
+                'family':      author.get('family', ''),
+                'name':        author.get('name', ''),
+                'affiliation': affiliations[0].get('name', ''),
+                'orcid':       author.get('ORCID', ''),
+            })
+        return {
+            'source':   'Crossref',
+            'title':    plain_text(first(data.get('title'))),
+            'journal':  first(data.get('container-title')) or self.journal_title,
+            'url':      data.get('resource', {}).get('primary', {}).get('URL', ''),
+            'issue':    data.get('issue', ''),
+            'abstract': plain_text(data.get('abstract', '')),
+            'authors':  authors,
+        }
+
+
+    def _datacite_record(self, article):
+        if __debug__: log(f'asking DataCite for data about {article.doi}')
+        (response, error) = net('get', _DATACITE_API_URL + article.doi)
+        if error:
+            if isinstance(error, NoContent):
+                if __debug__: log(f'DataCite has no record for {article.doi}')
+            else:
+                if __debug__: log(f'error from DataCite for {article.doi}: {str(error)}')
+                warn(f'Failed to get data from DataCite for {article.doi}: {str(error)}')
+            return None
+        try:
+            data = response.json()['data']['attributes']
+        except Exception as ex:
+            if __debug__: log(f'unexpected DataCite response for {article.doi}: {str(ex)}')
+            warn(f'Unexpected response from DataCite for {article.doi}')
+            return None
+
+        authors = []
+        for creator in data.get('creators', []):
+            orcids = [x.get('nameIdentifier', '') for x in creator.get('nameIdentifiers', [])
+                      if x.get('nameIdentifierScheme', '').upper() == 'ORCID']
+            affiliation = first(creator.get('affiliation'))
+            if isinstance(affiliation, dict):
+                affiliation = affiliation.get('name', '')
+            given  = creator.get('givenName', '')
+            family = creator.get('familyName', '')
+            authors.append({
+                'given':       given if family else '',
+                'family':      family,
+                'name':        '' if family else creator.get('name', ''),
+                'affiliation': affiliation or '',
+                'orcid':       first(orcids),
+            })
+        publisher = data.get('publisher')
+        if isinstance(publisher, dict):
+            publisher = publisher.get('name')
+        journal = (data.get('container') or {}).get('title') or publisher
+        abstracts = [d.get('description', '') for d in data.get('descriptions', [])
+                     if d.get('descriptionType') == 'Abstract']
+        return {
+            'source':   'DataCite',
+            'title':    plain_text(first([t.get('title') for t in data.get('titles', [])])),
+            'journal':  journal or self.journal_title,
+            'url':      data.get('url', ''),
+            'issue':    (data.get('container') or {}).get('issue', ''),
+            'abstract': plain_text(first(abstracts)),
+            'authors':  authors,
+        }
 
 
     def _jats_abstract(self, article):
@@ -247,13 +358,13 @@ def tail_of_doi(doi):
 
 
 def creator_list(authors):
-    '''Convert Crossref author records to DataCite-style creator records.
-    Crossref gives organizational authors a single 'name' and no given or
+    '''Convert author records from bibliographic_record() to DataCite-style
+    creator records.  Organizational authors have a name but no given or
     family name.'''
     creators = []
     for author in authors:
-        given  = author.get('given', '')
-        family = author.get('family', '')
+        given  = author['given']
+        family = author['family']
         if family:
             name = f'{family}, {given}' if given else family
             creator = {'creatorName': name}
@@ -261,9 +372,22 @@ def creator_list(authors):
                 creator['givenName'] = given
             creator['familyName'] = family
         else:
-            creator = {'creatorName': author.get('name', '')}
+            creator = {'creatorName': author['name']}
         creators.append(creator)
     return creators
+
+
+def plain_text(text):
+    '''Return text with any HTML or JATS tags removed and its whitespace
+    collapsed to single spaces.'''
+    if not text:
+        return ''
+    return ' '.join(BeautifulSoup(text, features = 'lxml').get_text().split())
+
+
+def first(items):
+    '''Return the first item of a list, or '' if the list is empty or None.'''
+    return items[0] if items else ''
 
 
 def field_text(element, field):
