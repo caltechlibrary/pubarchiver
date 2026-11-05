@@ -100,7 +100,7 @@ The journal whose articles are to be archived must be indicated using the requir
 pubarchiver --journal list
 ```
 
-If not given any additional options besides a `--journal` option to select the journal, `pubarchiver` will proceed to contact the journal website as well as [Crossref](https://www.crossref.org) or [DataCite](https://datacite.org), and create an archive containing articles and their metadata for all articles published to date by the journal.  The options below can be used to select articles and influence other `pubarchiver` behaviors.
+If not given any additional options besides a `--journal` option to select the journal, `pubarchiver` will proceed to contact the journal website (and, for some journals, [Crossref](https://www.crossref.org)), and create an archive containing articles and their metadata for all articles published to date by the journal.  The options below can be used to select articles and influence other `pubarchiver` behaviors.
 
 
 ### _Printing information without doing anything_

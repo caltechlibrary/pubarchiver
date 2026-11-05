@@ -147,8 +147,8 @@ journals, you can use a value of "list" to the -j option:
   pubarchiver -j list
 
 Without any additional options, PubArchiver will contact the journal website
-and Crossref or DataCite, and create an archive containing articles and their
-metadata for all articles published to date by the journal.  The options
+(and, for some journals, Crossref), and create an archive containing articles
+and their metadata for all articles published to date by the journal.  The options
 below can be used to select articles and influence other PubArchiver behaviors.
 
 Selecting a subset of articles

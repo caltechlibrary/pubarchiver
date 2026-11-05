@@ -9,19 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `--dest doaj` writes microPublication.org article metadata as JSON for the article API of the [Directory of Open Access Journals](https://doaj.org) (DOAJ): one file per article, checked against the rules DOAJ applies to incoming articles. Authors and affiliations come from the article’s JATS, ORCID iDs and the issue number from its DOI registration, and keywords from its JATS subject and species categories.
+- `--dest doaj` writes microPublication.org article metadata as JSON for the article API of the [Directory of Open Access Journals](https://doaj.org) (DOAJ): one file per article, checked against the rules DOAJ applies to incoming articles. An article whose metadata DOAJ would reject is reported as `failed-doaj-validation`.
 - An “Upload to DOAJ” workflow that runs daily, writes DOAJ metadata for articles published since its last successful run, and sends each article to DOAJ. It sends every valid article even when others fail, and retries the failures on the next run. A manual run can be a dry run, which sends nothing and notifies no one.
 
 ### Changed
 
-- An article with no bibliographic metadata is reported as `missing-metadata`, whichever source the journal uses.
+- microPublication.org article metadata comes from microPublication itself instead of Crossref: the title, authors, affiliations, abstract, keywords, and volume from the article’s JATS file, and the DOI, publication date, and permalink from its article list. ORCID iDs are included when the JATS has them. The JATS of the earliest articles has no abstract, so their Portico XML files and DOAJ records have none.
+- An article with no metadata is reported as `missing-metadata`, whichever source the journal uses.
 - The Slack message for a failed upload no longer says “FTP”, so it fits the DOAJ upload too.
 
 ### Fixed
 
-- microPublication.org articles registered with DataCite, which includes every article published before November 2026, are no longer skipped as `missing-crossref`. Metadata comes from Crossref, or from DataCite when Crossref has no record of the DOI.
-- Titles in microPublication.org Portico XML files come from the DOI registration again, as plain text. microPublication’s article list moves italicized words, such as species names, to the end of the title.
-- The earliest microPublication.org articles, whose JATS files have no abstract, get the abstract from their DataCite record in the Portico XML file.
+- microPublication.org articles published before November 2026, whose DOIs are registered with DataCite rather than Crossref, are no longer skipped as `missing-crossref`.
+- Titles in microPublication.org Portico XML files are correct. microPublication’s article list moves italicized words, such as species names, to the end of the title, and 2.2.0 used those titles.
 - Reading microPublication.org’s article list no longer fails with `NameError` when the server answers 404 or 410.
 
 ## [2.2.0] - 2026-11-05
