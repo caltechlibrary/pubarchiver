@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- An article with no bibliographic metadata is reported as `missing-metadata`, whichever source the journal uses.
+
+### Fixed
+
+- microPublication.org articles registered with DataCite, which includes every article published before November 2026, are no longer skipped as `missing-crossref`. Metadata comes from Crossref, or from DataCite when Crossref has no record of the DOI.
+- Titles in microPublication.org Portico XML files come from the DOI registration again, as plain text. microPublication’s article list moves italicized words, such as species names, to the end of the title.
+- The earliest microPublication.org articles, whose JATS files have no abstract, get the abstract from their DataCite record in the Portico XML file.
+- Reading microPublication.org’s article list no longer fails with `NameError` when the server answers 404 or 410.
+
 ## [2.2.0] - 2026-11-05
 
 ### Added
