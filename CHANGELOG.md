@@ -10,11 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `--dest doaj` writes microPublication.org article metadata as JSON for the article API of the [Directory of Open Access Journals](https://doaj.org) (DOAJ): one file per article, checked against the rules DOAJ applies to incoming articles. An article whose metadata DOAJ would reject is reported as `failed-doaj-validation`.
-- An “Upload to DOAJ” workflow that runs daily, writes DOAJ metadata for articles published since its last successful run, and sends each article to DOAJ. It sends every valid article even when others fail, and keeps a list of articles that could not be written or that DOAJ rejected, which the next run tries again. A manual run can be a dry run, which sends nothing and notifies no one.
+- An “Upload to DOAJ” workflow that runs daily, writes DOAJ metadata for articles published since its last run, and sends each article to DOAJ. It sends every valid article even when others fail, and keeps a list of articles that could not be written or that DOAJ rejected, which the next run tries again. It records a fingerprint of what it sent for each article and does not resend unchanged metadata. Every Sunday it checks every article and resends those whose metadata changed, so abstracts, ORCID iDs, and corrections added to microPublication’s JATS later reach DOAJ. A manual run can be a dry run, which sends nothing and notifies no one.
 
 ### Changed
 
-- microPublication.org article metadata comes from microPublication itself instead of Crossref: the title, authors, affiliations, abstract, keywords, and volume from the article’s JATS file, and the DOI, publication date, and permalink from its article list. ORCID iDs are included when the JATS has them. The JATS of the earliest articles has no abstract, so their Portico XML files and DOAJ records have none.
+- microPublication.org article metadata comes from microPublication itself instead of Crossref: the title, authors, affiliations, abstract, keywords, volume, and publication date from the article’s JATS file, and the DOI and permalink from its article list. The JATS publication date can be earlier than the date in the article list, which still decides which articles a run selects. ORCID iDs are included when the JATS has them. The JATS of the earliest articles has no abstract, so their Portico XML files and DOAJ records have none.
 - An article with no metadata is reported as `missing-metadata`, whichever source the journal uses.
 - The Slack message for a failed upload no longer says “FTP”, so it fits the DOAJ upload too.
 

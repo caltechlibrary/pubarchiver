@@ -78,7 +78,8 @@ class Micropublication(JournalAdapter):
         if not record:
             return None
 
-        year     = article.date.split('-')[0]
+        date     = record['date'] or article.date
+        year     = date.split('-')[0]
         resource = {
             '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
             'identifier': {
@@ -104,7 +105,7 @@ class Micropublication(JournalAdapter):
                 }
             }
         resource.update({
-            'dates':      { 'date': article.date },
+            'dates':      { 'date': date },
             'volume':     volume_for_year(year),
             'file':       article.basename + '.pdf',
             'journal':    record['journal'],
@@ -122,12 +123,15 @@ class Micropublication(JournalAdapter):
         file can't be obtained.
 
         microPublication's JATS is the source of all article metadata other
-        than the DOI, publication date, and permalink, which come from its
-        article list.  The title comes from the JATS because the article
-        list's titles have italicized words moved to the end.  The result
-        is a dict with these keys:
+        than the DOI and permalink, which come from its article list.  The
+        title comes from the JATS because the article list's titles have
+        italicized words moved to the end.  The publication date comes from
+        the JATS too; it can differ from the article list's date, which
+        pubarchiver uses only to select articles by date.  The result is a
+        dict with these keys:
 
             title     article title, as plain text
+            date      publication date as YYYY-MM-DD, or ''
             journal   journal title
             volume    volume, or ''
             abstract  plain text of the abstract, or ''; the JATS of the
@@ -144,6 +148,7 @@ class Micropublication(JournalAdapter):
             return None
         return {
             'title':    jats_text(root, './/article-meta/title-group/article-title'),
+            'date':     jats_pub_date(root),
             'journal':  jats_text(root, './/journal-meta//journal-title') or self.journal_title,
             'volume':   jats_text(root, './/article-meta/volume'),
             'abstract': jats_abstract(root),
@@ -161,11 +166,15 @@ class Micropublication(JournalAdapter):
         https://doaj.github.io/doaj-docs/master/data_models/IncomingAPIArticle
         Fields that DOAJ fills in from its journal record (journal title,
         publisher, country, language, and subject) are left out.
+
+        Don't change the form of the DOI or the full-text link URL.  DOAJ
+        matches a resent article to its existing record by either one, so a
+        different form creates a duplicate record instead of an update.
         '''
         record = self.bibliographic_record(article)
         if not record:
             return None
-        year, month = article.date.split('-')[:2]
+        year, month = (record['date'] or article.date).split('-')[:2]
 
         bibjson = {
             'title': record['title'] or article.title,
@@ -341,6 +350,22 @@ def jats_text(root, xpath):
     if element is None:
         return ''
     return ' '.join(''.join(element.itertext()).split())
+
+
+def jats_pub_date(root):
+    '''Return the publication date in a parsed JATS file as YYYY-MM-DD,
+    or '' if it has no complete one.  microPublication's JATS gives the
+    date of electronic publication as <pub-date date-type="pub">.'''
+    if root is None:
+        return ''
+    dates = root.findall('.//article-meta/pub-date')
+    preferred = [d for d in dates if (d.get('date-type') or d.get('pub-type')) in ['pub', 'epub']]
+    for date in preferred + dates:
+        year, month, day = (' '.join((date.findtext(x) or '').split())
+                            for x in ['year', 'month', 'day'])
+        if year.isdigit() and month.isdigit() and day.isdigit():
+            return f'{int(year):04d}-{int(month):02d}-{int(day):02d}'
+    return ''
 
 
 def jats_abstract(root):

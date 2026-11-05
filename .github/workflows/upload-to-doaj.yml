@@ -15,6 +15,14 @@ name: Upload to DOAJ
 # pubarchiver itself ran, so one article that keeps failing does not make
 # every later run start over from the same date.
 #
+# .github/state/upload-to-doaj/sent records a fingerprint (SHA-256) of the
+# metadata last sent for each article, and an article whose metadata is
+# unchanged is not sent again. Once a week, and on a manual run with "Resync",
+# the workflow writes the metadata for every article and resends only those
+# that changed. That is how DOAJ gets abstracts and ORCID iDs added to
+# microPublication's JATS later, or any other correction; DOAJ updates an
+# article when it receives one with the same DOI or full-text URL.
+#
 # With no last-run date, the run covers every published article. Run it by
 # hand with "Dry run" first: that writes the JSON and saves it as the run's
 # artifact without sending anything or notifying anyone.
@@ -32,13 +40,19 @@ name: Upload to DOAJ
 
 on:
   schedule:
-    - cron: "45 8 * * *"
+    - cron: "45 8 * * *"     # daily: new articles and past failures
+    - cron: "15 10 * * 0"    # Sundays: resync every article
   workflow_dispatch:
     inputs:
       datestamp:
         description: 'YYYY-MM-DD to override last run date'
         required: false
         type: string
+      resync:
+        description: 'Resync: check every article and resend those whose metadata changed'
+        required: false
+        type: boolean
+        default: false
       dry_run:
         description: 'Dry run: write the JSON but send nothing to DOAJ and notify no one'
         required: false
@@ -60,6 +74,7 @@ jobs:
       STATE_DIR: .github/state/upload-to-doaj
       # Scheduled runs have no inputs, so they are never dry runs.
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+      RESYNC: ${{ (github.event.schedule == '15 10 * * 0' || (github.event_name == 'workflow_dispatch' && inputs.resync)) && 'true' || 'false' }}
 
     steps:
     - uses: actions/checkout@v6
@@ -103,7 +118,9 @@ jobs:
       env:
         DATESTAMP: ${{ github.event.inputs.datestamp }}
       run: |
-        if [[ -n "${DATESTAMP:-}" ]]; then
+        if [[ $RESYNC == 'true' ]]; then
+          AFTER_DATE=1900-01-01
+        elif [[ -n "${DATESTAMP:-}" ]]; then
           AFTER_DATE="$DATESTAMP"
         elif [[ -f "${STATE_DIR}/last-run-date" ]]; then
           LAST_RUN_DATE=$(cat "${STATE_DIR}/last-run-date")
@@ -171,51 +188,64 @@ jobs:
       run: |
         set -uo pipefail
         RESULTS="$ARTIFACT_DIR/doaj-results.csv"
+        UPDATES="$ARTIFACT_DIR/sent-updates.txt"
         echo "Result,DOI,HTTP status,DOAJ id or error" > "$RESULTS"
+        : > "$UPDATES"
+        touch "$STATE_DIR/sent" 2>/dev/null || true
         shopt -s nullglob
         files=("$ARTIFACT_DIR"/micropublication-org/*.json)
         sent=0
         failed=0
-        if [[ $DRY_RUN == 'true' ]]; then
-          echo "=== Dry run: ${#files[@]} articles would be sent to DOAJ ===" | tee -a "$ARTIFACT_DIR/run.log"
-          for file in "${files[@]}"; do
-            doi=$(jq -r '.bibjson.identifier[] | select(.type == "doi") | .id' "$file")
-            echo "dry-run,$doi,," >> "$RESULTS"
-          done
-        else
-          echo "=== Sending ${#files[@]} articles to DOAJ ===" | tee -a "$ARTIFACT_DIR/run.log"
-          for file in "${files[@]}"; do
-            doi=$(jq -r '.bibjson.identifier[] | select(.type == "doi") | .id' "$file")
-            # DOAJ allows 2 requests a second. Retry rate limiting and server
-            # errors with a growing delay; anything else is final.
-            for attempt in 1 2 3 4; do
-              code=$(curl -sS -o "$RUNNER_TEMP/response.json" -w '%{http_code}' \
-                          -X POST -H 'Content-Type: application/json' \
-                          --data-binary "@$file" \
-                          "${DOAJ_API_URL}?api_key=${DOAJ_API_KEY}" 2>> "$ARTIFACT_DIR/run.log")
-              if [[ $code == 429 || $code == 5* || $code == 000 ]]; then
-                sleep $(( attempt * 5 ))
-                continue
-              fi
-              break
-            done
-            if [[ $code == 201 ]]; then
-              id=$(jq -r '.id // ""' "$RUNNER_TEMP/response.json" 2>/dev/null)
-              echo "sent,$doi,$code,$id" >> "$RESULTS"
-              sent=$((sent + 1))
-            else
-              error=$(jq -r '.error // .message // empty' "$RUNNER_TEMP/response.json" 2>/dev/null \
-                      | tr -d '\n,' | cut -c1-200)
-              echo "failed,$doi,$code,${error:-no response body}" >> "$RESULTS"
-              echo "DOAJ rejected $doi with HTTP $code: ${error:-no response body}" | tee -a "$ARTIFACT_DIR/run.log"
-              failed=$((failed + 1))
+        unchanged=0
+        echo "=== Checking ${#files[@]} articles against what was last sent to DOAJ ===" | tee -a "$ARTIFACT_DIR/run.log"
+        for file in "${files[@]}"; do
+          doi=$(jq -r '.bibjson.identifier[] | select(.type == "doi") | .id' "$file")
+          hash=$(jq -cS . "$file" | sha256sum | cut -c1-64)
+          previous=$(awk -v doi="$doi" '$1 == doi { print $2 }' "$STATE_DIR/sent" 2>/dev/null)
+          if [[ $previous == "$hash" ]]; then
+            unchanged=$((unchanged + 1))
+            continue
+          fi
+          result=$([[ -z $previous ]] && echo sent || echo updated)
+          if [[ $DRY_RUN == 'true' ]]; then
+            echo "dry-run-$result,$doi,," >> "$RESULTS"
+            continue
+          fi
+          # DOAJ allows 2 requests a second. Retry rate limiting and server
+          # errors with a growing delay; anything else is final.
+          for attempt in 1 2 3 4; do
+            code=$(curl -sS -o "$RUNNER_TEMP/response.json" -w '%{http_code}' \
+                        -X POST -H 'Content-Type: application/json' \
+                        --data-binary "@$file" \
+                        "${DOAJ_API_URL}?api_key=${DOAJ_API_KEY}" 2>> "$ARTIFACT_DIR/run.log")
+            if [[ $code == 429 || $code == 5* || $code == 000 ]]; then
+              sleep $(( attempt * 5 ))
+              continue
             fi
-            sleep 1
+            break
           done
-          echo "=== Sent $sent, failed $failed ===" | tee -a "$ARTIFACT_DIR/run.log"
+          if [[ $code == 201 ]]; then
+            id=$(jq -r '.id // ""' "$RUNNER_TEMP/response.json" 2>/dev/null)
+            echo "$result,$doi,$code,$id" >> "$RESULTS"
+            echo "$doi $hash" >> "$UPDATES"
+            sent=$((sent + 1))
+          else
+            error=$(jq -r '.error // .message // empty' "$RUNNER_TEMP/response.json" 2>/dev/null \
+                    | tr -d '\n,' | cut -c1-200)
+            echo "failed,$doi,$code,${error:-no response body}" >> "$RESULTS"
+            echo "DOAJ rejected $doi with HTTP $code: ${error:-no response body}" | tee -a "$ARTIFACT_DIR/run.log"
+            failed=$((failed + 1))
+          fi
+          sleep 1
+        done
+        if [[ $DRY_RUN == 'true' ]]; then
+          echo "=== Dry run: $(($(wc -l < "$RESULTS") - 1)) would be sent, $unchanged unchanged ===" | tee -a "$ARTIFACT_DIR/run.log"
+        else
+          echo "=== Sent $sent, unchanged $unchanged, failed $failed ===" | tee -a "$ARTIFACT_DIR/run.log"
         fi
         rm -f "$RUNNER_TEMP/response.json"
         echo "SENT_COUNT=$sent" >> "$GITHUB_ENV"
+        echo "UNCHANGED_COUNT=$unchanged" >> "$GITHUB_ENV"
         echo "UPLOAD_FAILURES=$failed" >> "$GITHUB_ENV"
 
     - name: Update state files
@@ -229,6 +259,9 @@ jobs:
           grep -Ei '^(missing|failed|incomplete)' "$ARTIFACT_DIR/report.csv" | cut -d, -f2 || true
           grep '^failed,' "$ARTIFACT_DIR/doaj-results.csv" | cut -d, -f2 || true
         } | sort -u > "$STATE_DIR/last-failures"
+        # Record what was sent: the new fingerprints replace the old ones.
+        cat "$ARTIFACT_DIR/sent-updates.txt" "$STATE_DIR/sent" 2>/dev/null \
+          | awk '!seen[$1]++' | sort > "$RUNNER_TEMP/sent" && mv "$RUNNER_TEMP/sent" "$STATE_DIR/sent"
         echo "$TODAY" > "$STATE_DIR/last-run-date"
         echo "Articles to retry next run: $(wc -l < "$STATE_DIR/last-failures")"
 
@@ -238,7 +271,7 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git pull origin ${{ github.ref }}
-        git add "$STATE_DIR/last-run-date" "$STATE_DIR/last-failures"
+        git add "$STATE_DIR/last-run-date" "$STATE_DIR/last-failures" "$STATE_DIR/sent"
         git diff --cached --quiet || git commit -m "🤖 update upload-to-doaj state files"
         git push origin HEAD:${{ github.ref }}
 
@@ -259,13 +292,13 @@ jobs:
           EMAIL_TO="${EMAIL_SUCCESS:-}"
           SUBJECT="DOAJ upload: ${SENT_COUNT:-0} articles on ${TODAY:-}"
         fi
-        if [[ ${TOTAL_LINES:-0} -le 1 ]]; then
-          BODY="No new articles were sent to DOAJ."
-        else
-          BODY="$(cat "$ARTIFACT_DIR/report.csv")"
-          if [[ -f "$ARTIFACT_DIR/doaj-results.csv" ]]; then
-            BODY="$BODY"$'\n\n'"$(cat "$ARTIFACT_DIR/doaj-results.csv")"
-          fi
+        BODY="Sent to DOAJ: ${SENT_COUNT:-0}. Unchanged since last sent: ${UNCHANGED_COUNT:-0}."
+        BODY="$BODY Not written: ${VALIDATION_ERRORS:-0}. Rejected by DOAJ: ${UPLOAD_FAILURES:-0}."
+        if [[ -f "$ARTIFACT_DIR/doaj-results.csv" ]] && (( $(wc -l < "$ARTIFACT_DIR/doaj-results.csv") > 1 )); then
+          BODY="$BODY"$'\n\n'"$(cat "$ARTIFACT_DIR/doaj-results.csv")"
+        fi
+        if [[ -f "$ARTIFACT_DIR/report.csv" ]] && grep -qEv '^(Status|complete),' "$ARTIFACT_DIR/report.csv"; then
+          BODY="$BODY"$'\n\nNot written:\n'"$(grep -Ev '^(Status|complete),' "$ARTIFACT_DIR/report.csv")"
         fi
         echo "EMAIL_TO=$EMAIL_TO" >> "$GITHUB_ENV"
         echo "EMAIL_SUBJECT=$SUBJECT" >> "$GITHUB_ENV"
