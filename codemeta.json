@@ -23,6 +23,14 @@
       "affiliation": "Caltech Library",
       "email": "tmorrell@caltech.edu",
       "@id": "https://orcid.org/0000-0001-9266-5146"
+    },
+    {
+      "@type": "Person",
+      "givenName": "Tommy",
+      "familyName": "Keswick",
+      "affiliation": "Caltech Library",
+      "email": "tkeswick@caltech.edu",
+      "@id": "https://orcid.org/0000-0001-5644-440X"
     }],
   "developmentStatus": "active",
   "keywords": [
@@ -30,6 +38,9 @@
     "metadata",
     "software"
   ],
-  "maintainer": "https://orcid.org/0000-0001-9266-5146",
+  "maintainer": [
+    "https://orcid.org/0000-0001-5644-440X",
+    "https://orcid.org/0000-0001-9266-5146"
+  ],
   "programmingLanguage": "Python"
 }

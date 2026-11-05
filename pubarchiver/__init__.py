@@ -18,16 +18,14 @@ file "LICENSE" for more information.
 # Package metadata
 # .............................................................................
 #
-#  ╭────────────────────── Notice ── Notice ── Notice ─────────────────────╮
-#  |    The following values are automatically updated at every release    |
-#  |    by the Makefile. Manual changes to these values will be lost.      |
-#  ╰────────────────────── Notice ── Notice ── Notice ─────────────────────╯
+# __version__ is updated by the Release workflow, which runs
+# dev/bump_version.py. Keep the other values in step with setup.cfg by hand.
 
 __version__     = '2.1.2'
 __description__ = 'Automation for archiving journals hosted by the Caltech Library'
 __url__         = 'https://github.com/caltechlibrary/pubarchiver'
-__author__      = 'Michael Hucka, Tom Morrell'
-__email__       = 'mhucka@caltech.edu, tmorrell@library.caltech.edu'
+__author__      = 'Michael Hucka, Tom Morrell, Tommy Keswick'
+__email__       = 'mhucka@caltech.edu, tmorrell@library.caltech.edu, tkeswick@caltech.edu'
 __license__     = 'BSD 3-clause'
 
 
