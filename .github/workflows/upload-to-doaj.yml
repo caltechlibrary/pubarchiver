@@ -300,17 +300,33 @@ jobs:
           EMAIL_TO="${EMAIL_SUCCESS:-}"
           SUBJECT="DOAJ upload: ${SENT_COUNT:-0} articles on ${TODAY:-}"
         fi
-        BODY="Sent to DOAJ: ${SENT_COUNT:-0}. Unchanged since last sent: ${UNCHANGED_COUNT:-0}."
-        BODY="$BODY Not written: ${VALIDATION_ERRORS:-0}. Rejected by DOAJ: ${UPLOAD_FAILURES:-0}."
-        if [[ -f "$ARTIFACT_DIR/doaj-results.csv" ]] && (( $(wc -l < "$ARTIFACT_DIR/doaj-results.csv") > 1 )); then
-          BODY="$BODY"$'\n\n'"$(cat "$ARTIFACT_DIR/doaj-results.csv")"
-        fi
-        if [[ -f "$ARTIFACT_DIR/report.csv" ]] && grep -qEv '^(Status|complete),' "$ARTIFACT_DIR/report.csv"; then
-          BODY="$BODY"$'\n\nNot written:\n'"$(grep -Ev '^(Status|complete),' "$ARTIFACT_DIR/report.csv")"
-        fi
+        # The body goes in a file that mailgun.sh reads, and lists the
+        # articles sent only when there are few; doaj-results.csv, which is
+        # attached, lists them all.
+        MAX_LISTED=50
+        RESULTS="$ARTIFACT_DIR/doaj-results.csv"
+        {
+          echo "Sent to DOAJ: ${SENT_COUNT:-0}. Unchanged since last sent: ${UNCHANGED_COUNT:-0}."
+          echo "Not written: ${VALIDATION_ERRORS:-0}. Rejected by DOAJ: ${UPLOAD_FAILURES:-0}."
+          if [[ -f "$ARTIFACT_DIR/report.csv" ]] && grep -qEv '^(Status|complete),' "$ARTIFACT_DIR/report.csv"; then
+            printf '\nNot written:\n'
+            grep -Ev '^(Status|complete),' "$ARTIFACT_DIR/report.csv"
+          fi
+          if [[ -f $RESULTS ]] && grep -q '^failed,' "$RESULTS"; then
+            printf '\nRejected by DOAJ:\n'
+            grep '^failed,' "$RESULTS"
+          fi
+          if [[ -f $RESULTS ]] && grep -qE '^(sent|updated),' "$RESULTS"; then
+            if (( ${SENT_COUNT:-0} <= MAX_LISTED )); then
+              printf '\nSent:\n'
+              grep -E '^(sent|updated),' "$RESULTS"
+            else
+              printf '\nThe articles sent are listed in the attached doaj-results.csv.\n'
+            fi
+          fi
+        } > "$ARTIFACT_DIR/email-body.txt"
         echo "EMAIL_TO=$EMAIL_TO" >> "$GITHUB_ENV"
         echo "EMAIL_SUBJECT=$SUBJECT" >> "$GITHUB_ENV"
-        echo "EMAIL_BODY_B64=$(echo "$BODY" | base64 -w 0)" >> "$GITHUB_ENV"
 
     - name: Send email report
       if: ${{ always() && env.DRY_RUN != 'true' }}

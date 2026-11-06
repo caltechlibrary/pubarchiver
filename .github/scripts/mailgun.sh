@@ -10,10 +10,14 @@ fi
 ARTIFACT_DIR="$1"
 REPORT_HTML="${ARTIFACT_DIR}/report.html"
 RERUN_REPORT_HTML="${ARTIFACT_DIR}/rerun-report.html"
+DOAJ_RESULTS="${ARTIFACT_DIR}/doaj-results.csv"
 LOG_FILE="${ARTIFACT_DIR}/run.log"
+# The body is read from a file: in an environment variable, a large run's
+# report can exceed the 128 KB Linux allows for one, and then every later
+# step fails to start with "Argument list too long".
+BODY_FILE="${ARTIFACT_DIR}/email-body.txt"
 EMAIL_TO="${EMAIL_TO:-}"
 EMAIL_SUBJECT="${EMAIL_SUBJECT:-}"
-EMAIL_BODY_B64="${EMAIL_BODY_B64:-}"
 
 # Ensure we have an email address
 if [[ -z "$EMAIL_TO" ]]; then
@@ -21,8 +25,10 @@ if [[ -z "$EMAIL_TO" ]]; then
     exit 0
 fi
 
-# Decode email body from base64
-EMAIL_BODY=$(echo "$EMAIL_BODY_B64" | base64 -d)
+if [[ ! -f "$BODY_FILE" ]]; then
+    echo "Cannot send email: $BODY_FILE does not exist" >&2
+    exit 1
+fi
 
 # Build curl command with attachments
 CURL_CMD="curl -s --user \"api:${MAILGUN_API_KEY}\" \\
@@ -31,15 +37,16 @@ CURL_CMD="curl -s --user \"api:${MAILGUN_API_KEY}\" \\
   -F to=\"$EMAIL_TO\" \\
   -F subject=\"$EMAIL_SUBJECT\""
 
-# Add text body (using printf to handle special characters safely)
+# The text body comes from standard input.
 CURL_CMD="$CURL_CMD -F text=@-"
 
 # Add attachments if they exist
 [[ -f "$LOG_FILE" ]] && CURL_CMD="$CURL_CMD -F attachment=@$LOG_FILE"
 [[ -f "$REPORT_HTML" ]] && CURL_CMD="$CURL_CMD -F attachment=@$REPORT_HTML"
 [[ -f "$RERUN_REPORT_HTML" ]] && CURL_CMD="$CURL_CMD -F attachment=@$RERUN_REPORT_HTML"
+[[ -f "$DOAJ_RESULTS" ]] && CURL_CMD="$CURL_CMD -F attachment=@$DOAJ_RESULTS"
 
-printf '%s' "$EMAIL_BODY" | eval "$CURL_CMD" || {
+eval "$CURL_CMD" < "$BODY_FILE" || {
     echo "Failed to send email via Mailgun" >&2
     exit 1
 }

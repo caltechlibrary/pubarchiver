@@ -1,11 +1,13 @@
 #!/bin/bash
 # Usage: run-summary.sh SERVICE ARTIFACT_DIR
 #
-# Prints EMAIL_TO, EMAIL_SUBJECT, and EMAIL_BODY_B64 lines for $GITHUB_ENV,
-# describing a run of the PMC or Portico workflow: how many articles were
-# selected and sent, and each article that was not sent, with the reason.
-# Reads the counts the workflow put in the environment and these files in
-# ARTIFACT_DIR: report.csv, not-sent.txt, and upload-failed.txt.
+# Writes the email report for a run of the PMC or Portico workflow to
+# ARTIFACT_DIR/email-body.txt, and prints EMAIL_TO and EMAIL_SUBJECT lines
+# for $GITHUB_ENV.  The report gives how many articles were selected and
+# sent, each article that was not sent, with the reason, and the articles
+# sent, unless there are more than MAX_LISTED of them.  Reads the counts the
+# workflow put in the environment and these files in ARTIFACT_DIR:
+# report.csv, sent.txt, not-sent.txt, and upload-failed.txt.
 
 set -uo pipefail
 
@@ -17,6 +19,7 @@ service="$1"
 dir="$2"
 report="$dir/report.csv"
 today="${TODAY:-$(date +%Y-%m-%d)}"
+MAX_LISTED=50
 
 reason() {
     local doi="$1" status
@@ -56,11 +59,18 @@ else
         to="${EMAIL_SUCCESS:-}"
         subject="$service upload: $sent articles on $today"
     fi
-    if [[ -s $report ]]; then
-        body+=$'\n\n'"$(cat "$report")"
+    if [[ $sent != '0' ]]; then
+        if (( sent <= MAX_LISTED )); then
+            body+=$'\n\n'"Sent:"
+            while read -r doi; do
+                [[ -n $doi ]] && body+=$'\n'"  $doi"
+            done < "$dir/sent.txt"
+        else
+            body+=$'\n\n'"The $sent articles sent are listed in the attached report."
+        fi
     fi
 fi
 
+printf '%s\n' "$body" > "$dir/email-body.txt"
 echo "EMAIL_TO=$to"
 echo "EMAIL_SUBJECT=$subject"
-echo "EMAIL_BODY_B64=$(printf '%s\n' "$body" | base64 -w 0)"
