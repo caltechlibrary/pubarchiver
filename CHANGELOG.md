@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - microPublication.org article metadata comes from the article’s JATS file instead of Crossref: the DOI, ISSN, title, authors, affiliations, abstract, keywords, volume, and publication date. The article list only decides which articles a run selects and where their files and article pages are. An article is skipped as `missing-metadata` when its JATS can’t be read, lacks a DOI, title, or publication date, or gives a DOI different from the article list’s. The JATS publication date can be earlier than the date in the article list. Text from the JATS keeps the spacing around italics, superscripts, and other inline markup, and characters the JATS escapes twice, such as `&#x3B3;`, appear as the characters themselves. ORCID iDs are included when the JATS has them. The JATS of the earliest articles has no abstract, so their Portico XML files and DOAJ records have none.
 - An article with no metadata is reported as `missing-metadata`, whichever source the journal uses.
 - The Slack message for a failed upload no longer says “FTP”, so it fits the DOAJ upload too.
+- The “Upload to PMC” and “Archive in Portico” workflows send every article that pubarchiver packages without errors, even when others fail. Each keeps a list of the articles it has sent, which later runs leave out, and a list of the articles it could not send, which the next run tries again. A run that leaves articles unsent still fails, and its one email gives each article’s reason. A manual run can resend articles already sent.
+- `--list-dois` with `--after-date` lists only the DOIs of articles published after that date, and exits with status 1 when it can’t get the article list.
 
 ### Fixed
 
@@ -24,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Titles in microPublication.org Portico XML files and TIFF image comments are correct. microPublication’s article list moves italicized words, such as species names, to the end of the title, and 2.2.0 used those titles.
 - The volume in the names of microPublication.org PMC and Portico JATS, PDF, and ZIP files is the JATS volume, matching the name the JATS gives its image. For an article published at the turn of a year, the article list’s year can differ.
 - Reading microPublication.org’s article list no longer fails with `NameError` when the server answers 404 or 410.
+- A Portico ZIP file leaves out articles that failed partway, such as those whose JATS is not valid, instead of including what was written of them.
+- When pubarchiver reported a problem with an article, the PMC, Portico, and DOAJ workflows ended the step as a pubarchiver error, and the PMC and Portico emails said so instead of naming the article.
+- The Slack message for a successful PMC or Portico run includes the report, which the email step had deleted.
 
 ## [2.2.0] - 2026-11-05
 

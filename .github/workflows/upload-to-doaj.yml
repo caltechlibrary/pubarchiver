@@ -141,6 +141,9 @@ jobs:
     - name: Run pubarchiver to write DOAJ metadata
       run: |
         set -uo pipefail
+        # Without set +e, the shell's -e would end the step as soon as
+        # pubarchiver reports a problem with an article.
+        set +e
         TODAY=$(date +%Y-%m-%d)
         echo "TODAY=$TODAY" >> "$GITHUB_ENV"
         # pubarchiver exits with 100 + the number of failed articles when
