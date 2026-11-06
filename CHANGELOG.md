@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A Portico ZIP file leaves out articles that failed partway, such as those whose JATS is not valid, instead of including what was written of them.
 - When pubarchiver reported a problem with an article, the PMC, Portico, and DOAJ workflows ended the step as a pubarchiver error, and the PMC and Portico emails said so instead of naming the article.
 - The Slack message for a successful PMC or Portico run includes the report, which the email step had deleted.
+- A workflow run with many articles, such as the first DOAJ upload, sends its email and Slack message and saves its artifact. The email text was passed in an environment variable, and over 128 KB it stopped every later step from starting. It is now read from a file, and lists the articles sent only when there are 50 or fewer; the attached report lists them all.
 
 ## [2.2.0] - 2026-11-05
 
