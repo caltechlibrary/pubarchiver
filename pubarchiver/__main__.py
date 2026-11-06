@@ -121,7 +121,7 @@ _HTML_REPORT_BOTTOM = '''
     dest       = ('destination "portico", "pmc", or "doaj" (default: portico)', 'option', 'd'),
     doi_file   = ('retrieve the articles whose DOIs are found in file "F"',   'option', 'f'),
     journal    = ('work with journal "J" (required)',                         'option', 'j'),
-    list_dois  = ("list all known DOIs from the journal & exit",              'flag',   'l'),
+    list_dois  = ("list the journal's DOIs (with -a, only newer ones) & exit", 'flag',   'l'),
     output_dir = ('write archive in directory O (default: current dir)',      'option', 'o'),
     preview    = ('preview the list of articles that would be archived',      'flag',   'p'),
     quiet      = ('only print important messages while working',              'flag',   'q'),
@@ -248,7 +248,8 @@ Additional command-line options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The option -l (or /l on Windows) can be used to obtain a list of all DOIs
-for all articles published by the selected journal.
+for all articles published by the selected journal.  With -a, the list has
+only the DOIs of articles published after the given date.
 
 Pubarchiver will print general informational messages as it works. To
 reduce messages to only warnings and errors, use the option -q (or /q on
@@ -306,11 +307,20 @@ Command-line options summary
         if list_dois:
             inform(f'Asking {handler.name} server for a list of all DOIs ...')
             articles = handler.all_articles()
+            if not articles:
+                alert(f'Failed to get list of articles from {handler.name}')
+                exit(1)
+            if after_date != 'A':
+                after = parsed_datetime(after_date)
+                if not after:
+                    alert(f'Invalid date: {after_date}')
+                    exit(1)
+                articles = [x for x in articles if parsed_datetime(x.date) > after]
+                inform(f'Keeping DOIs of articles published after '
+                       f'{after.strftime(_DATE_FORMAT)}.')
+            inform(f'Got {len(articles)} DOIs from {handler.name}:')
             if articles:
-                inform(f'Got {len(articles)} DOIs from {handler.name}:')
                 print('\n'.join(article.doi for article in articles))
-            else:
-                warn(f'Failed to get list of articles from {handler.name}')
             exit(0)
 
         destination = 'portico' if dest == 'D' else dest.lower()
@@ -565,9 +575,16 @@ class MainBody(object):
 
         # After we've downloaded everything, maybe zip it all up together.
         if zip_articles and dest_service == 'portico':
+            # An article that failed partway, such as one whose JATS is not
+            # valid, is left out, so an incomplete copy is never delivered.
+            for article in article_list:
+                if article.status != 'complete':
+                    shutil.rmtree(path.join(dest_dir, article.basename),
+                                  ignore_errors = True)
+            complete = [a for a in article_list if a.status == 'complete']
             final_file = self.output_dir + '.zip'
             inform(f'Creating ZIP archive file "{final_file}"')
-            comments = zip_comments(len(article_list), self.journal.name)
+            comments = zip_comments(len(complete), self.journal.name)
             archive_directory(final_file, self.output_dir, comments)
             if __debug__: log(f'verifying ZIP file {final_file}')
             verify_archive(final_file, 'zip')

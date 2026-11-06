@@ -1,5 +1,21 @@
 name: Archive in Portico
 
+# Packages microPublication Biology articles for Portico and uploads them to
+# Portico's SFTP server as one ZIP file.
+#
+# Each run selects the articles published since the last run, plus the
+# articles listed in .github/state/archive-in-portico/last-failures, and
+# leaves out those listed in .github/state/archive-in-portico/sent.  Every
+# article that pubarchiver packages without errors goes in the ZIP file,
+# even when others fail; pubarchiver leaves failed articles out of it.  When
+# the upload succeeds, the DOIs of the articles in it are added to "sent".
+# Every selected article that was not uploaded goes in "last-failures" for
+# the next run to try again.  The run then fails, so that someone looks at
+# the reasons, which are in the email report.
+#
+# A manual run can start from a given date, and can resend articles already
+# sent.
+#
 # Required configuration
 # vars:
 #   PORTICO_FTP_ADDRESS   # SFTP endpoint for Portico uploads (e.g., sftp://ftp.portico.org)
@@ -22,17 +38,31 @@ on:
         description: 'YYYY-MM-DD to override last run date'
         required: false
         type: string
+      resend:
+        description: 'Resend articles that were already sent'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: archive-in-portico
+  cancel-in-progress: false
 
 jobs:
   archive:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PORTICO_FTP_ADDRESS: ${{ vars.PORTICO_FTP_ADDRESS }}
+      STATE_DIR: .github/state/archive-in-portico
+      RESEND: ${{ github.event_name == 'workflow_dispatch' && inputs.resend && 'true' || 'false' }}
 
     steps:
     - uses: actions/checkout@v6
 
     - name: Validate required config
       env:
-        PORTICO_FTP_ADDRESS: ${{ vars.PORTICO_FTP_ADDRESS }}
         EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
         EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
         MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
@@ -65,141 +95,108 @@ jobs:
         pip install -e .
 
     - name: Read the date stamp from the previous run
+      env:
+        DATESTAMP: ${{ github.event.inputs.datestamp }}
       run: |
-        # Check if a datestamp was provided as input
-        if [[ -n "${{ github.event.inputs.datestamp }}" ]]; then
-          # Validate the date format (YYYY-MM-DD)
-          if [[ "${{ github.event.inputs.datestamp }}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-            AFTER_DATE="${{ github.event.inputs.datestamp }}"
-            echo "Using provided date stamp: $AFTER_DATE"
-          else
-            echo "Warning: datestamp '${{ github.event.inputs.datestamp }}' is not in YYYY-MM-DD format. Falling back to previous run date."
-            if [[ -f ".github/state/archive-in-portico/last-run-date" ]]; then
-              LAST_RUN_DATE=$(cat .github/state/archive-in-portico/last-run-date)
-              AFTER_DATE=$(date -d "$LAST_RUN_DATE -1 days" +"%Y-%m-%d")
-            else
-              AFTER_DATE=1900-01-01
-            fi
-          fi
-        elif [[ -f ".github/state/archive-in-portico/last-run-date" ]]; then
-          LAST_RUN_DATE=$(cat .github/state/archive-in-portico/last-run-date)
-          # Go back one day to include the run date itself
-          AFTER_DATE=$(date -d "$LAST_RUN_DATE -1 days" +"%Y-%m-%d")
-          echo "AFTER_DATE=$AFTER_DATE" >> "$GITHUB_ENV"
+        if [[ -n "${DATESTAMP:-}" && ! $DATESTAMP =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+          echo "Warning: datestamp '$DATESTAMP' is not in YYYY-MM-DD format. Using the last run date."
+          DATESTAMP=''
+        fi
+        if [[ -n "${DATESTAMP:-}" ]]; then
+          AFTER_DATE="$DATESTAMP"
+        elif [[ -f "$STATE_DIR/last-run-date" ]]; then
+          # Go back one day to include the last run date itself.
+          AFTER_DATE=$(date -d "$(cat "$STATE_DIR/last-run-date") -1 days" +"%Y-%m-%d")
         else
-          # We've never run, or someone reset the date stamp.
-          # Use a fake date that basically signifies "since forever".
-          echo "AFTER_DATE=1900-01-01" >> "$GITHUB_ENV"
+          AFTER_DATE=1900-01-01
         fi
         echo "AFTER_DATE=$AFTER_DATE" >> "$GITHUB_ENV"
+        echo "TODAY=$(date +%Y-%m-%d)" >> "$GITHUB_ENV"
 
     - name: Create artifact directory
       run: |
-        NOW=$(date +%Y-%m-%d-%H%M)
-        ARTIFACT_DIR="$RUNNER_TEMP/$NOW"
+        ARTIFACT_DIR="$RUNNER_TEMP/$(date +%Y-%m-%d-%H%M)"
         mkdir -p "$ARTIFACT_DIR"
         echo "ARTIFACT_DIR=$ARTIFACT_DIR" >> "$GITHUB_ENV"
 
-    - name: Run pubarchiver for past failures
+    - name: Select articles
       run: |
-        FAILURES_FILE=".github/state/archive-in-portico/last-failures"
-        if [[ -f "$FAILURES_FILE" ]] && [[ -s "$FAILURES_FILE" ]]; then
-          echo "=== Running pubarchiver on past failures ===" | tee "$ARTIFACT_DIR/run.log"
-          # Note the use of -Z to prevent zip'ing the final results.
-          pubarchiver -j micropublication -d portico -Z -C -f "$FAILURES_FILE" \
-                      -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report" -s csv,html \
-                      -t "Past failures retried" -@ "$ARTIFACT_DIR/debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
-          [[ -f "$ARTIFACT_DIR/report.html" ]] && mv "$ARTIFACT_DIR/report.html" "$ARTIFACT_DIR/rerun-report.html"
-        fi
-        RETRY_REPORT="$ARTIFACT_DIR/report.csv"
-        RETRY_COUNT=0
-        if [[ -f "$RETRY_REPORT" ]]; then
-          RETRY_COUNT=$(($(wc -l < "$RETRY_REPORT") - 1))
-        fi
-        echo "RETRY_COUNT=$RETRY_COUNT" >> "$GITHUB_ENV"
+        set -o pipefail
+        bash .github/scripts/select-articles.sh "$STATE_DIR" "$AFTER_DATE" \
+             "$ARTIFACT_DIR/selected.txt" | tee -a "$GITHUB_ENV"
 
-    - name: Run pubarchiver for new articles
+    - name: Run pubarchiver on the selected articles
       run: |
-        TODAY=$(date +%Y-%m-%d)
-        echo "" | tee -a "$ARTIFACT_DIR/run.log"
-        echo "=== Running pubarchiver for new articles ===" | tee -a "$ARTIFACT_DIR/run.log"
-        pubarchiver -j micropublication -d portico -C -a "${{ env.AFTER_DATE }}" \
-                    -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/latest-report" \
-                    -s csv,html -t "$TODAY" -@ "$ARTIFACT_DIR/latest-debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
-        status=${PIPESTATUS[0]}
-        echo "PUBARCHIVER_STATUS=$status" >> "$GITHUB_ENV"
-        [[ -f "$ARTIFACT_DIR/latest-report.html" ]] && mv "$ARTIFACT_DIR/latest-report.html" "$ARTIFACT_DIR/report.html"
-        LATEST_REPORT="$ARTIFACT_DIR/latest-report.csv"
-        NEW_COUNT=0
-        if [[ -f "$LATEST_REPORT" ]]; then
-          NEW_COUNT=$(($(wc -l < "$LATEST_REPORT") - 1))
-        fi
-        echo "NEW_COUNT=$NEW_COUNT" >> "$GITHUB_ENV"
-        # Combine reports
-        tail -n +2 "$ARTIFACT_DIR/latest-report.csv" >> "$ARTIFACT_DIR/report.csv"
-        tail "$ARTIFACT_DIR/latest-debug.log" >> "$ARTIFACT_DIR/debug.log"
-        rm -f "$ARTIFACT_DIR/latest-report.csv" "$ARTIFACT_DIR/latest-debug.log"
-        # Write state files directly to state directory
-        STATE_DIR=".github/state/archive-in-portico"
-        mkdir -p "$STATE_DIR"
-        grep -i "missing," "$ARTIFACT_DIR/report.csv" | cut -f2 -d',' > "$STATE_DIR/last-failures" || true
-        echo "TODAY=$TODAY" >> "$GITHUB_ENV"
-
-    - name: Evaluate report and counts
-      run: |
-        set -euo pipefail
-        REPORT="$ARTIFACT_DIR/report.csv"
-        VALIDATION_ERRORS=0
-        COMPLETE_COUNT=0
-        TOTAL_LINES=0
-        if [[ -f "$REPORT" ]]; then
-          VALIDATION_ERRORS=$(grep -Eci "validation|missing|failed" "$REPORT" || true)
-          COMPLETE_COUNT=$(grep -c "complete" "$REPORT" || true)
-          TOTAL_LINES=$(wc -l < "$REPORT")
-        fi
-        echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> "$GITHUB_ENV"
-        echo "COMPLETE_COUNT=$COMPLETE_COUNT" >> "$GITHUB_ENV"
-        echo "TOTAL_LINES=$TOTAL_LINES" >> "$GITHUB_ENV"
-
-    - name: Upload to Portico FTP
-      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' }}
-      run: |
-        # Note #1: the file redirection is to avoid wc printing the file name.
-        # Note #2: the -gt 1 is to skip the header line when counting the lines.
-        set -u
-        CURL_STATUS=0
-        LINES=$(wc -l < "$ARTIFACT_DIR/report.csv")
-        if [[ $LINES -gt 1 ]]; then
-          ARCHIVEFILE="$ARTIFACT_DIR/micropublication-org.zip"
-          if [[ -f "$ARCHIVEFILE" ]]; then
-            echo "=== FTP'ing file to Portico ===" | tee -a "$ARTIFACT_DIR/run.log"
-            set +e
-            curl -k -T "$ARCHIVEFILE" ${{ vars.PORTICO_FTP_ADDRESS }} \
-              --user ${{ secrets.PORTICO_USER }}:${{ secrets.PORTICO_PASS }} 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
-            CURL_STATUS=${PIPESTATUS[0]}
-            set -e
-            # Discard the zip file.
-            rm -f "$ARCHIVEFILE"
+        set -uo pipefail
+        echo "=== Articles published after $AFTER_DATE: $PUBLISHED_COUNT, already sent: $ALREADY_SENT_COUNT, retried: $RETRY_COUNT, selected: $SELECTED_COUNT ===" \
+          | tee "$ARTIFACT_DIR/run.log"
+        status=0
+        if [[ $SELECTED_COUNT -gt 0 ]]; then
+          # Without set +e, the shell's -e would end the step as soon as
+          # pubarchiver reports a problem with an article.
+          set +e
+          pubarchiver -j micropublication -d portico -C -f "$ARTIFACT_DIR/selected.txt" \
+                      -o "$ARTIFACT_DIR" -r "$ARTIFACT_DIR/report" \
+                      -s csv,html -t "$TODAY" -@ "$ARTIFACT_DIR/debug.log" 2>&1 | tee -a "$ARTIFACT_DIR/run.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          # 100 and above means some articles had problems; those are
+          # counted from the report.
+          if (( status >= 100 )); then
+            status=0
           fi
         fi
-        echo "CURL_STATUS=$CURL_STATUS" >> "$GITHUB_ENV"
+        echo "PUBARCHIVER_STATUS=$status" >> "$GITHUB_ENV"
+
+    - name: Upload to Portico FTP
+      if: ${{ env.PUBARCHIVER_STATUS == '0' }}
+      env:
+        PORTICO_USER: ${{ secrets.PORTICO_USER }}
+        PORTICO_PASS: ${{ secrets.PORTICO_PASS }}
+      run: |
+        set -uo pipefail
+        : > "$ARTIFACT_DIR/sent.txt"
+        : > "$ARTIFACT_DIR/upload-failed.txt"
+        if [[ -f "$ARTIFACT_DIR/report.csv" ]]; then
+          grep '^complete,' "$ARTIFACT_DIR/report.csv" | cut -d, -f2 > "$ARTIFACT_DIR/complete.txt" || true
+        else
+          : > "$ARTIFACT_DIR/complete.txt"
+        fi
+        archive="$ARTIFACT_DIR/micropublication-org.zip"
+        if [[ -s "$ARTIFACT_DIR/complete.txt" ]]; then
+          if [[ ! -f $archive ]]; then
+            echo "No ZIP file was created" | tee -a "$ARTIFACT_DIR/run.log"
+            cp "$ARTIFACT_DIR/complete.txt" "$ARTIFACT_DIR/upload-failed.txt"
+          else
+            echo "=== Uploading $(basename "$archive") ===" | tee -a "$ARTIFACT_DIR/run.log"
+            if curl -sS -k -T "$archive" "$PORTICO_FTP_ADDRESS" --user "$PORTICO_USER:$PORTICO_PASS" \
+                    2>&1 | tee -a "$ARTIFACT_DIR/run.log"; then
+              cp "$ARTIFACT_DIR/complete.txt" "$ARTIFACT_DIR/sent.txt"
+            else
+              cp "$ARTIFACT_DIR/complete.txt" "$ARTIFACT_DIR/upload-failed.txt"
+            fi
+          fi
+        fi
+        rm -f "$archive"
+        echo "SENT_COUNT=$(wc -l < "$ARTIFACT_DIR/sent.txt" | tr -d ' ')" >> "$GITHUB_ENV"
+        echo "UPLOAD_FAILURES=$(wc -l < "$ARTIFACT_DIR/upload-failed.txt" | tr -d ' ')" >> "$GITHUB_ENV"
 
     - name: Update state files
-      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS == '0' }}
+      if: ${{ env.PUBARCHIVER_STATUS == '0' }}
       run: |
-        STATE_DIR=".github/state/archive-in-portico"
-        mkdir -p "$STATE_DIR"
-        grep -i "missing," "$ARTIFACT_DIR/report.csv" | cut -f2 -d',' > "$STATE_DIR/last-failures" || true
-        echo "$TODAY" > "$STATE_DIR/last-run-date"
+        bash .github/scripts/record-state.sh "$STATE_DIR" "$ARTIFACT_DIR/selected.txt" \
+             "$ARTIFACT_DIR/sent.txt" "$TODAY" | tee -a "$ARTIFACT_DIR/run.log"
+        cp "$STATE_DIR/last-failures" "$ARTIFACT_DIR/not-sent.txt"
+        echo "NOT_SENT_COUNT=$(wc -l < "$STATE_DIR/last-failures" | tr -d ' ')" >> "$GITHUB_ENV"
 
     - name: Commit updated state files
-      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS == '0' }}
+      if: ${{ env.PUBARCHIVER_STATUS == '0' }}
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git pull origin ${{ github.ref }}
-        git add .github/state/archive-in-portico/last-failures .github/state/archive-in-portico/last-run-date
-        git commit -m "🤖 update archive-in-portico state files"
+        git add "$STATE_DIR/last-run-date" "$STATE_DIR/last-failures" "$STATE_DIR/sent"
+        git diff --cached --quiet || git commit -m "🤖 update archive-in-portico state files"
         git push origin HEAD:${{ github.ref }}
 
     - name: Set email variables
@@ -207,49 +204,16 @@ jobs:
       env:
         EMAIL_FAILURE: ${{ vars.EMAIL_FAILURE }}
         EMAIL_SUCCESS: ${{ vars.EMAIL_SUCCESS }}
-        COMPLETE_COUNT: ${{ env.COMPLETE_COUNT }}
-        TOTAL_LINES: ${{ env.TOTAL_LINES }}
-        TODAY: ${{ env.TODAY }}
-        PUBARCHIVER_STATUS: ${{ env.PUBARCHIVER_STATUS }}
-        VALIDATION_ERRORS: ${{ env.VALIDATION_ERRORS }}
-        CURL_STATUS: ${{ env.CURL_STATUS }}
       run: |
-        if [[ $PUBARCHIVER_STATUS != '0' ]] || [[ $VALIDATION_ERRORS != '0' ]] || [[ $CURL_STATUS != '0' ]]; then
-          EMAIL_TO="${EMAIL_FAILURE:-}"
-          if [[ $PUBARCHIVER_STATUS != '0' ]]; then
-            SUBJECT="Portico upload failed: pubarchiver error"
-          elif [[ $VALIDATION_ERRORS != '0' ]]; then
-            SUBJECT="Portico upload failed: ${VALIDATION_ERRORS} articles with validation errors"
-          else
-            SUBJECT="Portico upload failed: FTP upload error"
-          fi
-        else
-          EMAIL_TO="${EMAIL_SUCCESS:-}"
-          SUBJECT="Portico archiving: ${COMPLETE_COUNT} total articles on ${TODAY}"
-        fi
-        if [[ $TOTAL_LINES -le 1 ]]; then
-          BODY="No new articles were uploaded to Portico."
-          rm -f "$ARTIFACT_DIR/report*"
-        else
-          BODY="Past failures retried: ${RETRY_COUNT}"
-          BODY+=$'\n'"New articles: ${NEW_COUNT}"
-          BODY+=$'\n\n'"$(cat "$ARTIFACT_DIR/report.csv")"
-          rm -f "$ARTIFACT_DIR/report.csv"
-        fi
-        echo "EMAIL_TO=$EMAIL_TO" >> "$GITHUB_ENV"
-        echo "EMAIL_SUBJECT=$SUBJECT" >> "$GITHUB_ENV"
-        echo "EMAIL_BODY_B64=$(echo "$BODY" | base64 -w 0)" >> "$GITHUB_ENV"
+        bash .github/scripts/run-summary.sh Portico "$ARTIFACT_DIR" >> "$GITHUB_ENV"
 
     - name: Send email report
       if: always()
       env:
         MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
         MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
-        EMAIL_TO: ${{ env.EMAIL_TO }}
-        EMAIL_SUBJECT:  ${{ env.EMAIL_SUBJECT }}
-        EMAIL_BODY_B64: ${{ env.EMAIL_BODY_B64 }}
       run: |
-        bash .github/scripts/mailgun.sh "${{ env.ARTIFACT_DIR }}"
+        bash .github/scripts/mailgun.sh "$ARTIFACT_DIR"
 
     - name: Install slack-cli
       if: always()
@@ -262,11 +226,11 @@ jobs:
       env:
         SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
         SLACK_CLI_TOKEN: ${{ secrets.SLACK_CLI_TOKEN }}
-        RUN_NAME: "Portico run for micropublications.org"
-        VALIDATION_ERRORS: ${{ env.VALIDATION_ERRORS }}
-        CURL_STATUS: ${{ env.CURL_STATUS }}
+        RUN_NAME: "Portico run for micropublication.org"
+        PUBARCHIVER_STATUS: ${{ env.PUBARCHIVER_STATUS || 'not run' }}
+        VALIDATION_ERRORS: ${{ env.NOT_SENT_COUNT || '0' }}
       run: |
-        bash .github/scripts/slack.sh "${{ env.ARTIFACT_DIR }}"
+        bash .github/scripts/slack.sh "$ARTIFACT_DIR"
 
     - name: Upload artifact
       if: always()
@@ -278,17 +242,11 @@ jobs:
     - name: Fail if pubarchiver errored
       if: ${{ env.PUBARCHIVER_STATUS != '0' }}
       run: |
-        echo "pubarchiver exited with status ${PUBARCHIVER_STATUS}" >&2
+        echo "pubarchiver exited with status ${PUBARCHIVER_STATUS:-unknown}" >&2
         exit 1
 
-    - name: Fail if validation errors found
-      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS != '0' }}
+    - name: Fail if any article was not sent
+      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.NOT_SENT_COUNT != '0' }}
       run: |
-        echo "Validation or missing/failed entries detected: ${VALIDATION_ERRORS}" >&2
-        exit 1
-
-    - name: Fail if curl upload failed
-      if: ${{ env.PUBARCHIVER_STATUS == '0' && env.VALIDATION_ERRORS == '0' && env.CURL_STATUS != '0' }}
-      run: |
-        echo "Curl FTP upload to Portico failed with status ${CURL_STATUS}" >&2
+        echo "Articles not sent: ${NOT_SENT_COUNT}. They are listed in $STATE_DIR/last-failures and will be tried again on the next run." >&2
         exit 1

@@ -105,7 +105,7 @@ If not given any additional options besides a `--journal` option to select the j
 
 ### _Printing information without doing anything_
 
-The option `--list-dois` (or `-l` for short) can be used to obtain a list of all DOIs for all articles published by the selected journal. When `--list-dois` is used, `pubarchiver` prints the list to the terminal and exits without doing further work. This can be useful if you intend to use the `--doi-file` option discussed below.
+The option `--list-dois` (or `-l` for short) can be used to obtain a list of all DOIs for all articles published by the selected journal. With `--after-date`, the list has only the DOIs of articles published after that date. When `--list-dois` is used, `pubarchiver` prints the list to the terminal and exits without doing further work. This can be useful if you intend to use the `--doi-file` option discussed below.
 
 If given the option `--preview` (or `-p` for short), `pubarchiver` will _only_ print a list of articles it will archive and stop short of creating the archive. This is useful to see what would be produced without actually doing it.  Note, however, that because it does not attempt to download the articles and associated files, it cannot report errors that _might_ occur when actually creating an archive.  Consequently, do not use the output of `--preview` as a prediction of eventual success or failure.
 
@@ -183,7 +183,7 @@ The following table summarizes all the command line options available. (Note: on
 | `-d`_D_ | `--dest`_D_       | Destination: Portico, PMC, or DOAJ | Portico | |
 | `-f`_F_ | `--doi-file`_F_   | Only get articles whose DOIs are in file _F_ | Get all articles | |
 | `-j`_J_ | `--journal`_J_    | Work with journal _J_ | | ★ |
-| `-l`    | `--list-dois`     | Print a list of all known DOIs & exit | Do other actions instead | |
+| `-l`    | `--list-dois`     | Print a list of known DOIs & exit | Do other actions instead | |
 | `-o`_O_ | <nobr><code>--output-dir</code></nobr>_O_ | Write output in directory _O_ | Write in current dir | |
 | `-p`    | `--preview`       | Preview what would be archived & exit | Obtain the articles | |
 | `-q`    | `--quiet`         | Only print important messages | Be chatty while working | |
